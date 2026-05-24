@@ -2,7 +2,7 @@
 name = "harness-builder"
 version = "0.1.0"
 description = "Harness Builder Scanner Skill POC"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = ["PyYAML>=6.0"]
 
 [project.optional-dependencies]
