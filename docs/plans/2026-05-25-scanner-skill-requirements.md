@@ -351,3 +351,99 @@ Task Mapping Skill 将基于 `.harness/` 事实源和用户任务描述，回答
 ```
 
 当前阶段只为它准备输入，不提前实现。
+
+---
+
+## 16. 兜底扫描策略
+
+Scanner Skill 不能只依赖穷举式技术栈 detector。真实企业代码库经常存在非标准目录、混合技术栈、历史脚本、残缺文档、手写构建流程和不规范命名，因此首轮设计必须包含兜底机制。
+
+### 16.1 分层扫描原则
+
+Scanner 按三层执行：
+
+```text
+第一层：确定性 detector
+  Maven / Gradle / dotnet / npm / Vue / CI / Docker 等明确规则
+
+第二层：通用工程资产扫描
+  不依赖具体技术栈，扫描文件类型、目录形态、关键配置、脚本、文档、测试资产
+
+第三层：LLM 假设层兜底
+  基于前两层证据，生成不确定技术栈、模块职责和人工校准建议
+```
+
+第一层和第二层生成事实源。第三层只能生成“假设”和“人工校准建议”，不能直接覆盖事实源。
+
+### 16.2 未知技术栈兜底
+
+当 Scanner 遇到未被显式支持的技术栈时，仍然必须输出可用结果：
+
+- 文件类型分布。
+- 顶层目录结构。
+- 关键配置文件。
+- 可执行脚本候选。
+- README / docs / CI / Docker 资产。
+- 测试目录候选。
+- 未识别技术栈提示。
+- 建议人工补充的信息。
+
+未知技术栈不应导致扫描失败。它只会降低置信度，并进入 `manualCalibrationPoints`。
+
+### 16.3 非标准项目兜底
+
+对于结构混乱或非标准企业代码库，Scanner 应记录异常信号：
+
+- 多个构建系统同时存在。
+- 根目录缺少 README。
+- 构建文件不在常规位置。
+- 测试目录缺失或命名异常。
+- CI 文件存在但与本地命令不一致。
+- 大量脚本散落在非标准目录。
+- 配置文件包含多个环境且命名不统一。
+
+这些信号进入：
+
+```text
+project-inventory.json.manualCalibrationPoints
+scanner-report.md 人工校准点
+```
+
+### 16.4 LLM 兜底边界
+
+LLM 可以用于：
+
+- 根据文件清单和关键片段判断“可能的技术栈”。
+- 根据目录名、文件名、README 摘要推测模块职责。
+- 生成人工校准问题。
+- 指出 deterministic detector 没覆盖的可疑资产。
+
+LLM 不可以用于：
+
+- 凭空生成构建命令。
+- 凭空确认技术栈事实。
+- 直接改写 JSON/YAML 中的 verified facts。
+- 代替确定性脚本做是否存在文件、命令或配置的判断。
+
+LLM 输出必须进入独立字段，例如：
+
+```text
+llmHints
+manualCalibrationPoints
+unsupportedStackHints
+```
+
+并带有 `confidence` 与 `evidence`。
+
+### 16.5 成功标准补充
+
+即使目标代码库不属于 Java、.NET 或 Node/Vue，Scanner 也必须能完成基础扫描并生成三份文件：
+
+```text
+.harness/project-inventory.json
+.harness/command-catalog.yaml
+.harness/scanner-report.md
+```
+
+其中 JSON/YAML 可以标记技术栈为 `unknown` 或 `mixed`，但不得失败退出。
+
