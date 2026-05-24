@@ -1,5 +1,9 @@
 # Harness Builder POC 实施计划
 
+> ⚠️ 本文档为早期草稿，已被 `docs/plans/2026-05-25-scanner-skill-requirements.md` 与 `docs/plans/2026-05-25-scanner-skill-implementation-plan.md` 取代。当前第一阶段只实现 Scanner Skill，不包含 Task Mapping 或 AI Coding 执行。
+
+
+
 > 状态：草案  
 > 日期：2026-05-25  
 > 范围：以 Scanner 为先的 POC 实现  
