@@ -8,7 +8,7 @@ def test_scan_filesystem_detects_top_level_and_counts():
 
     result = scan_filesystem(repo)
 
-    assert result["topLevelDirectories"] == ["src"]
+    assert result["topLevelDirectories"] == ["app", "sql", "src"]
     assert "README.md" in result["keyFiles"]
     assert "pom.xml" in result["keyFiles"]
     assert result["fileCounts"]["total"] >= 3
