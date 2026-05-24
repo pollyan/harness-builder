@@ -1,32 +1,32 @@
 # Harness Builder
 
-Harness Builder is a proof-of-concept project for generating project-level AI Coding Harness assets from existing enterprise codebases.
+Harness Builder 是一个概念验证（POC）项目，目标是从现有企业级代码库中自动生成项目级 AI Coding Harness 资产。
 
-The current POC focuses on a minimal, verifiable loop:
+当前 POC 聚焦于一个最小可验证闭环：
 
 ```text
-Target repositories → Scanner → Harness assets → Task mapping → Sensor verification
+目标仓库 → Scanner → Harness 资产 → Task Mapping → Sensor 验证
 ```
 
-## POC Scope
+## POC 范围
 
-The first POC validates two common enterprise technology stacks:
+首轮 POC 验证两种常见企业技术栈：
 
-- Java / Spring Boot / Maven / Vue: RuoYi-Vue
-- .NET / ASP.NET Core / EF Core: eShopOnWeb
+- Java / Spring Boot / Maven / Vue：RuoYi-Vue
+- .NET / ASP.NET Core / EF Core：eShopOnWeb
 
-Apache Fineract is tracked as a second-stage complex business-system candidate.
+Apache Fineract 作为第二阶段复杂业务系统候选，已纳入跟踪。
 
-## Development Method
+## 开发方法
 
-This repository follows a spec-first development process:
+本仓库遵循规范优先（Spec-first）的开发流程：
 
-1. Design before implementation
-2. Implementation plan before coding
-3. Small TDD-oriented tasks
-4. Verification against real target repositories
-5. Review before expanding scope
+1. 先设计，后实现
+2. 先制定实施计划，后编写代码
+3. 采用小粒度、TDD 导向的任务拆分
+4. 以真实目标仓库为验证对象
+5. 扩大范围前必须经过评审
 
-## Status
+## 当前状态
 
-Early POC planning. No production-ready implementation yet.
+处于 POC 规划早期阶段，尚无生产级实现。
