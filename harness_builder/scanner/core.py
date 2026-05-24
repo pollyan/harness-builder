@@ -13,6 +13,7 @@ from harness_builder.scanner.detectors.filesystem import scan_filesystem
 from harness_builder.scanner.detectors.java_maven import detect_java_maven
 from harness_builder.scanner.detectors.node_frontend import detect_node_frontend
 from harness_builder.scanner.detectors.shallow_code import detect_shallow_code_structure
+from harness_builder.scanner.report import render_scanner_report
 
 
 @dataclass
@@ -67,3 +68,10 @@ def scan_repository(repo_root: Path, out_dir: Path) -> ScanResult:
     }
     commands = _build_command_catalog(repo_root.name, java, node, dotnet)
     return ScanResult(inventory=inventory, commands=commands)
+
+
+def write_scan_outputs(result: ScanResult, out_dir: Path) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "project-inventory.json").write_text(json.dumps(result.inventory, ensure_ascii=False, indent=2), encoding="utf-8")
+    (out_dir / "command-catalog.yaml").write_text(yaml.safe_dump(result.commands, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    (out_dir / "scanner-report.md").write_text(render_scanner_report(result.inventory, result.commands), encoding="utf-8")
