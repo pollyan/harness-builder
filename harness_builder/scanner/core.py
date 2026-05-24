@@ -10,7 +10,9 @@ import yaml
 from harness_builder.scanner.detectors.ci_docker import detect_ci_docker
 from harness_builder.scanner.detectors.dotnet import detect_dotnet
 from harness_builder.scanner.detectors.filesystem import scan_filesystem
+from harness_builder.scanner.detectors.generic_fallback import detect_generic_fallback
 from harness_builder.scanner.detectors.java_maven import detect_java_maven
+from harness_builder.scanner.detectors.llm_hints import build_llm_hint_placeholder
 from harness_builder.scanner.detectors.node_frontend import detect_node_frontend
 from harness_builder.scanner.detectors.shallow_code import detect_shallow_code_structure
 from harness_builder.scanner.report import render_scanner_report
@@ -59,12 +61,19 @@ def scan_repository(repo_root: Path, out_dir: Path) -> ScanResult:
     dotnet = detect_dotnet(repo_root)
     ci = detect_ci_docker(repo_root)
     shallow = detect_shallow_code_structure(repo_root)
+    generic = detect_generic_fallback(repo_root)
+
+    # Collect manual calibration points from generic fallback
+    manual_points = generic.get("manualCalibrationPoints", [])
+    llm_hints = build_llm_hint_placeholder(manual_points)
+
     inventory = {
         "repo": {"name": repo_root.name, "path": str(repo_root)},
         "structure": fs,
-        "stackExtensions": {"java": java, "node": node, "dotnet": dotnet},
+        "stackExtensions": {"java": java, "node": node, "dotnet": dotnet, "genericFallback": generic},
         "ci": ci,
         "codeStructure": shallow,
+        "llmHints": llm_hints,
     }
     commands = _build_command_catalog(repo_root.name, java, node, dotnet)
     return ScanResult(inventory=inventory, commands=commands)
