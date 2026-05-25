@@ -185,8 +185,13 @@ def _try_parse_json(text: str) -> Optional[dict[str, Any]]:
     """Attempt JSON parse; return None on failure."""
     try:
         parsed = json.loads(text)
-        if isinstance(parsed, dict):
+        if isinstance(parsed, dict) and _has_required_keys(parsed):
             return parsed
         return None
     except (json.JSONDecodeError, ValueError):
         return None
+
+
+def _has_required_keys(parsed: dict[str, Any]) -> bool:
+    """Return True when parsed LLM output satisfies the scanner contract."""
+    return _REQUIRED_KEYS.issubset(parsed.keys())

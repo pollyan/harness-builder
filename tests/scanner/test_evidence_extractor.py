@@ -55,3 +55,21 @@ def test_extract_always_includes_filesystem():
     assert "filesystem" in result
     assert "ci" in result
     assert "codeStructure" in result
+
+
+def test_extract_detector_error_isolated(monkeypatch):
+    """A failing selected detector should not abort evidence extraction."""
+    from harness_builder.scanner.detectors import evidence_extractor
+
+    def broken_detector(repo_root):
+        raise RuntimeError("detector exploded")
+
+    monkeypatch.setattr(evidence_extractor, "detect_java_maven", broken_detector)
+    repo = FIXTURES / "minimal-java-maven"
+    llm_analysis = {"stackAnalysis": {"primary": {"name": "Java"}}}
+
+    result = extract_evidence(repo, llm_analysis)
+
+    assert result["java"]["detected"] is False
+    assert result["java"]["error"] == "detector exploded"
+    assert "filesystem" in result

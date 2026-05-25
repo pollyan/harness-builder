@@ -237,3 +237,9 @@ class TestScanWithLlm:
         caller = MagicMock(return_value=None)
         result = scan_with_llm(self._file_tree(), caller)
         assert result["enabled"] is False
+
+
+def test_parse_rejects_missing_required_keys() -> None:
+    """Malformed LLM JSON missing the scanner contract should be rejected."""
+    result = parse_scan_response(json.dumps({"stackAnalysis": {"primary": {"name": "Java"}}}))
+    assert result is None
