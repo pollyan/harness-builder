@@ -7,10 +7,13 @@ Uses only standard library (urllib.request) for HTTP.
 from __future__ import annotations
 
 import json
+import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 from urllib.request import Request, urlopen
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -87,5 +90,6 @@ def call_deepseek(
         with urlopen(req, timeout=config.timeout) as resp:
             data = json.loads(resp.read().decode())
         return data["choices"][0]["message"]["content"]
-    except Exception:
+    except Exception as exc:
+        logger.warning("DeepSeek call failed: %s", exc)
         return None

@@ -28,7 +28,6 @@ EXCLUDED_DIRS: frozenset[str] = frozenset(
         "build",
         ".idea",
         ".vscode",
-        ".DS_Store",
     }
 )
 
@@ -101,9 +100,7 @@ def _walk(
                 "path": rel,
                 "name": root.name,
                 "fileCount": len(child_files),
-                "subdirectoryCount": len(
-                    [d for d in child_dirs if d.name not in EXCLUDED_DIRS]
-                ),
+                "subdirectoryCount": len(child_dirs),
             }
         )
 
