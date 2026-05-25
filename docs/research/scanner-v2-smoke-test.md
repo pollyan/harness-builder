@@ -1,20 +1,20 @@
 # Scanner v2 Smoke Test Results
 
-> Date: 2026-05-25
-> Scanner: harness-builder v2 (LLM + deterministic pipeline)
+> Date: 2026-05-25  
+> Scanner: harness-builder v2（LLM + deterministic evidence pipeline）
 
 ## Environment
 
-- Python: 3.9.6 (macOS arm64)
-- LLM: DeepSeek v4 Flash (OpenAI-compatible API)
-- API Key: loaded from `.env` in harness-builder repo root
-- CWD requirement: must run from harness-builder repo root so `.env` is found
+- Python: 3.9.6（macOS arm64）
+- LLM: DeepSeek v4 Flash（OpenAI-compatible API）
+- API Key: loaded from `.env` in harness-builder repo root（key not committed）
+- Command must run from harness-builder repo root so `.env` can be found.
 
-## Test 1: RuoYi-Vue (Java/Spring Boot + Vue.js)
+## Test 1: RuoYi-Vue（Java/Spring Boot + Vue.js）
 
 **Command:**
+
 ```bash
-cd /path/to/harness-builder
 python3 -m harness_builder.scanner.cli \
   --repo /tmp/openclaw/harness-poc-targets/RuoYi-Vue \
   --out /tmp/openclaw/smoke-ruoyi
@@ -23,31 +23,29 @@ python3 -m harness_builder.scanner.cli \
 **Result:** ✅ Success
 
 **Output verification:**
-- `project-inventory.json`: 99KB, contains all v2 fields
+
+- `project-inventory.json`: generated
 - `command-catalog.yaml`: generated
-- `scanner-report.md`: rendered with all sections
-- `fileTree`: 367 files, 155 directories
-- `analysis.enabled`: true (LLM analysis active)
-- `evidence`: java detected=true, node detected=true, dotnet detected=false
-- `validation.summary`: "All LLM claims confirmed by scripts"
-- `validation.points`: 0 (no mismatches)
-- `moduleAnalysis`: 12 modules identified
-- `anomalies`: 9 anomalies found (missing tests, large components, Windows-only scripts, etc.)
-- `architecturePattern`: Monolithic Spring Boot with modular packaging + separate Vue.js frontend
+- `scanner-report.md`: generated
+- `analysis.enabled`: `true`
+- `evidence.java.detected`: `true`
+- `evidence.node.detected`: `true`
+- `validation.summary`: `All LLM claims confirmed by scripts`
+- `validation.points`: `0`
+- command counts:
+  - build: 6
+  - test: 1
+  - run: 2
+  - frontend: 1
+  - docker: 0
 
-**LLM Stack Analysis:** Java 8+ / Spring Boot 2.x / Maven / MySQL / MyBatis / Vue 2.x / Element UI
+**Notable result:** Scanner correctly combined LLM inference with deterministic evidence. Java/Maven and Vue/npm were both confirmed by script detectors.
 
-**Notable findings:**
-- LLM correctly identified the full tech stack (Java + Vue.js)
-- Detected lack of unit tests as an anomaly
-- Identified monolithic component in `ruoyi-ui/src/views/index.vue` (69KB)
-- Noted only Windows `.bat` scripts, no `.sh` equivalents
-
-## Test 2: eShopOnWeb (.NET)
+## Test 2: eShopOnWeb（.NET / ASP.NET Core）
 
 **Command:**
+
 ```bash
-cd /path/to/harness-builder
 python3 -m harness_builder.scanner.cli \
   --repo /tmp/openclaw/harness-poc-targets/eShopOnWeb \
   --out /tmp/openclaw/smoke-eshop
@@ -56,20 +54,27 @@ python3 -m harness_builder.scanner.cli \
 **Result:** ✅ Success
 
 **Output verification:**
-- `project-inventory.json`: contains all v2 fields
-- `fileTree`: 444 files, 132 directories
-- `analysis.enabled`: true
-- `evidence`: script detectors ran (filesystem, ci, codeStructure, genericFallback)
-- `validation.summary`: "All LLM claims confirmed by scripts"
-- `moduleAnalysis`: 6 modules identified
-- `anomalies`: 5 anomalies found
-- `architecturePattern`: Clean Architecture / Onion Architecture (DDD-based) with CQRS + MediatR
 
-**LLM Stack Analysis:** .NET / ASP.NET Core / Entity Framework Core / Blazor / Razor Pages
+- `project-inventory.json`: generated
+- `command-catalog.yaml`: generated
+- `scanner-report.md`: generated
+- `analysis.enabled`: `true`
+- `evidence.dotnet.detected`: `true`
+- `validation.summary`: `All LLM claims confirmed by scripts`
+- `validation.points`: `0`
+- command counts:
+  - build: 10
+  - test: 5
+  - run: 0
+  - frontend: 0
+  - docker: 2
 
-## Test 3: No-LLM Mode (local fixtures)
+**Notable result:** Scanner handled DeepSeek's grouped `commandCandidates` shape (`build.commands`, `test.commands`, etc.) and produced a non-empty command catalog.
+
+## Test 3: No-LLM Mode（local fixture）
 
 **Command:**
+
 ```bash
 python3 -m harness_builder.scanner.cli \
   --repo tests/fixtures/minimal-java-maven \
@@ -77,45 +82,88 @@ python3 -m harness_builder.scanner.cli \
   --no-llm
 ```
 
-**Result:** ✅ Covered by existing tests (test_cli_no_llm_flag)
+**Result:** ✅ Covered by CLI tests
 
-## Bug Found and Fixed During Smoke Test
+- `analysis.enabled`: `false`
+- deterministic evidence still available
+- evidence-based command fallback remains available
 
-**Issue:** `llm_scanner.py:merge_rounds()` crashed with `AttributeError: 'str' object has no attribute 'get'` when LLM returned moduleAnalysis entries as strings instead of dicts.
+## Bugs Found and Fixed During Smoke Testing
 
-**Fix:** Added defensive `_module_key()` helper that handles both dict and string entries in moduleAnalysis.
+### 1. `merge_rounds()` crashed on non-dict module entries
 
-**Location:** `harness_builder/scanner/detectors/llm_scanner.py:110`
+**Symptom:** Real LLM returned `moduleAnalysis` entries as strings, causing `AttributeError: 'str' object has no attribute 'get'`.
+
+**Fix:** Added defensive module key handling for dict and non-dict module entries.
+
+### 2. Nested `stackAnalysis` was not inspected
+
+**Symptom:** Real LLM returned structures like:
+
+```json
+{
+  "stackAnalysis": {
+    "backend": {"language": "Java", "buildTool": "Maven"},
+    "frontend": {"framework": "Vue.js", "buildTool": "npm"}
+  }
+}
+```
+
+Earlier code only looked at `primary.name` / `secondary[].name`, so Java/Node/.NET detectors were skipped.
+
+**Fix:** Flatten nested `stackAnalysis` text before keyword matching.
+
+### 3. Keyword false positives in validation
+
+**Symptom:** `JavaScript` in a .NET repo was treated as `Java`, causing false validation mismatches.
+
+**Fix:** Keyword matching now uses word-boundary / special-token matching instead of raw substring matching.
+
+### 4. Real LLM command candidates had multiple shapes
+
+Observed shapes:
+
+- list of command dicts
+- grouped dict: `build.commands[]`, `test.commands[]`, `other.commands[]`
+- malformed / non-dict entries
+
+**Fix:** Normalize list and grouped dict command candidates; skip malformed entries; fall back to deterministic evidence commands when no valid LLM commands can be parsed.
 
 ## Report Enhancement Summary
 
 The scanner report now renders:
 
-1. **File tree summary** — file/directory counts
-2. **Tech stack** — LLM inference (primary + secondary) with confidence levels
-3. **Script evidence** — deterministic facts from script detectors, clearly labeled
-4. **Module responsibilities** — LLM-inferred module roles
-5. **Architecture pattern** — LLM-inferred architecture
-6. **Command catalog** — detailed commands with confidence and working directory
-7. **Anomalies** — LLM-detected issues
-8. **Validation** — LLM vs script cross-check results
-9. **Calibration notes** — human review guidance
+1. File tree summary
+2. Tech stack analysis（LLM inference）
+3. Script evidence（deterministic facts）
+4. Module responsibilities（LLM inference）
+5. Architecture pattern（LLM inference）
+6. Command catalog summary and details
+7. Anomalies（LLM inference）
+8. Validation results（LLM vs script evidence）
+9. Human calibration notes
 
-Key design decisions:
-- Report never crashes on missing fields (all v2 sections are optional)
-- Clear distinction between "确定性事实" (script evidence) and "LLM 推断" (inference)
-- Works in both LLM-enabled and no-LLM modes
+Design rules:
 
-## Test Suite Status
+- Report does not crash on missing fields.
+- LLM inference and deterministic facts are explicitly separated.
+- Both LLM-enabled and `--no-llm` modes are supported.
 
-- **Before:** 135 tests passing
-- **After Task 7:** 148 tests passing (13 new report tests + bug fix did not require new test)
+## Final Test Suite Status
 
-## Files Changed
+- `python3 -m pytest -q`
+- Result: `156 passed`
+
+## Files Changed in Task 7 / Smoke Hardening
 
 | File | Change |
-|------|--------|
-| `harness_builder/scanner/report.py` | Enhanced to render v2 fields |
-| `tests/scanner/test_report.py` | 13 new tests for v2 report features |
-| `harness_builder/scanner/detectors/llm_scanner.py` | Bug fix: defensive moduleAnalysis parsing |
-| `docs/research/scanner-v2-smoke-test.md` | This file |
+|---|---|
+| `harness_builder/scanner/report.py` | Render v2 inventory fields |
+| `tests/scanner/test_report.py` | Add v2 report coverage |
+| `harness_builder/scanner/detectors/llm_scanner.py` | Harden merge against non-dict module entries |
+| `harness_builder/scanner/detectors/evidence_extractor.py` | Flatten nested stack analysis; reduce keyword false positives |
+| `harness_builder/scanner/core.py` | Normalize real LLM command candidate shapes; infer categories; fallback safely |
+| `tests/scanner/test_core.py` | Add real-shape regression tests |
+| `tests/scanner/test_evidence_extractor.py` | Add nested stack / false-positive regression tests |
+| `tests/scanner/test_llm_scanner.py` | Add non-dict module merge regression test |
+| `docs/research/scanner-v2-smoke-test.md` | Record smoke results |

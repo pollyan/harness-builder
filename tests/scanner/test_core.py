@@ -191,4 +191,110 @@ def test_scan_skips_malformed_llm_command_candidate():
 
     result = scan_repository(repo, Path("/tmp/unused"), llm_caller=caller)
 
-    assert result.commands["commands"]["build"] == []
+    build_cmds = [c["command"] for c in result.commands["commands"]["build"]]
+    assert "mvn clean package -DskipTests" in build_cmds
+
+
+def test_scan_command_candidates_accept_type_as_category():
+    """Real LLM command candidates may use type instead of category."""
+    response = json.dumps({
+        "stackAnalysis": {"primaryLanguage": "Java", "buildSystem": "Maven"},
+        "moduleAnalysis": [],
+        "commandCandidates": [{"type": "test", "command": "mvn test", "confidence": "high"}],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    })
+    caller = MagicMock(side_effect=[response, response])
+
+    result = scan_repository(Path("tests/fixtures/minimal-java-maven"), Path("/tmp/unused"), llm_caller=caller)
+
+    test_cmds = [c["command"] for c in result.commands["commands"]["test"]]
+    assert "mvn test" in test_cmds
+
+
+def test_scan_validation_detects_nested_stack_claim_without_evidence(monkeypatch):
+    """Validation should inspect real nested stackAnalysis shapes, not only primary/secondary."""
+    from harness_builder.scanner.detectors import evidence_extractor
+
+    response = json.dumps({
+        "stackAnalysis": {"backend": {"language": "Java", "buildTool": "Maven"}},
+        "moduleAnalysis": [],
+        "commandCandidates": [],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    })
+    caller = MagicMock(side_effect=[response, response])
+
+    def fake_extract(repo_root, analysis):
+        return {"filesystem": {}, "ci": {}, "codeStructure": {}, "genericFallback": {}}
+
+    monkeypatch.setattr(evidence_extractor, "extract_evidence", fake_extract)
+    monkeypatch.setattr("harness_builder.scanner.core.extract_evidence", fake_extract)
+
+    result = scan_repository(Path("tests/fixtures/minimal-java-maven"), Path("/tmp/unused"), llm_caller=caller)
+
+    assert result.inventory["validation"]["points"]
+    assert result.inventory["validation"]["points"][0]["stack"] == "java"
+
+
+def test_scan_infers_command_category_when_llm_omits_it():
+    """Real LLM candidates may omit category/type; infer obvious test/run/frontend buckets."""
+    response = json.dumps({
+        "stackAnalysis": {"primaryLanguage": "C#", "buildSystem": "dotnet CLI"},
+        "moduleAnalysis": [],
+        "commandCandidates": [
+            {"command": "dotnet build eShopOnWeb.sln", "confidence": "high"},
+            {"command": "dotnet test tests/UnitTests/UnitTests.csproj", "confidence": "high"},
+        ],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    })
+    caller = MagicMock(side_effect=[response, response])
+
+    result = scan_repository(Path("tests/fixtures/minimal-dotnet"), Path("/tmp/unused"), llm_caller=caller)
+
+    assert [c["command"] for c in result.commands["commands"]["build"]] == ["dotnet build eShopOnWeb.sln"]
+    assert [c["command"] for c in result.commands["commands"]["test"]] == ["dotnet test tests/UnitTests/UnitTests.csproj"]
+
+
+def test_scan_skips_non_dict_llm_command_candidate():
+    """Real LLMs may return commandCandidates entries as strings; skip them safely."""
+    response = json.dumps({
+        "stackAnalysis": {"primaryLanguage": "Java", "buildSystem": "Maven"},
+        "moduleAnalysis": [],
+        "commandCandidates": ["mvn test", {"command": "mvn clean package", "category": "build"}],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    })
+    caller = MagicMock(side_effect=[response, response])
+
+    result = scan_repository(Path("tests/fixtures/minimal-java-maven"), Path("/tmp/unused"), llm_caller=caller)
+
+    assert [c["command"] for c in result.commands["commands"]["build"]] == ["mvn clean package"]
+
+
+def test_scan_accepts_grouped_llm_command_candidates():
+    """Real LLMs may return commandCandidates grouped by category."""
+    response = json.dumps({
+        "stackAnalysis": {"primaryLanguage": "C#", "buildSystem": "dotnet CLI"},
+        "moduleAnalysis": [],
+        "commandCandidates": {
+            "build": {"commands": [{"command": "dotnet build eShopOnWeb.sln", "confidence": "high"}]},
+            "test": {"commands": [{"command": "dotnet test tests/UnitTests/UnitTests.csproj", "confidence": "high"}]},
+            "other": {"commands": [{"command": "dotnet run --project src/Web", "confidence": "high"}]},
+        },
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    })
+    caller = MagicMock(side_effect=[response, response])
+
+    result = scan_repository(Path("tests/fixtures/minimal-dotnet"), Path("/tmp/unused"), llm_caller=caller)
+
+    assert [c["command"] for c in result.commands["commands"]["build"]] == ["dotnet build eShopOnWeb.sln"]
+    assert [c["command"] for c in result.commands["commands"]["test"]] == ["dotnet test tests/UnitTests/UnitTests.csproj"]
+    assert [c["command"] for c in result.commands["commands"]["run"]] == ["dotnet run --project src/Web"]

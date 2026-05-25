@@ -1,6 +1,7 @@
 """evidence_extractor — run existing detectors selectively based on LLM analysis."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Callable
 
@@ -14,7 +15,7 @@ from .shallow_code import detect_shallow_code_structure
 
 # Keyword sets for stack identification
 _JAVA_KEYWORDS = {"java", "maven", "spring", "gradle"}
-_NODE_KEYWORDS = {"node", "npm", "vue", "react", "angular", "typescript", "javascript", "frontend"}
+_NODE_KEYWORDS = {"node", "npm", "vue", "react", "angular", "typescript"}
 _DOTNET_KEYWORDS = {".net", "dotnet", "c#", "csharp", "f#"}
 
 
@@ -22,30 +23,28 @@ def _stack_mentions(analysis: dict[str, Any], keywords: set[str]) -> bool:
     """Check if the LLM analysis mentions any of the given keywords in stack names."""
     stack_analysis = analysis.get("stackAnalysis", {})
 
-    # Collect all stack name strings to check
-    names: list[str] = []
+    combined = _flatten_text(stack_analysis)
+    return any(_keyword_matches(combined, kw) for kw in keywords)
 
-    primary = stack_analysis.get("primary")
-    if primary and isinstance(primary, dict):
-        name = primary.get("name", "")
-        if name:
-            names.append(name.lower())
 
-    secondary = stack_analysis.get("secondary")
-    if isinstance(secondary, list):
-        for item in secondary:
-            if isinstance(item, dict):
-                name = item.get("name", "")
-                if name:
-                    names.append(name.lower())
+def _keyword_matches(text: str, keyword: str) -> bool:
+    """Match stack keywords without substring false positives like java/javascript."""
+    if keyword == ".net":
+        return re.search(r"(^|[^a-z0-9])\.net([^a-z0-9]|$)", text) is not None
+    if keyword in {"c#", "f#"}:
+        return re.search(rf"(^|[^a-z0-9]){re.escape(keyword)}([^a-z0-9]|$)", text) is not None
+    return re.search(rf"\b{re.escape(keyword)}\b", text) is not None
 
-    # Also check top-level "name" field if stackAnalysis itself has one
-    top_name = stack_analysis.get("name", "")
-    if top_name:
-        names.append(str(top_name).lower())
 
-    combined = " ".join(names)
-    return any(kw in combined for kw in keywords)
+def _flatten_text(value: Any) -> str:
+    """Flatten nested LLM analysis values into lower-case searchable text."""
+    if isinstance(value, dict):
+        return " ".join(_flatten_text(v) for v in value.values())
+    if isinstance(value, list):
+        return " ".join(_flatten_text(v) for v in value)
+    if value is None:
+        return ""
+    return str(value).lower()
 
 
 def extract_evidence(repo_root: Path, llm_analysis: dict[str, Any]) -> dict[str, Any]:

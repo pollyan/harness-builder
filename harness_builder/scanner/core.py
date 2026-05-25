@@ -9,7 +9,13 @@ import yaml
 
 from harness_builder.scanner.detectors.ci_docker import detect_ci_docker
 from harness_builder.scanner.detectors.dotnet import detect_dotnet
-from harness_builder.scanner.detectors.evidence_extractor import extract_evidence
+from harness_builder.scanner.detectors.evidence_extractor import (
+    _DOTNET_KEYWORDS,
+    _JAVA_KEYWORDS,
+    _NODE_KEYWORDS,
+    _stack_mentions,
+    extract_evidence,
+)
 from harness_builder.scanner.detectors.file_tree_collector import collect_file_tree
 from harness_builder.scanner.detectors.filesystem import scan_filesystem
 from harness_builder.scanner.detectors.generic_fallback import detect_generic_fallback
@@ -45,18 +51,8 @@ def _validate(analysis: dict[str, Any], evidence: dict[str, Any]) -> dict[str, A
     """
     points: list[dict[str, Any]] = []
 
-    # Determine what stacks the LLM analysis mentions
-    stack_text = ""
-    stack_analysis = analysis.get("stackAnalysis", {})
-    primary = stack_analysis.get("primary")
-    if isinstance(primary, dict):
-        stack_text += primary.get("name", "").lower() + " "
-    for sec in stack_analysis.get("secondary", []):
-        if isinstance(sec, dict):
-            stack_text += sec.get("name", "").lower() + " "
-
     # Java / Maven check
-    if any(kw in stack_text for kw in ("java", "maven", "spring")):
+    if _stack_mentions(analysis, _JAVA_KEYWORDS):
         java = evidence.get("java", {})
         if not java.get("detected", False):
             points.append({
@@ -68,7 +64,7 @@ def _validate(analysis: dict[str, Any], evidence: dict[str, Any]) -> dict[str, A
             })
 
     # Node check
-    if any(kw in stack_text for kw in ("node", "npm", "vue", "react", "angular")):
+    if _stack_mentions(analysis, _NODE_KEYWORDS):
         node = evidence.get("node", {})
         if not node.get("detected", False):
             points.append({
@@ -80,7 +76,7 @@ def _validate(analysis: dict[str, Any], evidence: dict[str, Any]) -> dict[str, A
             })
 
     # .NET check
-    if any(kw in stack_text for kw in (".net", "dotnet", "c#")):
+    if _stack_mentions(analysis, _DOTNET_KEYWORDS):
         dotnet = evidence.get("dotnet", {})
         if not dotnet.get("detected", False):
             points.append({
@@ -116,11 +112,14 @@ def _commands_from_analysis(
     # Try LLM-provided command candidates first
     candidates = analysis.get("commandCandidates", [])
     if analysis.get("enabled") and candidates:
-        for c in candidates:
+        added_llm_commands = False
+        for c, group_category in _iter_command_candidates(candidates):
             command = c.get("command")
             if not command:
                 continue
-            category = c.get("category", "build")
+            category = c.get("category", c.get("type", group_category)) or _infer_command_category(command)
+            if category == "other":
+                category = _infer_command_category(command)
             if category not in catalog["commands"]:
                 continue
             catalog["commands"][category].append(_command(
@@ -130,7 +129,9 @@ def _commands_from_analysis(
                 working_directory=c.get("workingDirectory", "."),
                 confidence=c.get("confidence", "medium"),
             ))
-        return catalog
+            added_llm_commands = True
+        if added_llm_commands:
+            return catalog
 
     # Fallback: evidence-based commands (equivalent to old _build_command_catalog)
     java = evidence.get("java", {})
@@ -165,6 +166,37 @@ def _commands_from_analysis(
         )
 
     return catalog
+
+
+def _iter_command_candidates(candidates: Any) -> list[tuple[dict[str, Any], str | None]]:
+    """Normalize LLM commandCandidates from list or grouped dict shapes."""
+    if isinstance(candidates, list):
+        return [(c, None) for c in candidates if isinstance(c, dict)]
+    if isinstance(candidates, dict):
+        normalized: list[tuple[dict[str, Any], str | None]] = []
+        for group, value in candidates.items():
+            if isinstance(value, dict):
+                items = value.get("commands", [])
+            else:
+                items = value
+            if isinstance(items, list):
+                normalized.extend((c, str(group)) for c in items if isinstance(c, dict))
+        return normalized
+    return []
+
+
+def _infer_command_category(command: str) -> str:
+    """Infer command category when LLM omits explicit category/type."""
+    normalized = command.lower()
+    if " test" in f" {normalized}" or normalized.startswith("pytest"):
+        return "test"
+    if "docker" in normalized:
+        return "docker"
+    if "npm run dev" in normalized or "pnpm dev" in normalized or "yarn dev" in normalized or "spring-boot:run" in normalized or normalized.startswith("dotnet run"):
+        return "run"
+    if "npm run build" in normalized or "pnpm build" in normalized or "yarn build" in normalized:
+        return "frontend"
+    return "build"
 
 
 def scan_repository(repo_root: Path, out_dir: Path, llm_caller=None) -> ScanResult:

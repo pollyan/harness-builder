@@ -73,3 +73,31 @@ def test_extract_detector_error_isolated(monkeypatch):
     assert result["java"]["detected"] is False
     assert result["java"]["error"] == "detector exploded"
     assert "filesystem" in result
+
+
+def test_extract_evidence_from_nested_stack_analysis():
+    """Real LLM stackAnalysis may use nested backend/frontend fields, not primary/secondary."""
+    repo = FIXTURES / "minimal-java-maven"
+    llm_analysis = {
+        "stackAnalysis": {
+            "backend": {"language": "Java 8", "buildTool": "Maven"},
+            "frontend": {"framework": "Vue.js", "buildTool": "npm"},
+        }
+    }
+
+    result = extract_evidence(repo, llm_analysis)
+
+    assert result["java"]["detected"] is True
+    assert result["node"]["detected"] is True
+
+
+def test_stack_mentions_does_not_treat_javascript_as_java_or_node():
+    """JavaScript in a .NET repo should not imply Java or Node stack detectors."""
+    repo = FIXTURES / "minimal-dotnet"
+    llm_analysis = {"stackAnalysis": {"languages": ["C#", "JavaScript"], "frameworks": ["ASP.NET Core"]}}
+
+    result = extract_evidence(repo, llm_analysis)
+
+    assert "java" not in result
+    assert "node" not in result
+    assert result["dotnet"]["detected"] is True

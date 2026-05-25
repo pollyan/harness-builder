@@ -243,3 +243,28 @@ def test_parse_rejects_missing_required_keys() -> None:
     """Malformed LLM JSON missing the scanner contract should be rejected."""
     result = parse_scan_response(json.dumps({"stackAnalysis": {"primary": {"name": "Java"}}}))
     assert result is None
+
+
+def test_merge_rounds_handles_non_dict_module_entries() -> None:
+    """Real LLMs may return moduleAnalysis entries as strings; merging should not crash."""
+    round1 = {
+        "stackAnalysis": {},
+        "moduleAnalysis": ["src"],
+        "commandCandidates": [],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    }
+    round2 = {
+        "stackAnalysis": {},
+        "moduleAnalysis": [{"module": "tests", "guessedRole": "Tests"}],
+        "commandCandidates": [],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    }
+
+    merged = merge_rounds(round1, round2)
+
+    assert "src" in merged["moduleAnalysis"]
+    assert {"module": "tests", "guessedRole": "Tests"} in merged["moduleAnalysis"]
