@@ -12,11 +12,11 @@ def detect_shallow_code_structure(repo_root: Path) -> dict:
             continue
         rel = path.relative_to(repo_root).as_posix()
         name = path.name.lower()
-        if name.endswith(("controller.java", "controller.cs")) or "/controllers/" in rel.lower():
+        if name.endswith(("controller.java", "controller.cs")) or "/controllers/" in rel.lower() or rel.lower().startswith("controllers/"):
             result["controllers"].append(rel)
-        if name.endswith(("service.java", "service.cs")) or "/services/" in rel.lower():
+        if name.endswith(("service.java", "service.cs")) or "/services/" in rel.lower() or rel.lower().startswith("services/"):
             result["services"].append(rel)
-        if name.endswith(("entity.java", "model.java", "model.cs")) or "/models/" in rel.lower():
+        if name.endswith(("entity.java", "model.java", "model.cs")) or "/models/" in rel.lower() or rel.lower().startswith("models/"):
             result["entitiesOrModels"].append(rel)
         if "test" in rel.lower() and path.suffix in {".java", ".cs", ".js", ".ts"}:
             result["tests"].append(rel)
