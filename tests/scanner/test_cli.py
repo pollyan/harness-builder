@@ -200,9 +200,10 @@ def test_default_cli_llm_enabled_with_key(tmp_path):
     out = tmp_path / "out"
 
     with mock.patch.dict(os.environ, {"DEEPSEEK_API_KEY": "sk-test"}):
-        with mock.patch("harness_builder.scanner.cli.call_deepseek", return_value=None):
+        with mock.patch("harness_builder.scanner.cli.call_deepseek", return_value=None) as mock_call:
             # call_deepseek returning None simulates graceful failure
             from harness_builder.scanner.cli import main
 
             ret = main(["--repo", str(repo), "--out", str(out)])
             assert ret == 0
+            assert mock_call.called
