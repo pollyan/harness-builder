@@ -9,7 +9,7 @@ def test_unknown_stack_still_generates_outputs(tmp_path):
     out = tmp_path / ".harness"
 
     result = subprocess.run(
-        [sys.executable, "-m", "harness_builder.scanner.cli", "--repo", str(repo), "--out", str(out)],
+        [sys.executable, "-m", "harness_builder.scanner.cli", "--repo", str(repo), "--out", str(out), "--no-llm"],
         text=True,
         capture_output=True,
     )
