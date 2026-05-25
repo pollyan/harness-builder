@@ -79,7 +79,7 @@ def test_cli_help_does_not_show_old_llm():
     """The old --llm flag should no longer exist."""
     parser = build_parser()
     help_text = parser.format_help()
-    assert "--llm" not in help_text or "--no-llm" in help_text
+    assert "--llm" not in help_text
 
 
 def test_cli_no_llm_flag(tmp_path):
@@ -190,6 +190,18 @@ def test_load_dotenv_skips_comments_and_blank_lines(tmp_path):
     with mock.patch.dict(os.environ, env, clear=True):
         _load_dotenv(tmp_path)
         assert os.environ.get("DEEPSEEK_API_KEY") == "sk-file"
+
+
+def test_load_dotenv_strips_matching_outer_quotes(tmp_path):
+    """_load_dotenv should support common quoted .env values."""
+    env_file = tmp_path / ".env"
+    env_file.write_text('DEEPSEEK_API_KEY="sk-file"\nDEEPSEEK_MODEL=\'deepseek-test\'\n')
+
+    env = {k: v for k, v in os.environ.items() if k not in ("DEEPSEEK_API_KEY", "DEEPSEEK_MODEL")}
+    with mock.patch.dict(os.environ, env, clear=True):
+        _load_dotenv(tmp_path)
+        assert os.environ.get("DEEPSEEK_API_KEY") == "sk-file"
+        assert os.environ.get("DEEPSEEK_MODEL") == "deepseek-test"
 
 
 def test_default_cli_llm_enabled_with_key(tmp_path):
