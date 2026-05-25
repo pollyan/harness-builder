@@ -12,7 +12,7 @@ from harness_builder.scanner.detectors.dotnet import detect_dotnet
 from harness_builder.scanner.detectors.filesystem import scan_filesystem
 from harness_builder.scanner.detectors.generic_fallback import detect_generic_fallback
 from harness_builder.scanner.detectors.java_maven import detect_java_maven
-from harness_builder.scanner.detectors.llm_hints import build_llm_hint_placeholder
+from harness_builder.scanner.detectors.llm_hints import build_llm_hints
 from harness_builder.scanner.detectors.node_frontend import detect_node_frontend
 from harness_builder.scanner.detectors.shallow_code import detect_shallow_code_structure
 from harness_builder.scanner.report import render_scanner_report
@@ -52,7 +52,7 @@ def _build_command_catalog(repo_name: str, java: dict, node: dict, dotnet: dict)
     return catalog
 
 
-def scan_repository(repo_root: Path, out_dir: Path) -> ScanResult:
+def scan_repository(repo_root: Path, out_dir: Path, llm_caller=None) -> ScanResult:
     repo_root = repo_root.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     fs = scan_filesystem(repo_root)
@@ -64,8 +64,17 @@ def scan_repository(repo_root: Path, out_dir: Path) -> ScanResult:
     generic = detect_generic_fallback(repo_root)
 
     # Collect manual calibration points from generic fallback
+    # Build inventory first (without llmHints) so LLM can analyze it
+    inventory_base = {
+        "repo": {"name": repo_root.name, "path": str(repo_root)},
+        "structure": fs,
+        "stackExtensions": {"java": java, "node": node, "dotnet": dotnet, "genericFallback": generic},
+        "ci": ci,
+        "codeStructure": shallow,
+    }
     manual_points = generic.get("manualCalibrationPoints", [])
-    llm_hints = build_llm_hint_placeholder(manual_points)
+    llm_hints = build_llm_hints(inventory_base, manual_points, llm_caller=llm_caller)
+    inventory = {**inventory_base, "llmHints": llm_hints}
 
     inventory = {
         "repo": {"name": repo_root.name, "path": str(repo_root)},
