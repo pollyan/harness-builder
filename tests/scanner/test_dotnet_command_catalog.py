@@ -14,4 +14,4 @@ def test_command_catalog_contains_dotnet_build_and_test(tmp_path):
 
     assert "dotnet build" in build_commands
     assert "dotnet test" in test_commands
-    assert result.inventory["stackExtensions"]["dotnet"]["detected"] is True
+    assert result.inventory["evidence"]["dotnet"]["detected"] is True

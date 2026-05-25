@@ -16,7 +16,7 @@ def test_unknown_stack_still_generates_outputs(tmp_path):
 
     assert result.returncode == 0
     inventory = json.loads((out / "project-inventory.json").read_text())
-    assert inventory["stackExtensions"]["genericFallback"]["stackClassification"] == "unknown"
-    assert inventory["llmHints"]["enabled"] is False
+    assert inventory["evidence"]["genericFallback"]["stackClassification"] == "unknown"
+    assert inventory["analysis"]["enabled"] is False
     assert (out / "command-catalog.yaml").exists()
     assert (out / "scanner-report.md").exists()

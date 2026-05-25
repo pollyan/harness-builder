@@ -1,98 +1,22 @@
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
+
+import yaml
 
 from harness_builder.scanner.core import (
     ScanResult,
-    _command,
-    _build_command_catalog,
     scan_repository,
     write_scan_outputs,
 )
 
 
-# ── _command ──
-
-
-def test_command_default_values():
-    cmd = _command("test", "echo hi", "source.txt")
-
-    assert cmd["name"] == "test"
-    assert cmd["command"] == "echo hi"
-    assert cmd["source"] == "source.txt"
-    assert cmd["workingDirectory"] == "."
-    assert cmd["confidence"] == "medium"
-    assert cmd["verified"] is False
-
-
-def test_command_custom_values():
-    cmd = _command("test", "echo hi", "source.txt", working_directory="sub/", confidence="high")
-
-    assert cmd["workingDirectory"] == "sub/"
-    assert cmd["confidence"] == "high"
-
-
-# ── _build_command_catalog ──
-
-
-def test_build_command_catalog_java():
-    catalog = _build_command_catalog("my-repo", {"detected": True}, {"projects": []}, {"detected": False})
-
-    assert catalog["repo"] == "my-repo"
-    build_names = [c["name"] for c in catalog["commands"]["build"]]
-    assert "maven-package" in build_names
-    test_names = [c["name"] for c in catalog["commands"]["test"]]
-    assert "maven-test" in test_names
-
-
-def test_build_command_catalog_node_with_build_and_dev():
-    node = {"projects": [{"path": "ui", "packageFile": "ui/package.json", "scripts": {"build": "vite build", "dev": "vite"}}]}
-    catalog = _build_command_catalog("repo", {"detected": False}, node, {"detected": False})
-
-    frontend = [c["command"] for c in catalog["commands"]["frontend"]]
-    run_cmds = [c["command"] for c in catalog["commands"]["run"]]
-    assert "npm run build" in frontend
-    assert "npm run dev" in run_cmds
-
-
-def test_build_command_catalog_node_no_build_script():
-    """Node project without build/dev scripts → no frontend/run commands."""
-    node = {"projects": [{"path": "lib", "packageFile": "lib/package.json", "scripts": {"test": "jest"}}]}
-    catalog = _build_command_catalog("repo", {"detected": False}, node, {"detected": False})
-
-    assert catalog["commands"]["frontend"] == []
-    assert catalog["commands"]["run"] == []
-
-
-def test_build_command_catalog_dotnet():
-    catalog = _build_command_catalog("repo", {"detected": False}, {"projects": []}, {"detected": True})
-
-    build_cmds = [c["command"] for c in catalog["commands"]["build"]]
-    test_cmds = [c["command"] for c in catalog["commands"]["test"]]
-    assert "dotnet build" in build_cmds
-    assert "dotnet test" in test_cmds
-
-
-def test_build_command_catalog_no_stack():
-    """Nothing detected → all command lists empty."""
-    catalog = _build_command_catalog("repo", {"detected": False}, {"projects": []}, {"detected": False})
-
-    for key in ["build", "test", "run", "frontend", "docker"]:
-        assert catalog["commands"][key] == []
-
-
-def test_build_command_catalog_all_keys_present():
-    """All expected command categories should exist even if empty."""
-    catalog = _build_command_catalog("x", {}, {}, {})
-
-    assert set(catalog["commands"].keys()) == {"build", "test", "run", "frontend", "docker"}
-
-
-# ── scan_repository ──
+# ── scan_repository v2 pipeline ──
 
 
 def test_scan_repository_returns_scan_result():
     repo = Path("tests/fixtures/minimal-java-maven")
-    out = Path("/tmp/unused")  # out_dir is only mkdir'd, not used for return
+    out = Path("/tmp/unused")
 
     result = scan_repository(repo, out)
 
@@ -101,42 +25,91 @@ def test_scan_repository_returns_scan_result():
     assert isinstance(result.commands, dict)
 
 
-def test_scan_repository_inventory_structure():
+def test_scan_no_llm_has_file_tree_and_analysis():
+    """No LLM caller → fileTree present, analysis.enabled is False."""
     repo = Path("tests/fixtures/minimal-java-maven")
-    result = scan_repository(repo, Path("/tmp/unused"))
+    result = scan_repository(repo, Path("/tmp/unused"), llm_caller=None)
+
+    assert "fileTree" in result.inventory
+    assert "analysis" in result.inventory
+    assert result.inventory["analysis"]["enabled"] is False
+
+
+def test_scan_with_mock_llm():
+    """Two-round mock LLM → analysis.enabled True, evidence present."""
+    round1 = json.dumps({
+        "stackAnalysis": {"primary": {"name": "Java", "confidence": "high", "evidence": []}, "secondary": []},
+        "moduleAnalysis": [],
+        "commandCandidates": [{"category": "build", "command": "mvn package", "confidence": "high", "evidence": []}],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    })
+    round2 = json.dumps({
+        "stackAnalysis": {"primary": {"name": "Java / Spring Boot", "confidence": "high", "evidence": ["pom.xml"]}, "secondary": []},
+        "moduleAnalysis": [{"module": "app", "guessedRole": "App", "confidence": "medium", "evidence": []}],
+        "commandCandidates": [{"category": "build", "command": "mvn clean package", "confidence": "high", "evidence": []}],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    })
+    caller = MagicMock(side_effect=[round1, round2])
+    repo = Path("tests/fixtures/minimal-java-maven")
+    result = scan_repository(repo, Path("/tmp/unused"), llm_caller=caller)
+
+    assert result.inventory["analysis"]["enabled"] is True
+    assert "evidence" in result.inventory
+
+
+def test_scan_evidence_matches_llm_stack():
+    """LLM says Java → evidence.java.detected True."""
+    round1 = json.dumps({
+        "stackAnalysis": {"primary": {"name": "Java"}, "secondary": []},
+        "moduleAnalysis": [],
+        "commandCandidates": [],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    })
+    round2 = round1
+    caller = MagicMock(side_effect=[round1, round2])
+    repo = Path("tests/fixtures/minimal-java-maven")
+    result = scan_repository(repo, Path("/tmp/unused"), llm_caller=caller)
+
+    assert "java" in result.inventory["evidence"]
+    assert result.inventory["evidence"]["java"]["detected"] is True
+
+
+def test_scan_commands_come_from_analysis():
+    """No-LLM mode should still include build commands from evidence-based fallback."""
+    repo = Path("tests/fixtures/minimal-java-maven")
+    result = scan_repository(repo, Path("/tmp/unused"), llm_caller=None)
+
+    assert "build" in result.commands["commands"]
+    build_cmds = [c["command"] for c in result.commands["commands"]["build"]]
+    assert "mvn clean package -DskipTests" in build_cmds
+
+
+def test_scan_includes_validation_points():
+    """Should include validation results."""
+    repo = Path("tests/fixtures/minimal-java-maven")
+    result = scan_repository(repo, Path("/tmp/unused"), llm_caller=None)
+
+    assert "validation" in result.inventory
+    assert "enabled" in result.inventory["validation"]
+
+
+def test_scan_inventory_has_expected_keys():
+    """v2 inventory should have: repo, fileTree, analysis, evidence, validation."""
+    repo = Path("tests/fixtures/minimal-java-maven")
+    result = scan_repository(repo, Path("/tmp/unused"), llm_caller=None)
     inv = result.inventory
 
     assert "repo" in inv
-    assert "structure" in inv
-    assert "stackExtensions" in inv
-    assert "ci" in inv
-    assert "codeStructure" in inv
-    assert "llmHints" in inv
-    assert inv["repo"]["name"] == "minimal-java-maven"
-    assert isinstance(inv["repo"]["path"], str)
-    assert isinstance(inv["structure"], dict)
-    assert isinstance(inv["ci"], dict)
-    assert isinstance(inv["codeStructure"], dict)
-
-
-def test_scan_repository_stack_extensions_keys():
-    repo = Path("tests/fixtures/minimal-java-maven")
-    result = scan_repository(repo, Path("/tmp/unused"))
-
-    ext = result.inventory["stackExtensions"]
-    assert "java" in ext
-    assert "node" in ext
-    assert "dotnet" in ext
-    assert "genericFallback" in ext
-
-
-def test_scan_repository_llm_hints_present():
-    repo = Path("tests/fixtures/minimal-java-maven")
-    result = scan_repository(repo, Path("/tmp/unused"))
-
-    assert "llmHints" in result.inventory
-    assert "enabled" in result.inventory["llmHints"]
-    assert "hints" in result.inventory["llmHints"]
+    assert "fileTree" in inv
+    assert "analysis" in inv
+    assert "evidence" in inv
+    assert "validation" in inv
 
 
 # ── write_scan_outputs ──
@@ -170,8 +143,6 @@ def test_write_scan_outputs_json_valid(tmp_path):
 
 
 def test_write_scan_outputs_yaml_valid(tmp_path):
-    import yaml
-
     out = tmp_path / ".harness"
     result = ScanResult(
         inventory={"repo": {"name": "test", "path": "/test"}},
