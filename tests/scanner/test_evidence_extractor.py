@@ -101,3 +101,14 @@ def test_stack_mentions_does_not_treat_javascript_as_java_or_node():
     assert "java" not in result
     assert "node" not in result
     assert result["dotnet"]["detected"] is True
+
+
+def test_javascript_stack_triggers_node_detector_without_java_false_positive():
+    """JavaScript-only stack should trigger node evidence without Java false positive."""
+    repo = FIXTURES / "minimal-java-maven"
+    llm_analysis = {"stackAnalysis": {"primary": {"name": "JavaScript"}}}
+
+    result = extract_evidence(repo, llm_analysis)
+
+    assert "java" not in result
+    assert result["node"]["detected"] is True

@@ -16,6 +16,7 @@ from .shallow_code import detect_shallow_code_structure
 # Keyword sets for stack identification
 _JAVA_KEYWORDS = {"java", "maven", "spring", "gradle"}
 _NODE_KEYWORDS = {"node", "npm", "vue", "react", "angular", "typescript"}
+_JAVASCRIPT_KEYWORDS = {"javascript"}
 _DOTNET_KEYWORDS = {".net", "dotnet", "c#", "csharp", "f#"}
 
 
@@ -55,10 +56,12 @@ def extract_evidence(repo_root: Path, llm_analysis: dict[str, Any]) -> dict[str,
     if _stack_mentions(llm_analysis, _JAVA_KEYWORDS):
         result["java"] = _safe_detect(detect_java_maven, repo_root, "java")
 
-    if _stack_mentions(llm_analysis, _NODE_KEYWORDS):
+    mentions_dotnet = _stack_mentions(llm_analysis, _DOTNET_KEYWORDS)
+    mentions_javascript_only = _stack_mentions(llm_analysis, _JAVASCRIPT_KEYWORDS) and not mentions_dotnet
+    if _stack_mentions(llm_analysis, _NODE_KEYWORDS) or mentions_javascript_only:
         result["node"] = _safe_detect(detect_node_frontend, repo_root, "node")
 
-    if _stack_mentions(llm_analysis, _DOTNET_KEYWORDS):
+    if mentions_dotnet:
         result["dotnet"] = _safe_detect(detect_dotnet, repo_root, "dotnet")
 
     # Always-run detectors
