@@ -174,3 +174,21 @@ def test_write_scan_outputs_overwrites_existing(tmp_path):
 
     data = json.loads((out / "project-inventory.json").read_text())
     assert data["repo"]["name"] == "v2"
+
+
+def test_scan_skips_malformed_llm_command_candidate():
+    """Malformed LLM command candidate without command should not crash scan."""
+    round1 = json.dumps({
+        "stackAnalysis": {"primary": {"name": "Java"}, "secondary": []},
+        "moduleAnalysis": [],
+        "commandCandidates": [{"category": "build", "confidence": "high"}],
+        "architecturePattern": None,
+        "anomalies": [],
+        "calibrationPoints": [],
+    })
+    caller = MagicMock(side_effect=[round1, round1])
+    repo = Path("tests/fixtures/minimal-java-maven")
+
+    result = scan_repository(repo, Path("/tmp/unused"), llm_caller=caller)
+
+    assert result.commands["commands"]["build"] == []

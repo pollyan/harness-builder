@@ -117,12 +117,15 @@ def _commands_from_analysis(
     candidates = analysis.get("commandCandidates", [])
     if analysis.get("enabled") and candidates:
         for c in candidates:
+            command = c.get("command")
+            if not command:
+                continue
             category = c.get("category", "build")
             if category not in catalog["commands"]:
                 continue
             catalog["commands"][category].append(_command(
-                name=c.get("name", c.get("command", "unknown")),
-                command=c["command"],
+                name=c.get("name", command),
+                command=command,
                 source=c.get("evidence", ["llm-analysis"])[0] if c.get("evidence") else "llm-analysis",
                 working_directory=c.get("workingDirectory", "."),
                 confidence=c.get("confidence", "medium"),
