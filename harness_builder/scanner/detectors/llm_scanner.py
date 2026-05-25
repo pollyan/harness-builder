@@ -107,10 +107,13 @@ def merge_rounds(
     merged = dict(round2)
 
     # Preserve unique module analyses from round-1 that round-2 dropped
-    r2_modules = {m.get("module") for m in (round2.get("moduleAnalysis") or [])}
+    def _module_key(m):
+        return m.get("module") if isinstance(m, dict) else str(m)
+
+    r2_modules = {_module_key(m) for m in (round2.get("moduleAnalysis") or [])}
     r1_unique = [
         m for m in (round1.get("moduleAnalysis") or [])
-        if m.get("module") not in r2_modules
+        if _module_key(m) not in r2_modules
     ]
     if r1_unique:
         existing = list(merged.get("moduleAnalysis") or [])
