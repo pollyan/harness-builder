@@ -109,13 +109,6 @@
 
 ---
 
-后续 Task 4-8 见 `docs/plans/2026-05-25-scanner-refactor-v2-part2.md`
-# Scanner 重构计划 v2 — Task 4-8（续）
-
-> 续 `docs/plans/2026-05-25-scanner-refactor-v2.md`
-
----
-
 ## Task 4：新建 evidence_extractor.py — 按需精确提取
 
 **目标：** 接收 LLM 分析结果，用现有 detector 按需提取。不再盲跑全部 detector。
