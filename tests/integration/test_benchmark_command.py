@@ -23,6 +23,14 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path):
     assert report["status"] == "passed"
     assert report["checks"]
     assert all(check["passed"] for check in report["checks"])
+    check_ids = {check["id"] for check in report["checks"]}
+    assert "content:workflow-skills" in check_ids
+    assert "content:harness-map-workflow-skill" in check_ids
+    assert "content:guides-quality" in check_ids
+    assert "content:sensors-quality" in check_ids
+    assert "schema:maturity-score" in check_ids
+    assert "schema:improvement-candidates" in check_ids
+    assert (repo / ".ai" / "task-runs" / "demo-task-001" / "harness-map.yaml").exists()
 
 
 def test_benchmark_generates_report_for_dotnet_fixture(tmp_path: Path):
@@ -35,3 +43,10 @@ def test_benchmark_generates_report_for_dotnet_fixture(tmp_path: Path):
     report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text())
     assert report["profile"] == "dotnet-aspnet"
     assert report["status"] == "passed"
+    check_ids = {check["id"] for check in report["checks"]}
+    assert "content:workflow-skills" in check_ids
+    assert "content:harness-map-workflow-skill" in check_ids
+    assert "content:guides-quality" in check_ids
+    assert "content:sensors-quality" in check_ids
+    assert "schema:maturity-score" in check_ids
+    assert "schema:improvement-candidates" in check_ids

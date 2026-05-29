@@ -7,7 +7,13 @@ import yaml
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
+from harness_builder_agent.schemas.harness_map import HarnessMap
+from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
+from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.generate_improvements import generate_improvements
+from harness_builder_agent.tools.run_task import run_task
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
@@ -17,12 +23,16 @@ REQUIRED_FILES = [
     "harness-config.yaml",
     "scan-report.md",
     "maturity-report.md",
+    "maturity-score.yaml",
     "evolution-plan.md",
     "guides/project-context.md",
     "guides/coding-rules.md",
     "guides/architecture.md",
     "sensors/verification.md",
     "sensors/test-strategy.md",
+    "skills/lightweight/SKILL.md",
+    "skills/bugfix/SKILL.md",
+    "improvement-candidates.yaml",
 ]
 
 
@@ -30,6 +40,9 @@ def run_benchmark(repo: Path, profile: str | None = None) -> dict[str, Any]:
     root = repo.resolve()
     inventory, commands = scan_repository(root)
     write_initial_assets(root, inventory, commands)
+    run_task(root, _benchmark_task(profile or inventory.primary_stack))
+    assess_maturity(root)
+    generate_improvements(root)
     ai = root / ".ai"
 
     checks: list[dict[str, Any]] = []
@@ -37,6 +50,7 @@ def run_benchmark(repo: Path, profile: str | None = None) -> dict[str, Any]:
         checks.append({"id": f"exists:{rel}", "passed": (ai / rel).exists(), "path": f".ai/{rel}"})
 
     checks.extend(_schema_checks(ai))
+    checks.extend(_content_checks(ai))
     if profile:
         checks.append({"id": "profile_matches_stack", "passed": profile == inventory.primary_stack, "expected": profile, "actual": inventory.primary_stack})
 
@@ -70,4 +84,69 @@ def _schema_checks(ai: Path) -> list[dict[str, Any]]:
         checks.append({"id": "schema:harness-config", "passed": True})
     except Exception as exc:  # pragma: no cover
         checks.append({"id": "schema:harness-config", "passed": False, "error": str(exc)})
+
+    try:
+        MaturityReport.model_validate(yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:maturity-score", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:maturity-score", "passed": False, "error": str(exc)})
+
+    try:
+        ImprovementCandidateReport.model_validate(yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:improvement-candidates", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:improvement-candidates", "passed": False, "error": str(exc)})
     return checks
+
+
+def _content_checks(ai: Path) -> list[dict[str, Any]]:
+    return [
+        _workflow_skills_check(ai),
+        _harness_map_skill_check(ai),
+        _guide_quality_check(ai),
+        _sensor_quality_check(ai),
+    ]
+
+
+def _workflow_skills_check(ai: Path) -> dict[str, Any]:
+    lightweight = ai / "skills" / "lightweight" / "SKILL.md"
+    bugfix = ai / "skills" / "bugfix" / "SKILL.md"
+    passed = (
+        lightweight.exists()
+        and bugfix.exists()
+        and "轻量级开发工作流" in lightweight.read_text(encoding="utf-8")
+        and "缺陷修复工作流" in bugfix.read_text(encoding="utf-8")
+    )
+    return {"id": "content:workflow-skills", "passed": passed}
+
+
+def _harness_map_skill_check(ai: Path) -> dict[str, Any]:
+    map_path = ai / "task-runs" / "demo-task-001" / "harness-map.yaml"
+    if not map_path.exists():
+        return {"id": "content:harness-map-workflow-skill", "passed": False, "error": "missing harness-map.yaml"}
+    harness_map = HarnessMap.model_validate(yaml.safe_load(map_path.read_text(encoding="utf-8")))
+    skill_path = harness_map.workflow_skill.get("path")
+    passed = bool(skill_path) and (ai.parent / skill_path).exists()
+    return {"id": "content:harness-map-workflow-skill", "passed": passed, "path": skill_path}
+
+
+def _guide_quality_check(ai: Path) -> dict[str, Any]:
+    required_sections = ["## 当前项目事实", "## 来源证据", "## 候选规则", "## Harness Builder 推荐补齐项", "## 人工确认点"]
+    guide = ai / "guides" / "project-context.md"
+    text = guide.read_text(encoding="utf-8") if guide.exists() else ""
+    passed = all(section in text for section in required_sections)
+    return {"id": "content:guides-quality", "passed": passed}
+
+
+def _sensor_quality_check(ai: Path) -> dict[str, Any]:
+    required_sections = ["## 已发现的验证命令", "## 缺失验证能力", "## 推荐验证活动", "## 失败处理策略"]
+    sensor = ai / "sensors" / "verification.md"
+    text = sensor.read_text(encoding="utf-8") if sensor.exists() else ""
+    passed = all(section in text for section in required_sections) and "hard" in text
+    return {"id": "content:sensors-quality", "passed": passed}
+
+
+def _benchmark_task(profile: str) -> str:
+    if profile == "java-spring":
+        return "修复登录接口错误提示不一致的问题"
+    return "调整 Catalog 相关低风险文案"
