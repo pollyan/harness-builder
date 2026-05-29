@@ -7,9 +7,25 @@ import urllib.request
 import pytest
 
 
-@pytest.mark.skipif(os.getenv("RUN_LLM_E2E") != "1", reason="RUN_LLM_E2E is not enabled")
-@pytest.mark.skipif(not os.getenv("DEEPSEEK_API_KEY"), reason="DEEPSEEK_API_KEY is not configured")
+def _load_local_env() -> None:
+    env_path = os.path.join(os.getcwd(), ".env")
+    if not os.path.exists(env_path):
+        return
+
+    with open(env_path, encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+            key, value = stripped.split("=", 1)
+            os.environ.setdefault(key, value)
+
+
 def test_deepseek_real_llm_smoke():
+    _load_local_env()
+    if not os.getenv("DEEPSEEK_API_KEY"):
+        pytest.skip("DEEPSEEK_API_KEY is not configured")
+
     api_key = os.environ["DEEPSEEK_API_KEY"]
     base_url = os.getenv("HARNESS_BUILDER_LLM_BASE_URL", "https://api.deepseek.com").rstrip("/")
     model = os.getenv("HARNESS_BUILDER_LLM_MODEL", "deepseek-v4-pro")
