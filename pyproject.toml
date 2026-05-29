@@ -19,6 +19,9 @@ test = ["pytest>=9.0"]
 [project.scripts]
 harness-builder-agent = "harness_builder_agent.cli:main"
 
+[tool.setuptools.package-data]
+harness_builder_agent = ["templates/skills/*/SKILL.md"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 addopts = "-p no:cacheprovider"
