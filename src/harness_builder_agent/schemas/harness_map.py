@@ -14,5 +14,6 @@ class HarnessMap(BaseModel):
     confidence: dict[str, str] = Field(default_factory=dict)
     relevant_modules: list[str] = Field(default_factory=list)
     guide_policy: dict[str, list[str]] = Field(default_factory=dict)
+    workflow_skill: dict[str, Any] = Field(default_factory=dict)
     sensor_policy: dict[str, list[str]] = Field(default_factory=dict)
     human_confirmation: dict[str, Any] = Field(default_factory=lambda: {"required": False, "reasons": []})

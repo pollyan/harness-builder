@@ -34,6 +34,8 @@ def _assert_task_outputs(repo: Path, expected_workflow: str) -> None:
     assert harness_map.risk_level == "low"
     assert harness_map.guide_policy["required"]
     assert harness_map.sensor_policy["hard_gates"]
+    assert harness_map.workflow_skill["path"] == f".ai/skills/{expected_workflow}/SKILL.md"
+    assert (repo / harness_map.workflow_skill["path"]).exists()
 
     sensor_report = yaml.safe_load((task_dir / "sensor-report.yaml").read_text())
     assert sensor_report["task_id"] == "demo-task-001"
