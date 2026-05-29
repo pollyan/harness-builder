@@ -6,6 +6,8 @@ from typing import Optional
 import typer
 
 from harness_builder_agent.tools.benchmark import run_benchmark
+from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.run_task import run_task
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
@@ -41,6 +43,20 @@ def benchmark_command(
     typer.echo(f"Benchmark {report['status']} for {repo}")
     if report["status"] != "passed":
         raise typer.Exit(code=1)
+
+
+@app.command("assess")
+def assess_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
+    """Re-assess generated harness maturity and write maturity score assets."""
+    output_dir = assess_maturity(repo)
+    typer.echo(f"Updated maturity assets in {output_dir}")
+
+
+@app.command("improve")
+def improve_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
+    """Generate reviewable harness improvement candidates."""
+    output_dir = generate_improvements(repo)
+    typer.echo(f"Generated improvement candidates in {output_dir}")
 
 
 def main() -> None:
