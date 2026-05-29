@@ -5,6 +5,7 @@ from typing import Optional
 
 import typer
 
+from harness_builder_agent.tools.run_task import run_task
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
@@ -25,7 +26,8 @@ def run_command(
     repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True),
 ) -> None:
     """Generate a task-level harness map and controlled task handoff assets."""
-    typer.echo(f"run not implemented yet: {repo} :: {task}")
+    task_dir = run_task(repo, task)
+    typer.echo(f"Generated task run assets in {task_dir}")
 
 
 @app.command("benchmark")
