@@ -7,3 +7,4 @@ __pycache__/
 .ai/
 .DS_Store
 .benchmarks/
+*.egg-info/
