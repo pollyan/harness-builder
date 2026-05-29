@@ -5,12 +5,14 @@ from typing import Any
 
 import yaml
 
+from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.harness_map import HarnessMap
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.schemas.sensor_report import SensorReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.run_task import run_task
@@ -50,7 +52,7 @@ def run_benchmark(repo: Path, profile: str | None = None) -> dict[str, Any]:
         checks.append({"id": f"exists:{rel}", "passed": (ai / rel).exists(), "path": f".ai/{rel}"})
 
     checks.extend(_schema_checks(ai))
-    checks.extend(_content_checks(ai))
+    checks.extend(_content_checks(ai, inventory))
     if profile:
         checks.append({"id": "profile_matches_stack", "passed": profile == inventory.primary_stack, "expected": profile, "actual": inventory.primary_stack})
 
@@ -61,6 +63,9 @@ def run_benchmark(repo: Path, profile: str | None = None) -> dict[str, Any]:
         "status": "passed" if all(check["passed"] for check in checks) else "failed",
         "checks": checks,
     }
+    report["checks"].append({"id": "schema:benchmark-report", "passed": True})
+    report["status"] = "passed" if all(check["passed"] for check in report["checks"]) else "failed"
+    BenchmarkReport.model_validate(report)
     (ai / "benchmark-report.yaml").write_text(yaml.safe_dump(report, sort_keys=False, allow_unicode=True), encoding="utf-8")
     return report
 
@@ -86,6 +91,18 @@ def _schema_checks(ai: Path) -> list[dict[str, Any]]:
         checks.append({"id": "schema:harness-config", "passed": False, "error": str(exc)})
 
     try:
+        HarnessMap.model_validate(yaml.safe_load((ai / "task-runs" / "demo-task-001" / "harness-map.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:harness-map", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:harness-map", "passed": False, "error": str(exc)})
+
+    try:
+        SensorReport.model_validate(yaml.safe_load((ai / "task-runs" / "demo-task-001" / "sensor-report.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:sensor-report", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:sensor-report", "passed": False, "error": str(exc)})
+
+    try:
         MaturityReport.model_validate(yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8")))
         checks.append({"id": "schema:maturity-score", "passed": True})
     except Exception as exc:  # pragma: no cover
@@ -99,11 +116,12 @@ def _schema_checks(ai: Path) -> list[dict[str, Any]]:
     return checks
 
 
-def _content_checks(ai: Path) -> list[dict[str, Any]]:
+def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any]]:
     return [
         _workflow_skills_check(ai),
         _harness_map_skill_check(ai),
         _guide_quality_check(ai),
+        _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
     ]
 
@@ -144,6 +162,18 @@ def _sensor_quality_check(ai: Path) -> dict[str, Any]:
     text = sensor.read_text(encoding="utf-8") if sensor.exists() else ""
     passed = all(section in text for section in required_sections) and "hard" in text
     return {"id": "content:sensors-quality", "passed": passed}
+
+
+def _stack_specific_guide_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
+    guide = ai / "guides" / "project-context.md"
+    text = guide.read_text(encoding="utf-8") if guide.exists() else ""
+    if inventory.primary_stack == "java-spring":
+        passed = "Maven" in text and "登录" in text
+    elif inventory.primary_stack == "dotnet-aspnet":
+        passed = "solution" in text and "PublicApi" in text
+    else:
+        passed = "人工确认" in text
+    return {"id": "content:stack-specific-guides", "passed": passed, "stack": inventory.primary_stack}
 
 
 def _benchmark_task(profile: str) -> str:

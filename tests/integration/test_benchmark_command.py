@@ -27,7 +27,11 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path):
     assert "content:workflow-skills" in check_ids
     assert "content:harness-map-workflow-skill" in check_ids
     assert "content:guides-quality" in check_ids
+    assert "content:stack-specific-guides" in check_ids
     assert "content:sensors-quality" in check_ids
+    assert "schema:harness-map" in check_ids
+    assert "schema:sensor-report" in check_ids
+    assert "schema:benchmark-report" in check_ids
     assert "schema:maturity-score" in check_ids
     assert "schema:improvement-candidates" in check_ids
     assert (repo / ".ai" / "task-runs" / "demo-task-001" / "harness-map.yaml").exists()
@@ -47,6 +51,10 @@ def test_benchmark_generates_report_for_dotnet_fixture(tmp_path: Path):
     assert "content:workflow-skills" in check_ids
     assert "content:harness-map-workflow-skill" in check_ids
     assert "content:guides-quality" in check_ids
+    assert "content:stack-specific-guides" in check_ids
     assert "content:sensors-quality" in check_ids
+    assert "schema:harness-map" in check_ids
+    assert "schema:sensor-report" in check_ids
+    assert "schema:benchmark-report" in check_ids
     assert "schema:maturity-score" in check_ids
     assert "schema:improvement-candidates" in check_ids
