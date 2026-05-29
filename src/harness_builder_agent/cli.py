@@ -5,6 +5,7 @@ from typing import Optional
 
 import typer
 
+from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.run_task import run_task
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
@@ -36,7 +37,10 @@ def benchmark_command(
     profile: Optional[str] = typer.Option(None, "--profile"),
 ) -> None:
     """Run benchmark checks for a fixture or real target repository."""
-    typer.echo(f"benchmark not implemented yet: {repo} :: {profile or 'auto'}")
+    report = run_benchmark(repo, profile)
+    typer.echo(f"Benchmark {report['status']} for {repo}")
+    if report["status"] != "passed":
+        raise typer.Exit(code=1)
 
 
 def main() -> None:
