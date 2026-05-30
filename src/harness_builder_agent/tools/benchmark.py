@@ -45,6 +45,10 @@ REQUIRED_FILES = [
     "skills/lightweight/SKILL.md",
     "skills/bugfix/SKILL.md",
     "improvement-candidates.yaml",
+    "review/llm-enhancement-candidates.md",
+    "review/candidate-guides.md",
+    "review/candidate-sensors.md",
+    "experience/weapon-library-candidates.yaml",
 ]
 
 
@@ -78,6 +82,7 @@ def run_benchmark(repo: Path, profile: str | None = None, trace: GenerationTrace
     checks.extend(_generation_trace_checks(ai))
     checks.extend(_runtime_trace_checks(ai))
     checks.extend(_human_confirmation_checks(ai))
+    checks.extend(_llm_enhancement_checks(ai))
     checks.extend(_content_checks(ai, inventory))
     if profile:
         checks.append({"id": "profile_matches_stack", "passed": profile == inventory.primary_stack, "expected": profile, "actual": inventory.primary_stack})
@@ -291,6 +296,34 @@ def _human_confirmation_checks(ai: Path) -> list[dict[str, Any]]:
             "id": "content:human-confirmation",
             "passed": required_ids.issubset(ids) and "# Human Input Needed" in human_input,
             "required_question_count": len(required_ids),
+        }
+    )
+    return checks
+
+
+def _llm_enhancement_checks(ai: Path) -> list[dict[str, Any]]:
+    report_path = ai / "experience" / "weapon-library-candidates.yaml"
+    try:
+        report = yaml.safe_load(report_path.read_text(encoding="utf-8"))
+        candidates = report.get("candidates", [])
+        schema_passed = report.get("schema_version") == "1.0" and report.get("source") == "llm_scan_proposal" and bool(candidates)
+        checks = [{"id": "schema:weapon-library-candidates", "passed": schema_passed, "candidate_count": len(candidates)}]
+    except Exception as exc:  # pragma: no cover
+        return [
+            {"id": "schema:weapon-library-candidates", "passed": False, "error": str(exc)},
+            {"id": "content:llm-enhancement-candidates", "passed": False, "error": "candidate report unavailable"},
+        ]
+
+    review_text = (
+        (ai / "review" / "llm-enhancement-candidates.md").read_text(encoding="utf-8")
+        if (ai / "review" / "llm-enhancement-candidates.md").exists()
+        else ""
+    )
+    checks.append(
+        {
+            "id": "content:llm-enhancement-candidates",
+            "passed": all(item.get("status") == "candidate" and item.get("human_confirmation_required") is True for item in candidates)
+            and "candidate" in review_text.lower(),
         }
     )
     return checks

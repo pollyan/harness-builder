@@ -123,6 +123,9 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:runtime-workflow-trace" in check_ids
     assert "schema:questionnaire" in check_ids
     assert "content:human-confirmation" in check_ids
+    assert "exists:review/llm-enhancement-candidates.md" in check_ids
+    assert "schema:weapon-library-candidates" in check_ids
+    assert "content:llm-enhancement-candidates" in check_ids
     assert (repo / ".ai" / "task-runs" / "demo-task-001" / "harness-map.yaml").exists()
     trace = _latest_trace(repo)
     assert trace["command"] == "benchmark"
