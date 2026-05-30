@@ -24,10 +24,11 @@ def run_task(repo: Path, task: str, task_id: str = "demo-task-001") -> Path:
     commands = CommandCatalog.model_validate(yaml.safe_load((ai / "command-catalog.yaml").read_text(encoding="utf-8")))
     task_type = _task_type(task)
     hard_gates = [command.id for command in commands.commands if command.gate == "hard"]
+    selected_workflow = "bugfix" if task_type == "bugfix" else "lightweight"
     harness_map = HarnessMap(
         task_id=task_id,
         task_type=task_type,
-        selected_workflow="bugfix" if task_type == "bugfix" else "lightweight",
+        selected_workflow=selected_workflow,
         risk_level="low",
         confidence={
             "requirement_clarity": "medium",
@@ -42,6 +43,7 @@ def run_task(repo: Path, task: str, task_id: str = "demo-task-001") -> Path:
                 f".ai/guides/task-templates/{'bugfix' if task_type == 'bugfix' else 'lightweight-feature'}.md",
             ]
         },
+        workflow_skill={"path": f".ai/skills/{selected_workflow}/SKILL.md", "source": "builtin_template", "editable_by_user": True},
         sensor_policy={"hard_gates": hard_gates[:1], "soft_signals": [command.id for command in commands.commands if command.gate == "soft"]},
         human_confirmation={"required": False, "reasons": []},
     )

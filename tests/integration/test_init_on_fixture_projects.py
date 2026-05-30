@@ -28,6 +28,7 @@ def _assert_init_outputs(repo: Path) -> None:
     assert (ai / "harness-config.yaml").exists()
     assert (ai / "scan-report.md").exists()
     assert (ai / "maturity-report.md").exists()
+    assert (ai / "maturity-score.yaml").exists()
     assert (ai / "evolution-plan.md").exists()
     assert (ai / "guides" / "project-context.md").exists()
     assert (ai / "guides" / "coding-rules.md").exists()
@@ -36,10 +37,30 @@ def _assert_init_outputs(repo: Path) -> None:
     assert (ai / "guides" / "task-templates" / "lightweight-feature.md").exists()
     assert (ai / "sensors" / "verification.md").exists()
     assert (ai / "sensors" / "test-strategy.md").exists()
+    assert (ai / "skills" / "lightweight" / "SKILL.md").exists()
+    assert (ai / "skills" / "bugfix" / "SKILL.md").exists()
 
     ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text())
     CommandCatalog.model_validate(yaml.safe_load((ai / "command-catalog.yaml").read_text()))
-    HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text()))
+    config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text()))
+    assert config.workflows["lightweight"].skill_path == ".ai/skills/lightweight/SKILL.md"
+    assert config.workflows["bugfix"].skill_path == ".ai/skills/bugfix/SKILL.md"
+
+    project_context = (ai / "guides" / "project-context.md").read_text(encoding="utf-8")
+    assert "## 当前项目事实" in project_context
+    assert "## Harness Builder 推荐补齐项" in project_context
+    assert "## 人工确认点" in project_context
+
+    verification = (ai / "sensors" / "verification.md").read_text(encoding="utf-8")
+    assert "## 已发现的验证命令" in verification
+    assert "## 缺失验证能力" in verification
+    assert "## 推荐验证活动" in verification
+    assert "## 失败处理策略" in verification
+
+    lightweight_skill = (ai / "skills" / "lightweight" / "SKILL.md").read_text(encoding="utf-8")
+    bugfix_skill = (ai / "skills" / "bugfix" / "SKILL.md").read_text(encoding="utf-8")
+    assert "轻量级开发工作流" in lightweight_skill
+    assert "缺陷修复工作流" in bugfix_skill
 
 
 def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path):

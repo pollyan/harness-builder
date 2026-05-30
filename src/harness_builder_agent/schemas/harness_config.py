@@ -10,6 +10,7 @@ class RuntimeConfig(BaseModel):
 
 
 class WorkflowDefinition(BaseModel):
+    skill_path: str
     stages: list[str]
 
 
@@ -29,6 +30,7 @@ class HarnessConfig(BaseModel):
         return cls(
             workflows={
                 "lightweight": WorkflowDefinition(
+                    skill_path=".ai/skills/lightweight/SKILL.md",
                     stages=[
                         "requirement_brief",
                         "harness_mapping",
@@ -38,6 +40,7 @@ class HarnessConfig(BaseModel):
                     ]
                 ),
                 "bugfix": WorkflowDefinition(
+                    skill_path=".ai/skills/bugfix/SKILL.md",
                     stages=[
                         "observe",
                         "root_cause_investigation",

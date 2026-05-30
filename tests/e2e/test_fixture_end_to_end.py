@@ -43,11 +43,25 @@ def test_fixture_cli_end_to_end_for_java_and_dotnet(tmp_path: Path):
         run_result = _run_cli(repo, "run", "--repo", str(repo), task)
         assert run_result.returncode == 0, run_result.stderr + run_result.stdout
 
+        assess_result = _run_cli(repo, "assess", "--repo", str(repo))
+        assert assess_result.returncode == 0, assess_result.stderr + assess_result.stdout
+
+        improve_result = _run_cli(repo, "improve", "--repo", str(repo))
+        assert improve_result.returncode == 0, improve_result.stderr + improve_result.stdout
+
         benchmark_result = _run_cli(repo, "benchmark", "--repo", str(repo), "--profile", profile)
         assert benchmark_result.returncode == 0, benchmark_result.stderr + benchmark_result.stdout
 
         task_dir = repo / ".ai" / "task-runs" / "demo-task-001"
         assert (task_dir / "harness-map.yaml").exists()
         assert (task_dir / "sensor-report.yaml").exists()
+        assert (repo / ".ai" / "skills" / "lightweight" / "SKILL.md").exists()
+        assert (repo / ".ai" / "skills" / "bugfix" / "SKILL.md").exists()
+        assert (repo / ".ai" / "maturity-score.yaml").exists()
+        assert (repo / ".ai" / "improvement-candidates.yaml").exists()
         report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text())
         assert report["status"] == "passed"
+        check_ids = {check["id"] for check in report["checks"]}
+        assert "content:workflow-skills" in check_ids
+        assert "content:guides-quality" in check_ids
+        assert "content:sensors-quality" in check_ids

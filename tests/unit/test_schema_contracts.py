@@ -48,5 +48,7 @@ def test_harness_config_has_lightweight_and_bugfix_workflows():
     workflow_names = set(config.workflows.keys())
 
     assert {"lightweight", "bugfix"}.issubset(workflow_names)
+    assert config.workflows["lightweight"].skill_path == ".ai/skills/lightweight/SKILL.md"
+    assert config.workflows["bugfix"].skill_path == ".ai/skills/bugfix/SKILL.md"
     assert config.runtime.default_workflow == "lightweight"
     assert config.sensors.max_repair_attempts == 1
