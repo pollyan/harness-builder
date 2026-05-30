@@ -11,6 +11,7 @@ from harness_builder_agent.tools.generate_asset_candidates import generate_asset
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
+from harness_builder_agent.tools.recommend_workflow import recommend_workflow
 from harness_builder_agent.tools.review_maturity import review_maturity
 from harness_builder_agent.tools.summarize_experience import summarize_experience
 
@@ -138,6 +139,28 @@ def generate_asset_candidates_command(repo: Path = typer.Option(..., "--repo", e
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
     typer.echo(f"Generated asset candidates in {output_dir / 'review'}")
+
+
+@app.command("recommend-workflow")
+def recommend_workflow_command(
+    repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True),
+    task: str = typer.Option(..., "--task", help="Task brief to evaluate against the workflow routing policy."),
+    task_id: str = typer.Option("manual-task", "--task-id", help="Stable task id for the recommendation artifact."),
+) -> None:
+    """Generate a review-only workflow recommendation for a task brief."""
+    trace = GenerationTrace.start(repo, "recommend-workflow")
+    try:
+        trace.event("workflow-recommendation", "started", "Workflow recommendation started.", {"task_id": task_id})
+        output_dir = recommend_workflow(repo, task_brief=task, task_id=task_id)
+        trace.artifact(output_dir / "review" / "workflow-routing-recommendation.yaml", "workflow_recommendation")
+        trace.artifact(output_dir / "review" / "workflow-routing-recommendation.md", "review")
+        trace.event("workflow-recommendation", "completed", "Workflow recommendation completed.", {"artifact_count": 2})
+        trace.finish("completed", {"artifact_count": 2})
+    except Exception as exc:
+        trace.event("workflow-recommendation", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Generated workflow recommendation in {output_dir / 'review'}")
 
 
 @app.command("summarize-experience")

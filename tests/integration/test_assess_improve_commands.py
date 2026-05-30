@@ -11,6 +11,7 @@ from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
+from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -340,6 +341,60 @@ def test_generate_asset_candidates_writes_review_only_drafts(tmp_path: Path, mon
     assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == formal_guide_before
     trace = _latest_trace(repo)
     assert trace["command"] == "generate-asset-candidates"
+
+
+def test_recommend_workflow_writes_review_only_artifacts(tmp_path: Path, monkeypatch):
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+
+    def fake_recommendation(task_id, task_brief, config, evidence_pack, caller=None, llm_config=None):
+        assert task_id == "task-1"
+        assert task_brief == "Fix checkout permission bug."
+        assert "bugfix" in config.workflows
+        assert evidence_pack.harness_assets.workflow_routing_rules
+        return WorkflowRecommendationReport(
+            task_id=task_id,
+            task_brief=task_brief,
+            recommended_workflow="bugfix",
+            matched_rule_ids=["bugfix-intent"],
+            risk_level="medium",
+            confidence="high",
+            rationale="Bugfix intent matches the configured bugfix routing rule.",
+            required_guides=[".ai/guides/task-templates/bugfix.md"],
+            required_sensors=[".ai/sensors/verification.md"],
+            human_confirmation_required=False,
+            evidence_sources=[".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.recommend_workflow.recommend_workflow_with_llm", fake_recommendation)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "recommend-workflow",
+            "--repo",
+            str(repo),
+            "--task",
+            "Fix checkout permission bug.",
+            "--task-id",
+            "task-1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    yaml_path = repo / ".ai" / "review" / "workflow-routing-recommendation.yaml"
+    markdown_path = repo / ".ai" / "review" / "workflow-routing-recommendation.md"
+    recommendation = WorkflowRecommendationReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+    markdown = markdown_path.read_text(encoding="utf-8")
+    assert recommendation.recommended_workflow == "bugfix"
+    assert recommendation.review_status == "pending_harness_maintainer_review"
+    assert "bugfix-intent" in recommendation.matched_rule_ids
+    assert "# Workflow Routing Recommendation" in markdown
+    assert "pending_harness_maintainer_review" in markdown
+    assert not (repo / ".ai" / "task-runs").exists()
+    trace = _latest_trace(repo)
+    assert trace["command"] == "recommend-workflow"
+    artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
+    assert {"path": ".ai/review/workflow-routing-recommendation.yaml", "kind": "workflow_recommendation"} in artifacts["artifacts"]
 
 
 def test_summarize_experience_writes_review_only_summary(tmp_path: Path, monkeypatch):

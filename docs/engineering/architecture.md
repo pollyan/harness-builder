@@ -10,6 +10,7 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - `assess`：生成或更新成熟度评估。
 - `improve`：生成待确认的改进候选。
 - `benchmark`：对完整链路产物做结构、内容和质量门禁检查。
+- `recommend-workflow`：基于任务 brief、`workflow_routing` 和成熟度证据生成 review-only workflow 推荐，不执行 Runtime。
 
 当前主要目录职责：
 
@@ -73,6 +74,7 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - 生成 JSON/YAML 必须符合 schema。
 - Workflow Skill 当前来自固定模板，内置模板包括 `lightweight`、`bugfix` 和 `standard`，不做动态 LLM 生成。
 - `harness-config.yaml` 必须包含可被宿主 Runtime 消费的 workflow definitions 和 `workflow_routing` 策略；Builder 只生成策略契约，不执行任务路由。
+- `recommend-workflow` 只能输出 `.ai/review/workflow-routing-recommendation.*` 审查产物；正式任务执行、Harness Map 和 `.ai/task-runs` 仍由宿主 Runtime 承担。
 - 如果 writer 文件持续膨胀，应优先按产物类型拆分，而不是继续堆在单文件中。
 
 ### 武器库层

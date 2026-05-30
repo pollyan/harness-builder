@@ -16,6 +16,7 @@ from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.sensor_report import SensorReport
 from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceBucketCoverage, EvidenceCoverage, EvidenceFile, ScanMetadata
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 
 
 def test_project_inventory_records_stack_modules_and_evidence():
@@ -567,6 +568,42 @@ def test_asset_candidate_report_rejects_invalid_kind():
                         "draft_content": "content",
                     }
                 ]
+            }
+        )
+
+
+def test_workflow_recommendation_report_records_review_only_routing_judgment():
+    report = WorkflowRecommendationReport.model_validate(
+        {
+            "task_id": "task-1",
+            "task_brief": "Fix checkout permission bug.",
+            "recommended_workflow": "bugfix",
+            "matched_rule_ids": ["bugfix-intent"],
+            "risk_level": "medium",
+            "confidence": "high",
+            "rationale": "Bugfix intent matches the configured routing rule.",
+            "required_guides": [".ai/guides/task-templates/bugfix.md"],
+            "required_sensors": [".ai/sensors/verification.md"],
+            "human_confirmation_required": False,
+            "review_status": "pending_harness_maintainer_review",
+            "evidence_sources": [".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+        }
+    )
+
+    assert report.schema_version == "1.0"
+    assert report.recommended_workflow == "bugfix"
+    assert report.review_status == "pending_harness_maintainer_review"
+
+
+def test_workflow_recommendation_report_rejects_invalid_review_status():
+    with pytest.raises(ValidationError):
+        WorkflowRecommendationReport.model_validate(
+            {
+                "task_id": "task-1",
+                "task_brief": "Fix checkout permission bug.",
+                "recommended_workflow": "bugfix",
+                "rationale": "Bad status.",
+                "review_status": "applied",
             }
         )
 

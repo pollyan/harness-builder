@@ -23,7 +23,7 @@
 
 ## Task 1: Schema and Parser
 
-- [ ] **Step 1: Add failing unit tests**
+- [x] **Step 1: Add failing unit tests**
 
 Create `tests/unit/test_llm_workflow_router.py` with tests for:
 
@@ -61,7 +61,7 @@ def test_parse_workflow_recommendation_accepts_valid_response():
     assert report.review_status == "pending_harness_maintainer_review"
 ```
 
-- [ ] **Step 2: Run tests and confirm failure**
+- [x] **Step 2: Run tests and confirm failure**
 
 Run:
 
@@ -71,7 +71,7 @@ Run:
 
 Expected: fail because module/schema do not exist.
 
-- [ ] **Step 3: Add schema and parser**
+- [x] **Step 3: Add schema and parser**
 
 Create `schemas/workflow_recommendation.py` with `WorkflowRecommendationReport`.
 
@@ -90,7 +90,7 @@ Parser requirements:
 - reject unknown `matched_rule_ids`;
 - reject evidence sources not under `.ai/`.
 
-- [ ] **Step 4: Run unit tests and confirm pass**
+- [x] **Step 4: Run unit tests and confirm pass**
 
 Run:
 
@@ -100,7 +100,7 @@ Run:
 
 ## Task 2: Orchestrator and CLI
 
-- [ ] **Step 1: Add failing integration test**
+- [x] **Step 1: Add failing integration test**
 
 In `tests/integration/test_assess_improve_commands.py`, add `test_recommend_workflow_writes_review_only_artifacts`.
 
@@ -114,7 +114,7 @@ The test should:
 - assert selected workflow is `bugfix`;
 - assert `.ai/task-runs` does not exist.
 
-- [ ] **Step 2: Run integration test and confirm failure**
+- [x] **Step 2: Run integration test and confirm failure**
 
 Run:
 
@@ -124,7 +124,7 @@ Run:
 
 Expected: fail because command does not exist.
 
-- [ ] **Step 3: Add orchestrator and CLI command**
+- [x] **Step 3: Add orchestrator and CLI command**
 
 Create `tools/recommend_workflow.py`:
 
@@ -146,19 +146,19 @@ Trace artifacts:
 - `.ai/review/workflow-routing-recommendation.yaml`
 - `.ai/review/workflow-routing-recommendation.md`
 
-- [ ] **Step 4: Run integration test and confirm pass**
+- [x] **Step 4: Run integration test and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 3: Docs and Verification
 
-- [ ] **Step 1: Update engineering docs**
+- [x] **Step 1: Update engineering docs**
 
 In `docs/engineering/llm-contracts.md`, add workflow recommendation as a structured LLM output and state that failures must be explicit with no deterministic fallback.
 
 In `docs/engineering/architecture.md`, add `recommend-workflow` to current core commands as review-only task routing recommendation, not runtime execution.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run:
 
@@ -166,7 +166,7 @@ Run:
 .venv/bin/python -m pytest tests/unit/test_llm_workflow_router.py tests/integration/test_assess_improve_commands.py::test_recommend_workflow_writes_review_only_artifacts -q
 ```
 
-- [ ] **Step 3: Run fast regression**
+- [x] **Step 3: Run fast regression**
 
 Run:
 
@@ -174,13 +174,22 @@ Run:
 scripts/test-fast.sh
 ```
 
-- [ ] **Step 4: Self-Harness Improvement Gate**
+- [x] **Step 4: Self-Harness Improvement Gate**
 
 Record result here:
 
 - Schema, parser, prompt, CLI integration, and docs cover the recommendation contract.
 - No `.ai/task-runs` generation is introduced.
 - Next candidate gap: benchmark check for recommendation artifacts if/when they become required, or runtime handoff contract refinement.
+
+Result:
+
+- Focused regression: `10 passed`.
+- Fast regression: `136 passed`.
+- Schema, parser, prompt, CLI integration, trace artifact recording, and docs cover review-only workflow recommendations.
+- The CLI writes `.ai/review/workflow-routing-recommendation.yaml` and `.md`.
+- Runtime boundary remains intact: no `.ai/task-runs` generation and no workflow execution.
+- Next candidate gap: benchmark/advisory check for optional workflow recommendation artifacts, or runtime handoff contract refinement.
 
 - [ ] **Step 5: Commit**
 
