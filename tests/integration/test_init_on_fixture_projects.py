@@ -193,3 +193,14 @@ def test_init_generates_ai_assets_for_dotnet_fixture(tmp_path: Path, monkeypatch
     _assert_init_outputs(repo, "dotnet-aspnet")
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text())
     assert inventory["primary_stack"] == "dotnet-aspnet"
+
+
+def test_init_defaults_to_current_working_directory(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr("harness_builder_agent.cli.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(app, ["init"])
+
+    assert result.exit_code == 0, result.output
+    _assert_init_outputs(repo, "java-spring")
