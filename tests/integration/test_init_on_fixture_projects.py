@@ -217,7 +217,7 @@ def test_init_defaults_to_current_working_directory(tmp_path: Path, monkeypatch)
 
 def test_init_non_tty_requires_explicit_non_interactive(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
-    shutil.rmtree(repo / ".ai")
+    shutil.rmtree(repo / ".ai", ignore_errors=True)
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
 
     result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="")
