@@ -11,8 +11,9 @@ from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
 from harness_builder_agent.tools.asset_writers.core import llm_scan_proposal, scan_metadata, write_core_assets
+from harness_builder_agent.tools.asset_writers.human_confirmation import write_human_confirmation_assets
 from harness_builder_agent.tools.generation_trace import GenerationTrace
-from harness_builder_agent.tools.human_confirmation import build_questionnaire, human_input_markdown, read_context_inputs
+from harness_builder_agent.tools.human_confirmation import build_questionnaire, read_context_inputs
 from harness_builder_agent.tools.llm_enhancement_candidates import (
     build_llm_enhancement_candidates,
     candidate_guides_markdown,
@@ -70,12 +71,7 @@ def write_initial_assets(
         weapon_selection,
         trace=trace,
     )
-    _write_yaml(ai / "context-inputs.yaml", context_inputs)
-    _record_artifact(trace, ai / "context-inputs.yaml", "context_inputs")
-    _write_yaml(ai / "questionnaire.yaml", questionnaire)
-    _record_artifact(trace, ai / "questionnaire.yaml", "questionnaire")
-    _write_text(ai / "human-input-needed.md", human_input_markdown(context_inputs, questionnaire))
-    _record_artifact(trace, ai / "human-input-needed.md", "human_confirmation")
+    write_human_confirmation_assets(ai, context_inputs, questionnaire, trace=trace)
     if trace:
         trace.event(
             "human-confirmation",
