@@ -68,6 +68,28 @@ def _passed_sensor(_repo, command):
     }
 
 
+def _failed_sensor(_repo, command):
+    return {
+        "id": command.id,
+        "command": command.command,
+        "status": "failed",
+        "exit_code": 1,
+        "duration_seconds": 0.01,
+        "summary": "Sensor failed.",
+    }
+
+
+def _skipped_sensor(_repo, command):
+    return {
+        "id": command.id,
+        "command": command.command,
+        "status": "skipped",
+        "exit_code": None,
+        "duration_seconds": 0.0,
+        "summary": "Executable missing.",
+    }
+
+
 def _prepared_repo(tmp_path: Path, fixture_name: str, primary_stack: str, monkeypatch) -> Path:
     repo = tmp_path / fixture_name
     shutil.copytree(FIXTURES / fixture_name, repo)
@@ -141,3 +163,44 @@ def test_run_generates_lightweight_control_loop_outputs(tmp_path: Path, monkeypa
 
     assert result.exit_code == 0, result.output
     _assert_task_outputs(repo, "lightweight")
+
+
+def test_run_records_failed_sensor_status(tmp_path: Path, monkeypatch):
+    repo = _prepared_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    monkeypatch.setattr("harness_builder_agent.tools.run_task.run_sensor", _failed_sensor)
+
+    result = CliRunner().invoke(app, ["run", "--repo", str(repo), "修复登录接口错误提示不一致的问题"])
+
+    assert result.exit_code == 0, result.output
+    task_dir = repo / ".ai" / "task-runs" / "demo-task-001"
+    report = yaml.safe_load((task_dir / "sensor-report.yaml").read_text(encoding="utf-8"))
+    runtime = yaml.safe_load((task_dir / "runtime-summary.yaml").read_text(encoding="utf-8"))
+    assert report["sensor_results"][0]["status"] == "failed"
+    assert runtime["sensor_statuses"]["unit_test"] == "failed"
+    assert runtime["unresolved_sensor_count"] == 1
+
+
+def test_run_records_skipped_sensor_status(tmp_path: Path, monkeypatch):
+    repo = _prepared_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    monkeypatch.setattr("harness_builder_agent.tools.run_task.run_sensor", _skipped_sensor)
+
+    result = CliRunner().invoke(app, ["run", "--repo", str(repo), "修复登录接口错误提示不一致的问题"])
+
+    assert result.exit_code == 0, result.output
+    task_dir = repo / ".ai" / "task-runs" / "demo-task-001"
+    report = yaml.safe_load((task_dir / "sensor-report.yaml").read_text(encoding="utf-8"))
+    runtime = yaml.safe_load((task_dir / "runtime-summary.yaml").read_text(encoding="utf-8"))
+    assert report["sensor_results"][0]["status"] == "skipped"
+    assert runtime["sensor_statuses"]["unit_test"] == "skipped"
+    assert runtime["unresolved_sensor_count"] == 1
+
+
+def test_run_marks_missing_guide_in_used_guides(tmp_path: Path, monkeypatch):
+    repo = _prepared_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    (repo / ".ai" / "guides" / "architecture.md").unlink()
+
+    result = CliRunner().invoke(app, ["run", "--repo", str(repo), "修复登录接口错误提示不一致的问题"])
+
+    assert result.exit_code == 0, result.output
+    used_guides = yaml.safe_load((repo / ".ai" / "task-runs" / "demo-task-001" / "used-guides.yaml").read_text(encoding="utf-8"))
+    assert any(item["path"] == ".ai/guides/architecture.md" and item["exists"] is False for item in used_guides["required_guides"])
