@@ -52,6 +52,7 @@ class ExperienceEvidence(BaseModel):
     has_experience_index: bool = False
     asset_candidate_count: int = 0
     maturity_review_count: int = 0
+    workflow_recommendation_count: int = 0
     runtime_task_run_count: int = 0
     experience_file_count: int = 0
     has_experience_summary: bool = False

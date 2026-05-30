@@ -51,6 +51,7 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
             "pending_improvement_count": 2,
             "asset_candidate_count": 3,
             "maturity_review_count": 1,
+            "workflow_recommendation_count": 1,
             "runtime_task_run_count": 4,
             "warnings": [],
         },
@@ -75,11 +76,13 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
 
     assert ".ai/experience/experience-index.yaml" in pack.maturity_inputs
     assert ".ai/experience/experience-summary.yaml" in pack.maturity_inputs
+    assert ".ai/review/workflow-routing-recommendation.yaml" in pack.maturity_inputs
     assert pack.experience.has_experience_index is True
     assert pack.experience.has_pending_improvements is True
     assert pack.experience.pending_improvement_count == 2
     assert pack.experience.asset_candidate_count == 3
     assert pack.experience.maturity_review_count == 1
+    assert pack.experience.workflow_recommendation_count == 1
     assert pack.experience.runtime_task_run_count == 4
     assert pack.experience.experience_file_count == 5
     assert pack.experience.has_experience_summary is True

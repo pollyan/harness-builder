@@ -35,6 +35,7 @@ MATURITY_INPUTS = [
     ".ai/experience/experience-index.yaml",
     ".ai/experience/experience-summary.yaml",
     ".ai/experience/pending-improvements.md",
+    ".ai/review/workflow-routing-recommendation.yaml",
     ".ai/benchmark-report.yaml",
 ]
 
@@ -170,6 +171,7 @@ def _experience(ai: Path) -> ExperienceEvidence:
             has_experience_index=True,
             asset_candidate_count=index.asset_candidate_count,
             maturity_review_count=index.maturity_review_count,
+            workflow_recommendation_count=index.workflow_recommendation_count,
             runtime_task_run_count=index.runtime_task_run_count,
             experience_file_count=experience_file_count,
             has_experience_summary=summary is not None,

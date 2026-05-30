@@ -620,11 +620,13 @@ def test_experience_index_records_sources_and_counts():
                 "deprecated-experience.md": True,
             },
             "sources": [
-                {"path": ".ai/experience/pending-improvements.md", "kind": "pending_improvements", "item_count": 2}
+                {"path": ".ai/experience/pending-improvements.md", "kind": "pending_improvements", "item_count": 2},
+                {"path": ".ai/review/workflow-routing-recommendation.yaml", "kind": "workflow_recommendation", "item_count": 1},
             ],
             "pending_improvement_count": 2,
             "asset_candidate_count": 1,
             "maturity_review_count": 1,
+            "workflow_recommendation_count": 1,
             "runtime_task_run_count": 0,
             "warnings": ["runtime task-runs absent"],
         }
@@ -632,6 +634,8 @@ def test_experience_index_records_sources_and_counts():
 
     assert index.schema_version == "1.0"
     assert index.sources[0].kind == "pending_improvements"
+    assert index.sources[1].kind == "workflow_recommendation"
+    assert index.workflow_recommendation_count == 1
 
 
 def test_experience_summary_report_records_review_only_findings():
