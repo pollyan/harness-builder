@@ -30,6 +30,9 @@ REQUIRED_FILES = [
     "scan-metadata.yaml",
     "llm-scan-proposal.json",
     "weapon-library-selection.yaml",
+    "context-inputs.yaml",
+    "questionnaire.yaml",
+    "human-input-needed.md",
     "scan-report.md",
     "maturity-report.md",
     "maturity-score.yaml",
@@ -74,6 +77,7 @@ def run_benchmark(repo: Path, profile: str | None = None, trace: GenerationTrace
     checks.extend(_schema_checks(ai))
     checks.extend(_generation_trace_checks(ai))
     checks.extend(_runtime_trace_checks(ai))
+    checks.extend(_human_confirmation_checks(ai))
     checks.extend(_content_checks(ai, inventory))
     if profile:
         checks.append({"id": "profile_matches_stack", "passed": profile == inventory.primary_stack, "expected": profile, "actual": inventory.primary_stack})
@@ -264,6 +268,31 @@ def _runtime_trace_checks(ai: Path) -> list[dict[str, Any]]:
         )
     except Exception as exc:  # pragma: no cover
         checks.append({"id": "content:runtime-workflow-trace", "passed": False, "error": str(exc)})
+    return checks
+
+
+def _human_confirmation_checks(ai: Path) -> list[dict[str, Any]]:
+    try:
+        questionnaire = yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8"))
+        questions = questionnaire.get("questions", [])
+        schema_passed = questionnaire.get("schema_version") == "1.0" and bool(questions)
+        checks = [{"id": "schema:questionnaire", "passed": schema_passed, "question_count": len(questions)}]
+    except Exception as exc:  # pragma: no cover
+        return [
+            {"id": "schema:questionnaire", "passed": False, "error": str(exc)},
+            {"id": "content:human-confirmation", "passed": False, "error": "questionnaire unavailable"},
+        ]
+
+    ids = {item.get("interaction_id") for item in questions}
+    required_ids = {"confirm:team-context", "confirm:guide-candidates", "confirm:sensor-gates"}
+    human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8") if (ai / "human-input-needed.md").exists() else ""
+    checks.append(
+        {
+            "id": "content:human-confirmation",
+            "passed": required_ids.issubset(ids) and "# Human Input Needed" in human_input,
+            "required_question_count": len(required_ids),
+        }
+    )
     return checks
 
 
