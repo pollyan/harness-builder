@@ -43,6 +43,12 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
 .venv/bin/harness-builder-agent benchmark --repo tests/fixtures/mini-spring-boot --profile java-spring
 ```
 
+`init` 默认是本地人机引导式向导，会展示扫描结论、询问团队 context、确认 candidate 处理方式，并生成 `.ai/interaction-decisions.yaml`。自动化、测试、CI 或 acceptance 场景必须显式使用非交互模式：
+
+```bash
+.venv/bin/harness-builder-agent init --non-interactive --repo tests/fixtures/mini-spring-boot
+```
+
 `init` 会在目标仓库生成 `.ai/`：
 
 ```text
@@ -53,6 +59,7 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
   scan-metadata.yaml
   llm-scan-proposal.json
   weapon-library-selection.yaml
+  interaction-decisions.yaml
   guides/
   sensors/
   skills/
@@ -89,13 +96,13 @@ git clone --depth 1 https://github.com/dotnet-architecture/eShopOnWeb.git .bench
 运行完整链路：
 
 ```bash
-.venv/bin/harness-builder-agent init --repo .benchmarks/RuoYi-Vue
+.venv/bin/harness-builder-agent init --non-interactive --repo .benchmarks/RuoYi-Vue
 .venv/bin/harness-builder-agent run --repo .benchmarks/RuoYi-Vue "修复登录接口错误提示不一致的问题"
 .venv/bin/harness-builder-agent assess --repo .benchmarks/RuoYi-Vue
 .venv/bin/harness-builder-agent improve --repo .benchmarks/RuoYi-Vue
 .venv/bin/harness-builder-agent benchmark --repo .benchmarks/RuoYi-Vue --profile java-spring
 
-.venv/bin/harness-builder-agent init --repo .benchmarks/eShopOnWeb
+.venv/bin/harness-builder-agent init --non-interactive --repo .benchmarks/eShopOnWeb
 .venv/bin/harness-builder-agent run --repo .benchmarks/eShopOnWeb "调整 Catalog 相关低风险文案"
 .venv/bin/harness-builder-agent assess --repo .benchmarks/eShopOnWeb
 .venv/bin/harness-builder-agent improve --repo .benchmarks/eShopOnWeb

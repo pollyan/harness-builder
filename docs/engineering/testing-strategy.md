@@ -150,7 +150,12 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 
 - Java Spring fixture。
 - .NET ASP.NET fixture。
+- 默认 guided init happy path。
+- 非 TTY 未显式传 `--non-interactive` 时失败。
+- `--non-interactive` 自动化兼容。
 - `--context` 输入。
+- `--context` 和交互输入进入 generated guides。
+- `interaction-decisions.yaml` schema 和 trace artifact。
 - `project-inventory.json` schema。
 - `command-catalog.yaml` schema。
 - `llm-scan-proposal.json` schema。

@@ -169,9 +169,12 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     artifact_paths = {item["path"] for item in artifacts["artifacts"]}
     assert ".ai/project-inventory.json" in artifact_paths
     assert ".ai/llm-scan-proposal.json" in artifact_paths
+    assert ".ai/interaction-decisions.yaml" in artifact_paths
     assert ".ai/guides/project-context.md" in artifact_paths
     assert ".ai/sensors/verification.md" in artifact_paths
     assert ".ai/skills/lightweight/SKILL.md" in artifact_paths
+    decision_log = (latest / "decision-log.md").read_text(encoding="utf-8")
+    assert "Interaction Decisions" in decision_log
 
 
 def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):

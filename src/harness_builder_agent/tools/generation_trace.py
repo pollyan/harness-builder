@@ -17,6 +17,7 @@ class GenerationTrace:
     run_dir: Path
     events: list[dict[str, Any]] = field(default_factory=list)
     artifacts: list[dict[str, str]] = field(default_factory=list)
+    decisions: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def start(cls, repo: Path, command: str, run_id: str | None = None) -> "GenerationTrace":
@@ -46,6 +47,15 @@ class GenerationTrace:
         if item not in self.artifacts:
             self.artifacts.append(item)
 
+    def decision(self, decision_id: str, message: str, details: dict[str, Any] | None = None) -> None:
+        self.decisions.append(
+            {
+                "decision_id": decision_id,
+                "message": message,
+                "details": details or {},
+            }
+        )
+
     def finish(self, status: str, summary: dict[str, Any] | None = None) -> None:
         stages = []
         for event in self.events:
@@ -68,6 +78,10 @@ class GenerationTrace:
     def _decision_log(self, status: str, summary: dict[str, Any], stages: list[str]) -> str:
         summary_lines = "\n".join(f"- `{key}`: `{value}`" for key, value in summary.items()) or "- No summary fields recorded."
         artifact_lines = "\n".join(f"- `{item['path']}` ({item['kind']})" for item in self.artifacts) or "- No artifacts recorded."
+        decision_lines = "\n".join(
+            f"- `{item['decision_id']}`: {item['message']}"
+            for item in self.decisions
+        ) or "- No structured decisions recorded."
         warning_lines = "\n".join(
             f"- `{event['stage']}` {event['event_type']}: {event['message']}"
             for event in self.events
@@ -81,6 +95,8 @@ class GenerationTrace:
             f"- Stages: {', '.join(f'`{stage}`' for stage in stages) if stages else '`none`'}\n\n"
             "## Summary\n\n"
             f"{summary_lines}\n\n"
+            "## Interaction Decisions\n\n"
+            f"{decision_lines}\n\n"
             "## Artifacts\n\n"
             f"{artifact_lines}\n\n"
             "## Warnings And Failures\n\n"

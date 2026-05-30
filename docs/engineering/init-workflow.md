@@ -21,10 +21,11 @@
 
 - `--repo`：目标仓库路径。
 - `--context`：可选的团队规则、组织规范、架构约束等上下文文件。
+- `--non-interactive`：显式启用非交互自动化模式，用于测试、CI、脚本和 acceptance。
 - 本地 LLM 配置：DeepSeek API key、base URL、model、timeout 等。
 - 目标仓库代码、配置、构建文件、CI 文件、文档和测试文件。
 
-未来如果加入交互式向导，也必须保持向后兼容：无交互模式仍应可运行，人工输入应有结构化记录。
+`init` 默认是人机引导式向导。非 TTY 环境如果没有显式传入 `--non-interactive`，必须失败并提示用户选择自动化模式，不能静默生成一份未确认的 Harness。
 
 ## 主流程
 
@@ -35,10 +36,11 @@ flowchart LR
   C --> D["reconcile scan result"]
   D --> E["select weapon library"]
   E --> F["read context inputs"]
-  F --> G["write core assets"]
-  G --> H["write guides/sensors/skills"]
-  H --> I["write confirmation/candidates"]
-  I --> J["write trace/artifacts"]
+  F --> G["collect interaction decisions"]
+  G --> H["write core assets"]
+  H --> I["write guides/sensors/skills"]
+  I --> J["write confirmation/candidates"]
+  J --> K["write trace/artifacts"]
 ```
 
 ### 1. Evidence 收集
@@ -105,6 +107,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/weapon-library-selection.yaml`
 - `.ai/context-inputs.yaml`
 - `.ai/questionnaire.yaml`
+- `.ai/interaction-decisions.yaml`
 
 必须生成的语义上下文产物：
 
@@ -146,6 +149,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 必须失败的情况：
 
 - 目标仓库不存在或不可读。
+- 默认 `init` 在非 TTY 环境运行，且未传 `--non-interactive`。
 - 需要 LLM 但 DeepSeek 配置缺失。
 - LLM 请求失败或超时。
 - LLM 返回无法解析的 JSON。
@@ -187,7 +191,12 @@ Skill 产物要求：
 
 - Java Spring fixture 能生成完整资产。
 - .NET ASP.NET fixture 能生成完整资产。
+- 默认 guided mode 能完成 happy path。
+- 非 TTY 未传 `--non-interactive` 会失败并提示显式模式。
+- `--non-interactive` 能保持自动化兼容。
 - `--context` 输入能进入人工确认材料。
+- `--context` 和交互输入能进入 generated guides。
+- `.ai/interaction-decisions.yaml` 能通过 schema 校验并进入 trace artifact。
 - 生成 JSON/YAML 能通过 schema 校验。
 - guide/sensor 包含 stack-specific 内容。
 - workflow skill 被 config 或 harness map 正确引用。
@@ -200,4 +209,3 @@ Skill 产物要求：
 - schema 或稳定章节。
 - 关键字段或关键内容。
 - 与其他文件的引用关系。
-

@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态：open
+- 状态：implemented
 - 优先级：high
 - 发现日期：2026-05-30
 - 相关命令：`harness-builder-agent init`、未来的 `confirm` / `apply-review`
@@ -76,25 +76,24 @@ CLI 应同时支持两种模式：
 harness-builder-agent init
 ```
 
-默认非交互模式：
+默认交互模式：
 
-- 不阻塞 CI。
-- 可以在没有 TTY 的环境中运行。
-- 如果缺少人工信息，生成明确的待确认材料。
-- 输出下一步提示，例如查看哪些文件、运行哪个确认命令。
+- 在 TTY 环境中启动引导式向导。
+- 展示扫描摘要并要求确认。
+- 询问团队 context。
+- 让用户选择 candidate 处理方式。
+- 记录所有交互决策。
 
 ```bash
-harness-builder-agent init --interactive
+harness-builder-agent init --non-interactive
 ```
 
-本地交互模式：
+显式非交互模式：
 
-- 通过对话方式询问组织规则、架构规范、测试规范。
-- 展示扫描摘要并要求确认。
-- 允许用户修正技术栈、模块、命令、风险区域。
-- 对 guide/sensor candidate 逐项确认。
-- 对可能引入基础设施改动的建议进行强确认。
-- 把所有人工输入结构化落盘。
+- 用于 CI、脚本、自动化测试和 acceptance。
+- 不询问用户。
+- 仍然生成 questionnaire、human-input-needed 和 interaction decisions。
+- 不把 candidate 自动晋升为 confirmed。
 
 未来可以补充：
 
@@ -153,7 +152,7 @@ harness-builder-agent apply-review
 
 未来应满足：
 
-- 用户可以通过 `--context` 传入规则文件，也可以在 `--interactive` 中被引导输入或选择文件。
+- 用户可以通过 `--context` 传入规则文件，也可以在默认交互模式中被引导输入补充 context。
 - 已传入的 context 必须展示摘要，允许用户确认或指出不适用。
 - context 必须参与 LLM scan、guide/sensor 生成和 gate 建议，而不只是被记录。
 - context 中的组织规则必须区分：
@@ -167,15 +166,15 @@ harness-builder-agent apply-review
 
 未来实现该 todo 时，至少应满足：
 
-- `init` 默认非交互，CI 不会卡住。
-- `init --interactive` 能启动前台引导流程。
+- `init` 默认交互，非 TTY 未传 `--non-interactive` 时会失败并提示显式模式。
+- `init --non-interactive` 能保持 CI、脚本和 acceptance 兼容。
 - 扫描结果有阶段性摘要和确认机制。
 - 用户可以修正关键扫描结论。
 - `--context` 或交互输入能真正参与 LLM scan 和 guide/sensor 生成。
 - guide/sensor candidate 支持接受、拒绝、修改和晋升。
 - 对引入新测试框架、新质量门禁、新基础设施的建议需要明确确认。
 - 人工输入和确认结果结构化落盘，并进入 trace 或 decision log。
-- 测试覆盖非交互、交互 happy path、用户修正、candidate 晋升、CI 非 TTY 不阻塞。
+- 测试覆盖非交互、交互 happy path、candidate 晋升、CI 非 TTY 不阻塞。
 
 ## 非目标
 
@@ -187,4 +186,15 @@ harness-builder-agent apply-review
 - 在 CI 中进行交互式输入。
 - 一次性覆盖所有命令。
 
-第一版可以优先聚焦 `init --interactive`，但设计上要为后续 `confirm` / `apply-review` 预留空间。
+第一版优先聚焦默认 guided `init` 和显式 `--non-interactive`，但设计上要为后续 `confirm` / `apply-review` 预留空间。
+
+## 实现结果
+
+- `harness-builder-agent init` 默认进入 guided interactive mode。
+- 自动化、CI、脚本和 acceptance 场景使用 `--non-interactive`。
+- 非 TTY 未显式传 `--non-interactive` 时会失败并提示正确模式。
+- 新增 `.ai/interaction-decisions.yaml`，记录 repo、scan、context、candidate 和 final confirmation。
+- `--context` 与交互输入的 inline context 会进入 generated guides 的 `## 团队上下文` 章节。
+- Candidate 决策会影响 `weapon-library-candidates.yaml` 的 `status` 和 `human_confirmation_required`。
+- interaction decisions 会进入 trace artifacts 和 run `decision-log.md`。
+- 已补充 schema、writer、init integration、fixture e2e 和 acceptance 相关测试。

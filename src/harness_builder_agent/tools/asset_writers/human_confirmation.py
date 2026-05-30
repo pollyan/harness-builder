@@ -24,6 +24,12 @@ def write_human_confirmation_assets(
     record_artifact(trace, ai / "questionnaire.yaml", "questionnaire")
     write_yaml(ai / "interaction-decisions.yaml", decisions.model_dump(mode="json"))
     record_artifact(trace, ai / "interaction-decisions.yaml", "interaction_decisions")
+    if trace:
+        trace.decision(
+            "interaction-decisions",
+            "Human interaction decisions recorded.",
+            decisions.model_dump(mode="json"),
+        )
     write_text(
         ai / "human-input-needed.md",
         human_input_markdown(context_inputs, questionnaire, interaction_decisions_markdown(decisions)),
