@@ -11,6 +11,7 @@ from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
+from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 
 
@@ -27,34 +28,74 @@ def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
     _write_text(path, yaml.safe_dump(payload, sort_keys=False, allow_unicode=True))
 
 
-def write_initial_assets(repo: Path, inventory: ProjectInventory, commands: CommandCatalog) -> Path:
+def write_initial_assets(repo: Path, inventory: ProjectInventory, commands: CommandCatalog, trace: GenerationTrace | None = None) -> Path:
     ai = repo / ".ai"
     config = HarnessConfig.default()
     weapon_selection = select_weapon_library(inventory, commands)
+    if trace:
+        trace.event(
+            "weapon-selection",
+            "completed",
+            "Weapon library selection completed.",
+            {
+                "source": weapon_selection.source,
+                "selected_stacks": weapon_selection.selected_stacks,
+                "guide_weapon_count": len(weapon_selection.guide_weapon_ids),
+                "sensor_weapon_count": len(weapon_selection.sensor_weapon_ids),
+            },
+        )
+        trace.event("asset-write", "started", "Initial harness asset writing started.")
 
     _write_json(ai / "project-inventory.json", inventory.model_dump(mode="json"))
+    _record_artifact(trace, ai / "project-inventory.json", "inventory")
     _write_yaml(ai / "command-catalog.yaml", commands.model_dump(mode="json"))
+    _record_artifact(trace, ai / "command-catalog.yaml", "command_catalog")
     _write_yaml(ai / "harness-config.yaml", config.model_dump(mode="json"))
+    _record_artifact(trace, ai / "harness-config.yaml", "config")
     _write_yaml(ai / "scan-metadata.yaml", _scan_metadata(inventory))
+    _record_artifact(trace, ai / "scan-metadata.yaml", "scan_metadata")
     _write_json(ai / "llm-scan-proposal.json", _llm_scan_proposal(inventory))
+    _record_artifact(trace, ai / "llm-scan-proposal.json", "llm_scan_proposal")
     _write_yaml(ai / "weapon-library-selection.yaml", weapon_selection.model_dump(mode="json"))
+    _record_artifact(trace, ai / "weapon-library-selection.yaml", "weapon_library_selection")
 
     _write_text(ai / "scan-report.md", _scan_report(inventory, commands))
+    _record_artifact(trace, ai / "scan-report.md", "report")
     _write_text(ai / "maturity-report.md", _maturity_report(inventory, commands, weapon_selection))
+    _record_artifact(trace, ai / "maturity-report.md", "report")
     _write_yaml(ai / "maturity-score.yaml", _maturity_score(inventory, commands, config, weapon_selection))
+    _record_artifact(trace, ai / "maturity-score.yaml", "maturity_score")
     _write_text(ai / "evolution-plan.md", _evolution_plan())
+    _record_artifact(trace, ai / "evolution-plan.md", "plan")
 
     _write_text(ai / "guides" / "project-context.md", _guide("project-context", inventory, weapon_selection))
+    _record_artifact(trace, ai / "guides" / "project-context.md", "guide")
     _write_text(ai / "guides" / "coding-rules.md", _guide("coding-rules", inventory, weapon_selection))
+    _record_artifact(trace, ai / "guides" / "coding-rules.md", "guide")
     _write_text(ai / "guides" / "architecture.md", _guide("architecture", inventory, weapon_selection))
+    _record_artifact(trace, ai / "guides" / "architecture.md", "guide")
     _write_text(ai / "guides" / "task-templates" / "bugfix.md", _task_template("bugfix"))
+    _record_artifact(trace, ai / "guides" / "task-templates" / "bugfix.md", "task_template")
     _write_text(ai / "guides" / "task-templates" / "lightweight-feature.md", _task_template("lightweight"))
+    _record_artifact(trace, ai / "guides" / "task-templates" / "lightweight-feature.md", "task_template")
 
     _write_text(ai / "sensors" / "verification.md", _sensor_doc(commands, weapon_selection))
+    _record_artifact(trace, ai / "sensors" / "verification.md", "sensor")
     _write_text(ai / "sensors" / "test-strategy.md", _test_strategy(commands, weapon_selection))
+    _record_artifact(trace, ai / "sensors" / "test-strategy.md", "sensor")
     _copy_workflow_skills(ai)
+    _record_artifact(trace, ai / "skills" / "lightweight" / "SKILL.md", "skill")
+    _record_artifact(trace, ai / "skills" / "bugfix" / "SKILL.md", "skill")
     _write_text(ai / "experience" / "pending-improvements.md", "# Pending Improvements\n\nNo reviewed improvements yet.\n")
+    _record_artifact(trace, ai / "experience" / "pending-improvements.md", "experience")
+    if trace:
+        trace.event("asset-write", "completed", "Initial harness asset writing completed.", {"artifact_count": len(trace.artifacts)})
     return ai
+
+
+def _record_artifact(trace: GenerationTrace | None, path: Path, kind: str) -> None:
+    if trace:
+        trace.artifact(path, kind)
 
 
 def _frontmatter(asset_type: str) -> str:

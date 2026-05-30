@@ -8,6 +8,7 @@ import typer
 from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
+from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.run_task import run_task
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
@@ -18,8 +19,22 @@ app = typer.Typer(help="Generate and exercise project-level AI Coding Harness as
 @app.command("init")
 def init_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
     """Scan a repository and generate initial .ai harness assets."""
-    inventory, commands = scan_repository(repo)
-    output_dir = write_initial_assets(repo, inventory, commands)
+    trace = GenerationTrace.start(repo, "init")
+    try:
+        trace.event("scan", "started", "Repository scan started.")
+        inventory, commands = scan_repository(repo)
+        trace.event(
+            "scan",
+            "completed",
+            "Repository scan completed.",
+            {"primary_stack": inventory.primary_stack, "stacks": inventory.stacks, "command_count": len(commands.commands)},
+        )
+        output_dir = write_initial_assets(repo, inventory, commands, trace=trace)
+        trace.finish("completed", {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)})
+    except Exception as exc:
+        trace.event("init", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
     typer.echo(f"Generated harness assets in {output_dir}")
 
 

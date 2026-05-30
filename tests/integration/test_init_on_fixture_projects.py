@@ -130,6 +130,23 @@ def _assert_init_outputs(repo: Path, expected_stack: str) -> None:
     assert "轻量级开发工作流" in lightweight_skill
     assert "缺陷修复工作流" in bugfix_skill
 
+    runs = sorted((ai / "runs").iterdir())
+    assert runs
+    latest = runs[-1]
+    trace = yaml.safe_load((latest / "trace.yaml").read_text(encoding="utf-8"))
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert {"scan", "weapon-selection", "asset-write"}.issubset(set(trace["stages"]))
+    assert trace["summary"]["primary_stack"] == expected_stack
+
+    artifacts = yaml.safe_load((latest / "artifacts.yaml").read_text(encoding="utf-8"))
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/project-inventory.json" in artifact_paths
+    assert ".ai/llm-scan-proposal.json" in artifact_paths
+    assert ".ai/guides/project-context.md" in artifact_paths
+    assert ".ai/sensors/verification.md" in artifact_paths
+    assert ".ai/skills/lightweight/SKILL.md" in artifact_paths
+
 
 def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
