@@ -99,6 +99,8 @@ def test_fixture_cli_end_to_end_for_java_and_dotnet(tmp_path: Path, monkeypatch)
         task_dir = repo / ".ai" / "task-runs" / "demo-task-001"
         assert (task_dir / "harness-map.yaml").exists()
         assert (task_dir / "sensor-report.yaml").exists()
+        assert (task_dir / "runtime-summary.yaml").exists()
+        assert (task_dir / "used-guides.yaml").exists()
         assert (repo / ".ai" / "scan-metadata.yaml").exists()
         assert (repo / ".ai" / "llm-scan-proposal.json").exists()
         assert (repo / ".ai" / "skills" / "lightweight" / "SKILL.md").exists()

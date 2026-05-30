@@ -73,6 +73,7 @@ def run_benchmark(repo: Path, profile: str | None = None, trace: GenerationTrace
 
     checks.extend(_schema_checks(ai))
     checks.extend(_generation_trace_checks(ai))
+    checks.extend(_runtime_trace_checks(ai))
     checks.extend(_content_checks(ai, inventory))
     if profile:
         checks.append({"id": "profile_matches_stack", "passed": profile == inventory.primary_stack, "expected": profile, "actual": inventory.primary_stack})
@@ -204,6 +205,65 @@ def _generation_trace_checks(ai: Path) -> list[dict[str, Any]]:
         )
     except Exception as exc:  # pragma: no cover
         checks.append({"id": "content:generation-trace", "passed": False, "error": str(exc)})
+    return checks
+
+
+def _runtime_trace_checks(ai: Path) -> list[dict[str, Any]]:
+    task_dir = ai / "task-runs" / "demo-task-001"
+    summary_path = task_dir / "runtime-summary.yaml"
+    events_path = task_dir / "workflow-events.jsonl"
+    used_guides_path = task_dir / "used-guides.yaml"
+
+    try:
+        summary = yaml.safe_load(summary_path.read_text(encoding="utf-8"))
+        required = {
+            "schema_version",
+            "task_id",
+            "task_type",
+            "selected_workflow",
+            "hard_gate_count",
+            "sensor_statuses",
+            "unresolved_sensor_count",
+            "used_guide_count",
+            "workflow_skill_path",
+        }
+        schema_passed = required.issubset(set(summary))
+        checks = [{"id": "schema:runtime-summary", "passed": schema_passed, "task_id": summary.get("task_id")}]
+    except Exception as exc:  # pragma: no cover
+        return [
+            {"id": "schema:runtime-summary", "passed": False, "error": str(exc)},
+            {"id": "content:runtime-workflow-trace", "passed": False, "error": "runtime summary unavailable"},
+        ]
+
+    try:
+        events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        used_guides = yaml.safe_load(used_guides_path.read_text(encoding="utf-8"))
+        stages = {event["stage"] for event in events}
+        required_stages = {
+            "task-classification",
+            "guide-selection",
+            "workflow-selection",
+            "sensor-selection",
+            "sensor-execution",
+            "handoff",
+            "experience-candidate",
+        }
+        required_guides = used_guides.get("required_guides", [])
+        passed = (
+            required_stages.issubset(stages)
+            and len(required_guides) == summary.get("used_guide_count")
+            and bool(summary.get("sensor_statuses"))
+        )
+        checks.append(
+            {
+                "id": "content:runtime-workflow-trace",
+                "passed": passed,
+                "stage_count": len(stages),
+                "used_guide_count": len(required_guides),
+            }
+        )
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "content:runtime-workflow-trace", "passed": False, "error": str(exc)})
     return checks
 
 
