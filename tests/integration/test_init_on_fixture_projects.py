@@ -11,6 +11,7 @@ from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -21,11 +22,56 @@ def _copy_fixture(tmp_path: Path, name: str) -> Path:
     return target
 
 
+def _fake_scan(repo: Path, expected_stack: str):
+    if expected_stack == "java-spring":
+        response = {
+            "primary_stack": "java-spring",
+            "stacks": ["java", "maven", "spring-boot"],
+            "modules": [{"name": "app", "path": ".", "kind": "backend"}],
+            "architecture_signals": [],
+            "risk_areas": [],
+            "command_candidates": [
+                {"id": "unit_test", "command": "mvn test", "type": "test", "gate": "hard", "source": "pom.xml", "confidence": "high"}
+            ],
+            "configs": [],
+            "ci_files": [],
+            "confidence": "high",
+            "needs_human_confirmation": False,
+            "reasoning_summary": "Java Spring project.",
+        }
+    else:
+        response = {
+            "primary_stack": "dotnet-aspnet",
+            "stacks": ["dotnet", "aspnet-core"],
+            "modules": [{"name": "MiniApi", "path": "src", "kind": "backend"}],
+            "architecture_signals": [],
+            "risk_areas": [],
+            "command_candidates": [
+                {
+                    "id": "unit_test",
+                    "command": "dotnet test",
+                    "type": "test",
+                    "gate": "hard",
+                    "source": "mini-dotnet-webapi.sln",
+                    "confidence": "high",
+                }
+            ],
+            "configs": [],
+            "ci_files": [],
+            "confidence": "high",
+            "needs_human_confirmation": False,
+            "reasoning_summary": ".NET ASP.NET project.",
+        }
+    return scan_repository(repo, llm_caller=lambda _messages: json.dumps(response))
+
+
 def _assert_init_outputs(repo: Path, expected_stack: str) -> None:
     ai = repo / ".ai"
     assert (ai / "project-inventory.json").exists()
     assert (ai / "command-catalog.yaml").exists()
     assert (ai / "harness-config.yaml").exists()
+    assert (ai / "scan-metadata.yaml").exists()
+    assert (ai / "llm-scan-proposal.json").exists()
     assert (ai / "weapon-library-selection.yaml").exists()
     assert (ai / "scan-report.md").exists()
     assert (ai / "maturity-report.md").exists()
@@ -46,6 +92,10 @@ def _assert_init_outputs(repo: Path, expected_stack: str) -> None:
     config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text()))
     assert config.workflows["lightweight"].skill_path == ".ai/skills/lightweight/SKILL.md"
     assert config.workflows["bugfix"].skill_path == ".ai/skills/bugfix/SKILL.md"
+    scan_metadata = yaml.safe_load((ai / "scan-metadata.yaml").read_text(encoding="utf-8"))
+    assert scan_metadata["llm_status"] == "succeeded"
+    llm_proposal = json.loads((ai / "llm-scan-proposal.json").read_text(encoding="utf-8"))
+    assert llm_proposal["primary_stack"] == expected_stack
 
     weapon_selection = yaml.safe_load((ai / "weapon-library-selection.yaml").read_text(encoding="utf-8"))
     assert weapon_selection["schema_version"] == "1.0"
@@ -81,8 +131,9 @@ def _assert_init_outputs(repo: Path, expected_stack: str) -> None:
     assert "缺陷修复工作流" in bugfix_skill
 
 
-def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path):
+def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
     result = CliRunner().invoke(app, ["init", "--repo", str(repo)])
 
     assert result.exit_code == 0, result.output
@@ -91,8 +142,9 @@ def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path):
     assert inventory["primary_stack"] == "java-spring"
 
 
-def test_init_generates_ai_assets_for_dotnet_fixture(tmp_path: Path):
+def test_init_generates_ai_assets_for_dotnet_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-dotnet-webapi")
+    monkeypatch.setattr("harness_builder_agent.cli.scan_repository", lambda repo_path: _fake_scan(repo_path, "dotnet-aspnet"))
     result = CliRunner().invoke(app, ["init", "--repo", str(repo)])
 
     assert result.exit_code == 0, result.output
