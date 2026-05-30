@@ -5,6 +5,7 @@ import yaml
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
 
@@ -98,3 +99,36 @@ def test_write_initial_assets_generates_core_guides_sensors_skills_candidates_an
     assert ".ai/project-inventory.json" in artifact_paths
     assert ".ai/guides/project-context.md" in artifact_paths
     assert ".ai/sensors/verification.md" in artifact_paths
+
+
+def test_write_initial_assets_persists_interaction_decisions_and_applies_candidate_status(tmp_path: Path):
+    context = tmp_path / "team-rules.md"
+    context.write_text("团队规则：Controller 只能调用 Service。", encoding="utf-8")
+    trace = GenerationTrace.start(tmp_path, "init")
+    decisions = accepted_interactive_decisions(
+        str(tmp_path),
+        context_paths=[str(context)],
+        inline_contexts=["所有新增逻辑必须有测试"],
+        candidate_ids=["llm-guide-architecture-001"],
+        accept_candidates=True,
+    )
+
+    ai = write_initial_assets(
+        tmp_path,
+        _inventory(tmp_path),
+        _commands(),
+        trace=trace,
+        context_paths=[context],
+        interaction_decisions=decisions,
+    )
+
+    decision_payload = yaml.safe_load((ai / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decision_payload["mode"] == "interactive"
+    assert decision_payload["final_confirmation"]["status"] == "confirmed"
+    human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8")
+    assert "Interaction Decisions" in human_input
+    assert "所有新增逻辑必须有测试" in human_input
+    candidates = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
+    by_id = {item["id"]: item for item in candidates["candidates"]}
+    assert by_id["llm-guide-architecture-001"]["status"] == "confirmed"
+    assert by_id["llm-guide-architecture-001"]["human_confirmation_required"] is False

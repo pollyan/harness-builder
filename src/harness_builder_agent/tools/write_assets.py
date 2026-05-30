@@ -4,6 +4,7 @@ from pathlib import Path
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
+from harness_builder_agent.schemas.interaction_decision import InteractionDecisions
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.asset_writers.candidates import write_candidate_assets
 from harness_builder_agent.tools.asset_writers.core import llm_scan_proposal, scan_metadata, write_core_assets
@@ -14,6 +15,7 @@ from harness_builder_agent.tools.asset_writers.sensors import write_sensor_asset
 from harness_builder_agent.tools.asset_writers.skills import write_skill_assets
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.human_confirmation import build_questionnaire, read_context_inputs
+from harness_builder_agent.tools.interaction_decisions import apply_candidate_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 
@@ -24,6 +26,7 @@ def write_initial_assets(
     commands: CommandCatalog,
     trace: GenerationTrace | None = None,
     context_paths: list[Path] | None = None,
+    interaction_decisions: InteractionDecisions | None = None,
 ) -> Path:
     ai = repo / ".ai"
     config = HarnessConfig.default()
@@ -31,8 +34,12 @@ def write_initial_assets(
     scan_metadata_payload = scan_metadata(inventory)
     llm_scan_proposal_payload = llm_scan_proposal(inventory)
     context_inputs = read_context_inputs(context_paths or [])
+    decisions = interaction_decisions or default_non_interactive_decisions(
+        str(repo),
+        context_paths=[str(path) for path in (context_paths or [])],
+    )
     questionnaire = build_questionnaire(context_inputs, scan_metadata_payload)
-    enhancement_candidates = build_llm_enhancement_candidates(inventory, commands)
+    enhancement_candidates = apply_candidate_decisions(build_llm_enhancement_candidates(inventory, commands), decisions)
     if trace:
         trace.event(
             "weapon-selection",
@@ -57,7 +64,7 @@ def write_initial_assets(
         weapon_selection,
         trace=trace,
     )
-    write_human_confirmation_assets(ai, context_inputs, questionnaire, trace=trace)
+    write_human_confirmation_assets(ai, context_inputs, questionnaire, trace=trace, interaction_decisions=decisions)
     if trace:
         trace.event(
             "human-confirmation",

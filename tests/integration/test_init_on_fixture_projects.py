@@ -79,6 +79,7 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert (ai / "evolution-plan.md").exists()
     assert (ai / "context-inputs.yaml").exists()
     assert (ai / "questionnaire.yaml").exists()
+    assert (ai / "interaction-decisions.yaml").exists()
     assert (ai / "human-input-needed.md").exists()
     assert (ai / "review" / "llm-enhancement-candidates.md").exists()
     assert (ai / "review" / "candidate-guides.md").exists()
@@ -142,6 +143,8 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert "confirm:team-context" in ids
     assert "confirm:guide-candidates" in ids
     assert "confirm:sensor-gates" in ids
+    interaction_decisions = yaml.safe_load((ai / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert interaction_decisions["schema_version"] == "1.0"
     human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8")
     assert "# Human Input Needed" in human_input
     if expected_context_text:

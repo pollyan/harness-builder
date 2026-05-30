@@ -71,7 +71,7 @@ def build_questionnaire(context_inputs: dict[str, Any], scan_metadata: dict[str,
     return {"schema_version": "1.0", "questions": questions}
 
 
-def human_input_markdown(context_inputs: dict[str, Any], questionnaire: dict[str, Any]) -> str:
+def human_input_markdown(context_inputs: dict[str, Any], questionnaire: dict[str, Any], decision_markdown: str = "") -> str:
     context_lines = [
         f"- `{item['path']}`：{item['summary']}"
         for item in context_inputs.get("contexts", [])
@@ -86,8 +86,8 @@ def human_input_markdown(context_inputs: dict[str, Any], questionnaire: dict[str
         + "\n".join(context_lines)
         + "\n\n## 待确认问题\n\n"
         + "\n".join(question_lines)
+        + ("\n\n" + decision_markdown if decision_markdown else "")
         + "\n\n## 下一步建议\n\n"
         "- 如需补充团队规范，请使用 `init --context <file>` 重新生成 Harness。\n"
         "- 候选 Guides / Sensors 在维护者确认前保持 candidate 状态。\n"
     )
-
