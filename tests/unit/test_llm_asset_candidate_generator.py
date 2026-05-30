@@ -57,6 +57,28 @@ def _improvement_candidates() -> ImprovementCandidateReport:
     )
 
 
+def _workflow_recommendation_improvement_candidates() -> ImprovementCandidateReport:
+    return ImprovementCandidateReport(
+        candidates=[
+            ImprovementCandidate(
+                id="experience-workflow-recommendation-review",
+                candidate_type="workflow_policy_update",
+                suggested_target=".ai/harness-config.yaml",
+                rationale="Review workflow recommendation evidence.",
+                evidence=[
+                    "Workflow recommendation reviews: 1.",
+                    "Recommendation artifacts are review-only and must not be treated as applied routing changes.",
+                ],
+                target_dimension="workflow",
+                evidence_sources=[
+                    ".ai/maturity-evidence.yaml",
+                    ".ai/review/workflow-routing-recommendation.yaml",
+                ],
+            )
+        ]
+    )
+
+
 def _maturity_review() -> MaturityReviewReport:
     return MaturityReviewReport(
         summary="Review summary.",
@@ -206,6 +228,35 @@ def test_build_asset_candidate_messages_includes_experience_summary_when_present
     assert "When drafting workflow_policy candidates" in content
     assert "pending_harness_maintainer_review" in content
     assert "review-only Experience Summary findings" in content
+
+
+def test_build_asset_candidate_messages_guides_workflow_recommendation_candidate():
+    evidence = _evidence_pack()
+    evidence.maturity_inputs.append(".ai/review/workflow-routing-recommendation.yaml")
+
+    messages = build_asset_candidate_messages(
+        _score(),
+        evidence,
+        _workflow_recommendation_improvement_candidates(),
+        MaturityReviewReport(
+            summary="Workflow recommendation review should become a routing policy draft.",
+            candidate_reviews=[
+                {
+                    "candidate_id": "experience-workflow-recommendation-review",
+                    "decision": "support",
+                    "rationale": "Routing policy should be reviewed.",
+                }
+            ],
+        ),
+    )
+
+    content = messages[-1]["content"]
+    assert "experience-workflow-recommendation-review" in content
+    assert ".ai/review/workflow-routing-recommendation.yaml" in content
+    assert "workflow_policy" in content
+    assert ".ai/harness-config.yaml" in content
+    assert "pending_harness_maintainer_review" in content
+    assert "review-only workflow recommendation evidence" in content
 
 
 def test_build_asset_candidate_messages_uses_null_experience_summary_when_absent():
