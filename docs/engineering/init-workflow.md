@@ -119,6 +119,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 `improve` 应把非零 workflow recommendation review 计数转成待审核的 `workflow_policy_update` 候选，指向 `.ai/harness-config.yaml`；不得直接修改正式 routing policy。
 
+`recommend-workflow` 写出 `.ai/review/workflow-routing-recommendation.*` 后，必须刷新 `.ai/experience/experience-index.yaml`、`.ai/maturity-score.yaml` 和 `.ai/maturity-evidence.yaml`，让推荐证据立即进入后续 maturity / improve 链路；该刷新不能生成 `.ai/task-runs`，也不能应用正式 routing policy 变更。
+
 必须生成的语义上下文产物：
 
 - `.ai/scan-report.md`

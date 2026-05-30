@@ -385,16 +385,23 @@ def test_recommend_workflow_writes_review_only_artifacts(tmp_path: Path, monkeyp
     markdown_path = repo / ".ai" / "review" / "workflow-routing-recommendation.md"
     recommendation = WorkflowRecommendationReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
     markdown = markdown_path.read_text(encoding="utf-8")
+    experience_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
+    maturity_evidence = yaml.safe_load((repo / ".ai" / "maturity-evidence.yaml").read_text(encoding="utf-8"))
     assert recommendation.recommended_workflow == "bugfix"
     assert recommendation.review_status == "pending_harness_maintainer_review"
     assert "bugfix-intent" in recommendation.matched_rule_ids
     assert "# Workflow Routing Recommendation" in markdown
     assert "pending_harness_maintainer_review" in markdown
+    assert experience_index["workflow_recommendation_count"] == 1
+    assert maturity_evidence["experience"]["workflow_recommendation_count"] == 1
     assert not (repo / ".ai" / "task-runs").exists()
     trace = _latest_trace(repo)
     assert trace["command"] == "recommend-workflow"
     artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
     assert {"path": ".ai/review/workflow-routing-recommendation.yaml", "kind": "workflow_recommendation"} in artifacts["artifacts"]
+    assert {"path": ".ai/experience/experience-index.yaml", "kind": "experience_index"} in artifacts["artifacts"]
+    assert {"path": ".ai/maturity-evidence.yaml", "kind": "maturity_evidence"} in artifacts["artifacts"]
+    assert {"path": ".ai/maturity-score.yaml", "kind": "maturity_score"} in artifacts["artifacts"]
 
 
 def test_summarize_experience_writes_review_only_summary(tmp_path: Path, monkeypatch):

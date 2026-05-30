@@ -154,8 +154,11 @@ def recommend_workflow_command(
         output_dir = recommend_workflow(repo, task_brief=task, task_id=task_id)
         trace.artifact(output_dir / "review" / "workflow-routing-recommendation.yaml", "workflow_recommendation")
         trace.artifact(output_dir / "review" / "workflow-routing-recommendation.md", "review")
-        trace.event("workflow-recommendation", "completed", "Workflow recommendation completed.", {"artifact_count": 2})
-        trace.finish("completed", {"artifact_count": 2})
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.event("workflow-recommendation", "completed", "Workflow recommendation completed.", {"artifact_count": 5})
+        trace.finish("completed", {"artifact_count": 5})
     except Exception as exc:
         trace.event("workflow-recommendation", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})

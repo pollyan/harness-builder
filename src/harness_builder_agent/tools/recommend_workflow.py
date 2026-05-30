@@ -9,6 +9,7 @@ from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.experience_index import write_experience_index
 from harness_builder_agent.tools.llm_workflow_router import recommend_workflow_with_llm
 
 
@@ -28,6 +29,8 @@ def recommend_workflow(repo: Path, *, task_brief: str, task_id: str) -> Path:
     review_dir = ai / "review"
     _write_yaml(review_dir / "workflow-routing-recommendation.yaml", recommendation.model_dump(mode="json"))
     _write_markdown(review_dir / "workflow-routing-recommendation.md", recommendation)
+    write_experience_index(ai)
+    assess_maturity(root)
     return ai
 
 
