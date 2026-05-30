@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
+from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.harness_map import HarnessMap
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
@@ -509,3 +510,29 @@ def test_asset_candidate_report_rejects_invalid_kind():
                 ]
             }
         )
+
+
+def test_experience_index_records_sources_and_counts():
+    index = ExperienceIndex.model_validate(
+        {
+            "experience_files": {
+                "project-experience.md": True,
+                "repair-patterns.md": True,
+                "sensor-feedback.md": True,
+                "team-preferences.md": True,
+                "pending-improvements.md": True,
+                "deprecated-experience.md": True,
+            },
+            "sources": [
+                {"path": ".ai/experience/pending-improvements.md", "kind": "pending_improvements", "item_count": 2}
+            ],
+            "pending_improvement_count": 2,
+            "asset_candidate_count": 1,
+            "maturity_review_count": 1,
+            "runtime_task_run_count": 0,
+            "warnings": ["runtime task-runs absent"],
+        }
+    )
+
+    assert index.schema_version == "1.0"
+    assert index.sources[0].kind == "pending_improvements"

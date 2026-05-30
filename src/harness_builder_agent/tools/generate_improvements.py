@@ -9,6 +9,7 @@ from harness_builder_agent.schemas.improvement_candidate import ImprovementCandi
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.experience_index import write_experience_index
 
 
 def generate_improvements(repo: Path) -> Path:
@@ -23,6 +24,7 @@ def generate_improvements(repo: Path) -> Path:
     _write_yaml(ai / "improvement-candidates.yaml", candidates.model_dump(mode="json"))
     _write_evolution_plan(ai / "evolution-plan.md", candidates)
     _write_pending_improvements(ai / "experience" / "pending-improvements.md", candidates)
+    write_experience_index(ai)
     return ai
 
 

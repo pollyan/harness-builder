@@ -11,6 +11,7 @@ from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.experience_index import write_experience_index
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.llm_asset_candidate_generator import generate_asset_candidates_with_llm
 from harness_builder_agent.tools.review_maturity import review_maturity
@@ -40,6 +41,7 @@ def generate_asset_candidates(repo: Path) -> Path:
     _write_kind_markdown(review_dir / "asset-candidate-guides.md", "Asset Candidate Guides", report, "guide")
     _write_kind_markdown(review_dir / "asset-candidate-sensors.md", "Asset Candidate Sensors", report, "sensor")
     _write_kind_markdown(review_dir / "asset-candidate-workflows.md", "Asset Candidate Workflows", report, "workflow_policy")
+    write_experience_index(ai)
     return ai
 
 

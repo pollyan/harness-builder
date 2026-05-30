@@ -8,6 +8,7 @@ import yaml
 
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
+from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
@@ -44,6 +45,7 @@ REQUIRED_FILES = [
     "skills/lightweight/SKILL.md",
     "skills/bugfix/SKILL.md",
     "improvement-candidates.yaml",
+    "experience/experience-index.yaml",
     "review/llm-enhancement-candidates.md",
     "review/candidate-guides.md",
     "review/candidate-sensors.md",
@@ -165,6 +167,12 @@ def _schema_checks(ai: Path) -> list[dict[str, Any]]:
         checks.append({"id": "schema:improvement-candidates", "passed": True})
     except Exception as exc:  # pragma: no cover
         checks.append({"id": "schema:improvement-candidates", "passed": False, "error": str(exc)})
+
+    try:
+        ExperienceIndex.model_validate(yaml.safe_load((ai / "experience" / "experience-index.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:experience-index", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:experience-index", "passed": False, "error": str(exc)})
     return checks
 
 

@@ -27,7 +27,7 @@
 
 ## Task 1: Experience Index Schema
 
-- [ ] **Step 1: Write failing schema tests**
+- [x] **Step 1: Write failing schema tests**
 
 In `tests/unit/test_schema_contracts.py`, import `ExperienceIndex` and add:
 
@@ -58,7 +58,7 @@ def test_experience_index_records_sources_and_counts():
     assert index.sources[0].kind == "pending_improvements"
 ```
 
-- [ ] **Step 2: Run schema test and confirm failure**
+- [x] **Step 2: Run schema test and confirm failure**
 
 Run:
 
@@ -68,7 +68,7 @@ Run:
 
 Expected: fail because `experience_index.py` does not exist.
 
-- [ ] **Step 3: Implement schema**
+- [x] **Step 3: Implement schema**
 
 Create `src/harness_builder_agent/schemas/experience_index.py`:
 
@@ -97,13 +97,13 @@ class ExperienceIndex(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 ```
 
-- [ ] **Step 4: Run schema test and confirm pass**
+- [x] **Step 4: Run schema test and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 2: Writer and Initial Assets
 
-- [ ] **Step 1: Write failing asset writer assertions**
+- [x] **Step 1: Write failing asset writer assertions**
 
 In `tests/unit/test_asset_writer_candidates.py`, assert:
 
@@ -123,7 +123,7 @@ In `tests/unit/test_asset_writer_candidates.py`, assert:
     assert {"path": ".ai/experience/experience-index.yaml", "kind": "experience_index"} in artifacts["artifacts"]
 ```
 
-- [ ] **Step 2: Run asset writer test and confirm failure**
+- [x] **Step 2: Run asset writer test and confirm failure**
 
 Run:
 
@@ -133,7 +133,7 @@ Run:
 
 Expected: fail because index/files are not written.
 
-- [ ] **Step 3: Implement experience writer**
+- [x] **Step 3: Implement experience writer**
 
 Create `src/harness_builder_agent/tools/experience_index.py` with:
 
@@ -142,7 +142,7 @@ Create `src/harness_builder_agent/tools/experience_index.py` with:
 - `build_experience_index(ai)` counts pending bullets, asset candidates, maturity reviews, runtime task dirs.
 - `write_experience_index(ai, trace=None)` writes YAML and records artifact.
 
-- [ ] **Step 4: Wire candidate writer**
+- [x] **Step 4: Wire candidate writer**
 
 In `asset_writers/candidates.py`, call:
 
@@ -153,13 +153,13 @@ write_experience_index(ai, trace=trace)
 
 after writing initial candidate assets.
 
-- [ ] **Step 5: Run asset writer test and confirm pass**
+- [x] **Step 5: Run asset writer test and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 3: Refresh From Improve, Asset Candidates, Benchmark
 
-- [ ] **Step 1: Write failing integration and benchmark assertions**
+- [x] **Step 1: Write failing integration and benchmark assertions**
 
 In `test_improve_generates_reviewable_improvement_candidates`, assert:
 
@@ -177,7 +177,7 @@ In `test_generate_asset_candidates_writes_review_only_drafts`, assert:
 
 In benchmark integration, assert `"schema:experience-index"` is present.
 
-- [ ] **Step 2: Run focused failing tests**
+- [x] **Step 2: Run focused failing tests**
 
 Run:
 
@@ -187,25 +187,25 @@ Run:
 
 Expected: fail until refresh and benchmark validation are wired.
 
-- [ ] **Step 3: Wire refresh**
+- [x] **Step 3: Wire refresh**
 
 Call `write_experience_index(ai)` after writing pending improvements in `generate_improvements.py` and after writing asset candidates in `generate_asset_candidates.py`.
 
-- [ ] **Step 4: Wire benchmark**
+- [x] **Step 4: Wire benchmark**
 
 In `benchmark.py`, add `experience/experience-index.yaml` to `REQUIRED_FILES`, import `ExperienceIndex`, validate it in `_schema_checks`, and add test assertion.
 
-- [ ] **Step 5: Run focused tests and confirm pass**
+- [x] **Step 5: Run focused tests and confirm pass**
 
 Run the same focused command. Expected: pass.
 
 ## Task 4: Verification and Commit
 
-- [ ] **Step 1: Update engineering doc**
+- [x] **Step 1: Update engineering doc**
 
 Add `.ai/experience/experience-index.yaml` and the expanded Experience Markdown files to `docs/engineering/init-workflow.md`.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run:
 
@@ -215,7 +215,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 3: Run fast regression**
+- [x] **Step 3: Run fast regression**
 
 Run:
 
@@ -225,9 +225,17 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 4: Self-Harness Improvement Gate**
+- [x] **Step 4: Self-Harness Improvement Gate**
 
 Expected result: schema, asset writer, integration, benchmark, and init workflow doc all cover the new Experience index contract.
+
+Gate conclusion:
+
+- `ExperienceIndex` has a Pydantic schema and schema contract test.
+- Initial asset writing, `improve`, `generate-asset-candidates`, and benchmark all refresh or validate the index.
+- Experience Markdown preservation has a unit test for customer-edited files.
+- `docs/engineering/init-workflow.md` records the new machine contract, semantic Experience files, benchmark check, and no-overwrite rule.
+- No separate `docs/todos` item is needed for this milestone; remaining Experience Integration work should be selected through the next gap analysis.
 
 - [ ] **Step 5: Commit**
 

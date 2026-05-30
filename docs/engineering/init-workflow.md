@@ -109,8 +109,11 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/questionnaire.yaml`
 - `.ai/interaction-decisions.yaml`
 - `.ai/maturity-evidence.yaml`
+- `.ai/experience/experience-index.yaml`
 
 其中 `.ai/maturity-evidence.yaml` 是成熟度评估和后续 LLM maturity reviewer 的确定性输入摘要，必须汇总 inventory、command catalog、Harness assets、generation trace、experience、benchmark 和可选 Runtime task-run 可用性。
+
+其中 `.ai/experience/experience-index.yaml` 是 Experience 资产的机器消费索引，必须记录已存在的 Experience Markdown、pending improvement 数量、asset candidate 数量、maturity review 数量和可选 Runtime task-run 数量。它由 Builder 在初始化、`improve` 和候选资产生成后刷新；Builder 只统计 `.ai/task-runs` 的宿主 Runtime 过程数据，不主动生成该目录。
 
 必须生成的语义上下文产物：
 
@@ -125,6 +128,12 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/guides/task-templates/lightweight-feature.md`
 - `.ai/sensors/verification.md`
 - `.ai/sensors/test-strategy.md`
+- `.ai/experience/project-experience.md`
+- `.ai/experience/repair-patterns.md`
+- `.ai/experience/sensor-feedback.md`
+- `.ai/experience/team-preferences.md`
+- `.ai/experience/pending-improvements.md`
+- `.ai/experience/deprecated-experience.md`
 
 必须生成的 workflow skill：
 
@@ -177,6 +186,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 `maturity-score.yaml` 是成熟度与演进路线图的机器契约。它必须保留 `overall_level`、`dimension_scores`、`evidence`、`blocking_reasons` 和 `recommended_next_steps` 等摘要字段，同时包含结构化的 `dimensions`、`blocking_caps` 和 `next_steps`，用于记录每个成熟度维度的证据、阻断原因、下一等级要求和后续改进入口。
 
+`experience-index.yaml` 是 Experience Integration 的机器契约。它必须通过 Pydantic schema 校验，且 benchmark 必须检查 `schema:experience-index`。Experience Markdown 是可编辑语义资产，初始化时只能补齐缺失文件，不能覆盖客户已编辑内容。
+
 Markdown 产物要求：
 
 - 可以使用中文自然语言。
@@ -203,6 +214,8 @@ Skill 产物要求：
 - `--context` 和交互输入能进入 generated guides。
 - `.ai/interaction-decisions.yaml` 能通过 schema 校验并进入 trace artifact。
 - `.ai/maturity-evidence.yaml` 能通过 schema 校验，包含成熟度输入来源，并进入 trace artifact。
+- `.ai/experience/experience-index.yaml` 能通过 schema 校验，包含 Experience Markdown 存在性、pending improvement、asset candidate、maturity review 和 Runtime task-run 统计。
+- Experience Markdown 初始化只创建缺失文件，不能覆盖已有客户编辑。
 - 生成 JSON/YAML 能通过 schema 校验。
 - guide/sensor 包含 stack-specific 内容。
 - workflow skill 被 config 或 harness map 正确引用。

@@ -137,6 +137,7 @@ def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, mon
     candidates = yaml.safe_load((repo / ".ai" / "improvement-candidates.yaml").read_text(encoding="utf-8"))
     pending = (repo / ".ai" / "experience" / "pending-improvements.md").read_text(encoding="utf-8")
     evolution = (repo / ".ai" / "evolution-plan.md").read_text(encoding="utf-8")
+    experience_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
     assert candidates["schema_version"] == "1.0"
     assert candidates["candidates"]
     first = candidates["candidates"][0]
@@ -149,6 +150,7 @@ def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, mon
     assert ".ai/maturity-evidence.yaml" in first["evidence_sources"]
     assert "## 待确认改进候选" in pending
     assert "Acceptance checks" in pending
+    assert experience_index["pending_improvement_count"] >= 1
     assert "## 优先级路线图" in evolution
     assert "Maturity dimension" in evolution
     trace = _latest_trace(repo)
@@ -278,12 +280,14 @@ def test_generate_asset_candidates_writes_review_only_drafts(tmp_path: Path, mon
     assert result.exit_code == 0, result.output
     asset_report = yaml.safe_load((repo / ".ai" / "review" / "asset-candidates.yaml").read_text(encoding="utf-8"))
     guide_md = (repo / ".ai" / "review" / "asset-candidate-guides.md").read_text(encoding="utf-8")
+    experience_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
     assert asset_report["schema_version"] == "1.0"
     assert asset_report["candidates"][0]["review_status"] == "pending_harness_maintainer_review"
     assert "# Asset Candidate Guides" in guide_md
     assert "Scope project context guide" in guide_md
     assert (repo / ".ai" / "review" / "asset-candidate-sensors.md").exists()
     assert (repo / ".ai" / "review" / "asset-candidate-workflows.md").exists()
+    assert experience_index["asset_candidate_count"] == 1
     assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == formal_guide_before
     trace = _latest_trace(repo)
     assert trace["command"] == "generate-asset-candidates"
