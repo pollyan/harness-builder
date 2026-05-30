@@ -3,11 +3,11 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-echo "Running regression tests before push..."
-scripts/test-fast.sh
+echo "Running full regression tests before push..."
+scripts/test-full.sh
 
 cat <<'MSG'
-Local regression passed.
+Local full regression passed.
 After the push completes, run:
   scripts/check-ci.sh
 MSG

@@ -3,8 +3,7 @@ set -euo pipefail
 
 cat <<'MSG'
 Commit created.
-Before pushing, the pre-push hook will run local regression tests again.
+Before pushing, the pre-push hook will run full local regression tests, including DeepSeek acceptance.
 After pushing, run:
   scripts/check-ci.sh
 MSG
-

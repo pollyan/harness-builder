@@ -43,9 +43,10 @@ scripts/test-full.sh
 
 ## 提交与 CI 规则
 
-- Codex 在创建 git commit 前，必须先主动运行本地全量回归：`scripts/test-full.sh`。
+- Codex 在创建 git commit 前，必须先主动运行快速回归：`scripts/test-fast.sh`。
+- Codex 在 push 到 GitHub 前，必须先主动运行本地全量回归：`scripts/test-full.sh`。
 - 如果本地缺少 `.venv/bin/python`，可以使用当前环境中的 `python -m pytest -q`，但必须在回复中说明。
 - 本地 `.githooks` 只是兜底机制，不是 GitHub hook，也不是 Codex 产品层面的 hook；Codex 仍必须按本文件规则主动执行验证。
-- 推送代码前，本地 Git hook 会再次运行快速回归测试。
+- 推送代码前，本地 Git hook 会运行本地全量回归测试。
 - GitHub Actions 只有 push 后才会触发；推送完成后必须运行 `scripts/check-ci.sh` 查看当前分支最新 CI 状态。
 - 不要把“本地测试通过”等同于“远端 CI 通过”，两者都需要明确确认。
