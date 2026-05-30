@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +16,10 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.setdefault("HARNESS_BUILDER_SENSOR_TIMEOUT_SECONDS", "20")
     env.setdefault("HARNESS_BUILDER_LLM_TIMEOUT_SECONDS", "180")
+    pythonpath = os.pathsep.join([str(ROOT / "src"), str(ROOT)])
+    if env.get("PYTHONPATH"):
+        pythonpath = os.pathsep.join([pythonpath, env["PYTHONPATH"]])
+    env["PYTHONPATH"] = pythonpath
     return subprocess.run(
         [sys.executable, "-m", "harness_builder_agent.cli", *args],
         cwd=ROOT,
@@ -32,6 +37,7 @@ def _assert_real_repo(repo_name: str, profile: str) -> None:
     assert repo.exists(), f"Missing real benchmark repository: {repo}"
     report_path = repo / ".ai" / "benchmark-report.yaml"
     report_path.unlink(missing_ok=True)
+    shutil.rmtree(repo / ".ai" / "task-runs", ignore_errors=True)
 
     init_result = _run_cli("init", "--repo", str(repo), "--non-interactive")
     assert init_result.returncode == 0, init_result.stderr + init_result.stdout
