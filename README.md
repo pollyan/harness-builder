@@ -124,5 +124,6 @@ scripts/install-git-hooks.sh
 安装后：
 
 - `pre-commit` 会在提交前运行 `.venv/bin/python -m pytest -q`。
+- `post-commit` 会提醒推送后运行 `scripts/check-ci.sh` 查看 GitHub Actions。
 - `pre-push` 会在推送前再次运行 `.venv/bin/python -m pytest -q`。
 - 推送完成后，运行 `scripts/check-ci.sh` 查看当前分支最新 GitHub Actions 结果。

@@ -35,3 +35,10 @@
 
 真实 DeepSeek / 开源仓库验收不在默认 CI 中运行。需要显式运行 `tests/acceptance`，且缺少 `DEEPSEEK_API_KEY` 时必须失败，不能跳过。
 
+## 提交与 CI 规则
+
+- Codex 在创建 git commit 前，必须先在本地运行默认回归测试：`.venv/bin/python -m pytest -q`。
+- 如果本地缺少 `.venv/bin/python`，可以使用当前环境中的 `python -m pytest -q`，但必须在回复中说明。
+- 推送代码前，本地 Git hook 会再次运行默认回归测试。
+- GitHub Actions 只有 push 后才会触发；推送完成后必须运行 `scripts/check-ci.sh` 查看当前分支最新 CI 状态。
+- 不要把“本地测试通过”等同于“远端 CI 通过”，两者都需要明确确认。

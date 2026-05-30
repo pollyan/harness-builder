@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat <<'MSG'
+Commit created.
+Before pushing, the pre-push hook will run local regression tests again.
+After pushing, run:
+  scripts/check-ci.sh
+MSG
+
