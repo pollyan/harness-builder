@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
@@ -460,5 +461,51 @@ def test_maturity_review_report_rejects_invalid_decision():
                         "rationale": "bad enum",
                     }
                 ],
+            }
+        )
+
+
+def test_asset_candidate_report_records_review_only_drafts():
+    report = AssetCandidateReport.model_validate(
+        {
+            "candidates": [
+                {
+                    "id": "guide-project-context-scope",
+                    "kind": "guide",
+                    "source_candidate_id": "candidate-1",
+                    "source_review_decision": "revise",
+                    "suggested_path": ".ai/guides/project-context.md",
+                    "title": "Scope project context guide",
+                    "rationale": "The guide needs a more explicit task loading scope.",
+                    "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                    "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                    "risk_level": "medium",
+                    "review_status": "pending_harness_maintainer_review",
+                }
+            ]
+        }
+    )
+
+    assert report.schema_version == "1.0"
+    assert report.candidates[0].kind == "guide"
+    assert report.candidates[0].review_status == "pending_harness_maintainer_review"
+
+
+def test_asset_candidate_report_rejects_invalid_kind():
+    with pytest.raises(ValidationError):
+        AssetCandidateReport.model_validate(
+            {
+                "candidates": [
+                    {
+                        "id": "bad",
+                        "kind": "unknown",
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/guides/project-context.md",
+                        "title": "Bad",
+                        "rationale": "Bad kind.",
+                        "draft_content": "content",
+                    }
+                ]
             }
         )

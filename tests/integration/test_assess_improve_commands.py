@@ -8,6 +8,7 @@ import yaml
 from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
+from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.scan_repo import scan_repository
 
@@ -221,3 +222,68 @@ def test_review_maturity_writes_llm_review_artifacts(tmp_path: Path, monkeypatch
     assert "## Candidate Reviews" in markdown
     trace = _latest_trace(repo)
     assert trace["command"] == "review-maturity"
+
+
+def test_generate_asset_candidates_writes_review_only_drafts(tmp_path: Path, monkeypatch):
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    runner = CliRunner()
+    assess_result = runner.invoke(app, ["assess", "--repo", str(repo)])
+    assert assess_result.exit_code == 0, assess_result.output
+    improve_result = runner.invoke(app, ["improve", "--repo", str(repo)])
+    assert improve_result.exit_code == 0, improve_result.output
+
+    def fake_review(score, evidence_pack, candidates):
+        return MaturityReviewReport(
+            summary="Candidates are aligned.",
+            candidate_reviews=[
+                {
+                    "candidate_id": candidates.candidates[0].id,
+                    "decision": "support",
+                    "rationale": "Candidate is grounded in maturity evidence.",
+                }
+            ],
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.review_maturity.review_maturity_with_llm", fake_review)
+    review_result = runner.invoke(app, ["review-maturity", "--repo", str(repo)])
+    assert review_result.exit_code == 0, review_result.output
+    formal_guide_before = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+
+    def fake_asset_candidates(score, evidence_pack, improvement_candidates, maturity_review):
+        return AssetCandidateReport(
+            candidates=[
+                {
+                    "id": "guide-project-context-scope",
+                    "kind": "guide",
+                    "source_candidate_id": improvement_candidates.candidates[0].id,
+                    "source_review_decision": "support",
+                    "suggested_path": ".ai/guides/project-context.md",
+                    "title": "Scope project context guide",
+                    "rationale": "Candidate is grounded in maturity review.",
+                    "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                    "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                    "risk_level": "medium",
+                }
+            ]
+        )
+
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.generate_asset_candidates.generate_asset_candidates_with_llm",
+        fake_asset_candidates,
+    )
+
+    result = runner.invoke(app, ["generate-asset-candidates", "--repo", str(repo)])
+
+    assert result.exit_code == 0, result.output
+    asset_report = yaml.safe_load((repo / ".ai" / "review" / "asset-candidates.yaml").read_text(encoding="utf-8"))
+    guide_md = (repo / ".ai" / "review" / "asset-candidate-guides.md").read_text(encoding="utf-8")
+    assert asset_report["schema_version"] == "1.0"
+    assert asset_report["candidates"][0]["review_status"] == "pending_harness_maintainer_review"
+    assert "# Asset Candidate Guides" in guide_md
+    assert "Scope project context guide" in guide_md
+    assert (repo / ".ai" / "review" / "asset-candidate-sensors.md").exists()
+    assert (repo / ".ai" / "review" / "asset-candidate-workflows.md").exists()
+    assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == formal_guide_before
+    trace = _latest_trace(repo)
+    assert trace["command"] == "generate-asset-candidates"

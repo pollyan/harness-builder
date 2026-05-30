@@ -7,6 +7,7 @@ import typer
 
 from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.generate_asset_candidates import generate_asset_candidates
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
@@ -116,6 +117,26 @@ def review_maturity_command(repo: Path = typer.Option(..., "--repo", exists=True
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
     typer.echo(f"Generated maturity review in {output_dir / 'review'}")
+
+
+@app.command("generate-asset-candidates")
+def generate_asset_candidates_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
+    """Generate review-only draft Guide, Sensor, and Workflow asset candidates."""
+    trace = GenerationTrace.start(repo, "generate-asset-candidates")
+    try:
+        trace.event("asset-candidates", "started", "Asset candidate generation started.")
+        output_dir = generate_asset_candidates(repo)
+        trace.artifact(output_dir / "review" / "asset-candidates.yaml", "asset_candidates")
+        trace.artifact(output_dir / "review" / "asset-candidate-guides.md", "review")
+        trace.artifact(output_dir / "review" / "asset-candidate-sensors.md", "review")
+        trace.artifact(output_dir / "review" / "asset-candidate-workflows.md", "review")
+        trace.event("asset-candidates", "completed", "Asset candidate generation completed.", {"artifact_count": 4})
+        trace.finish("completed", {"artifact_count": 4})
+    except Exception as exc:
+        trace.event("asset-candidates", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Generated asset candidates in {output_dir / 'review'}")
 
 
 def main() -> None:

@@ -28,7 +28,7 @@
 - Modify: `tests/unit/test_schema_contracts.py`
 - Create: `src/harness_builder_agent/schemas/asset_candidate.py`
 
-- [ ] **Step 1: Write failing schema tests**
+- [x] **Step 1: Write failing schema tests**
 
 Add import:
 
@@ -86,7 +86,7 @@ def test_asset_candidate_report_rejects_invalid_kind():
         )
 ```
 
-- [ ] **Step 2: Run schema tests and confirm failure**
+- [x] **Step 2: Run schema tests and confirm failure**
 
 Run:
 
@@ -96,7 +96,7 @@ Run:
 
 Expected: fail because `asset_candidate.py` does not exist.
 
-- [ ] **Step 3: Implement schema**
+- [x] **Step 3: Implement schema**
 
 Create `src/harness_builder_agent/schemas/asset_candidate.py`:
 
@@ -129,7 +129,7 @@ class AssetCandidateReport(BaseModel):
     candidates: list[AssetCandidateDraft] = Field(default_factory=list)
 ```
 
-- [ ] **Step 4: Run schema tests and confirm pass**
+- [x] **Step 4: Run schema tests and confirm pass**
 
 Run:
 
@@ -145,7 +145,7 @@ Expected: pass.
 - Create: `tests/unit/test_llm_asset_candidate_generator.py`
 - Create: `src/harness_builder_agent/tools/llm_asset_candidate_generator.py`
 
-- [ ] **Step 1: Write failing parser tests**
+- [x] **Step 1: Write failing parser tests**
 
 Create tests with minimal `MaturityReport`, `MaturityEvidencePack`, `ImprovementCandidateReport`, and `MaturityReviewReport`.
 
@@ -235,7 +235,7 @@ def test_generate_asset_candidates_rejects_non_ai_path():
         )
 ```
 
-- [ ] **Step 2: Run parser tests and confirm failure**
+- [x] **Step 2: Run parser tests and confirm failure**
 
 Run:
 
@@ -245,7 +245,7 @@ Run:
 
 Expected: fail because module does not exist.
 
-- [ ] **Step 3: Implement generator module**
+- [x] **Step 3: Implement generator module**
 
 Create `src/harness_builder_agent/tools/llm_asset_candidate_generator.py`:
 
@@ -261,7 +261,7 @@ Parser rules:
 - Reject unknown `source_candidate_id` unless `source_review_decision == "missing"`.
 - Reject `suggested_path` values not starting `.ai/`.
 
-- [ ] **Step 4: Run parser tests and confirm pass**
+- [x] **Step 4: Run parser tests and confirm pass**
 
 Run:
 
@@ -278,7 +278,7 @@ Expected: pass.
 - Modify: `src/harness_builder_agent/cli.py`
 - Modify: `tests/integration/test_assess_improve_commands.py`
 
-- [ ] **Step 1: Write failing CLI integration test**
+- [x] **Step 1: Write failing CLI integration test**
 
 Add `test_generate_asset_candidates_writes_review_only_drafts`.
 
@@ -337,7 +337,7 @@ trace = _latest_trace(repo)
 assert trace["command"] == "generate-asset-candidates"
 ```
 
-- [ ] **Step 2: Run CLI test and confirm failure**
+- [x] **Step 2: Run CLI test and confirm failure**
 
 Run:
 
@@ -347,7 +347,7 @@ Run:
 
 Expected: fail because command does not exist.
 
-- [ ] **Step 3: Implement orchestration tool**
+- [x] **Step 3: Implement orchestration tool**
 
 Create `src/harness_builder_agent/tools/generate_asset_candidates.py`:
 
@@ -364,11 +364,11 @@ Markdown sections:
 - sensor file: `# Asset Candidate Sensors`
 - workflow file: `# Asset Candidate Workflows`
 
-- [ ] **Step 4: Add CLI command**
+- [x] **Step 4: Add CLI command**
 
 Add `generate-asset-candidates` command in `cli.py` with `GenerationTrace.start(repo, "generate-asset-candidates")`, artifact records for all four files, and explicit failure trace.
 
-- [ ] **Step 5: Run CLI test and confirm pass**
+- [x] **Step 5: Run CLI test and confirm pass**
 
 Run:
 
@@ -383,7 +383,7 @@ Expected: pass.
 **Files:**
 - All modified files.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -393,7 +393,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 2: Run fast regression**
+- [x] **Step 2: Run fast regression**
 
 Run:
 
@@ -403,11 +403,11 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 3: Self-Harness Improvement Gate**
+- [x] **Step 3: Self-Harness Improvement Gate**
 
 Update `docs/engineering/llm-contracts.md` to include asset candidate generation as structured LLM output. Do not add these opt-in review artifacts to benchmark required files yet.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
