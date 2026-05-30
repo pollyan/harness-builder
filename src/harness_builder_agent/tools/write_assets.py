@@ -10,6 +10,8 @@ import yaml
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
+from harness_builder_agent.tools.weapon_library import select_weapon_library
 
 
 def _write_text(path: Path, content: str) -> None:
@@ -28,24 +30,26 @@ def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
 def write_initial_assets(repo: Path, inventory: ProjectInventory, commands: CommandCatalog) -> Path:
     ai = repo / ".ai"
     config = HarnessConfig.default()
+    weapon_selection = select_weapon_library(inventory, commands)
 
     _write_json(ai / "project-inventory.json", inventory.model_dump(mode="json"))
     _write_yaml(ai / "command-catalog.yaml", commands.model_dump(mode="json"))
     _write_yaml(ai / "harness-config.yaml", config.model_dump(mode="json"))
+    _write_yaml(ai / "weapon-library-selection.yaml", weapon_selection.model_dump(mode="json"))
 
     _write_text(ai / "scan-report.md", _scan_report(inventory, commands))
-    _write_text(ai / "maturity-report.md", _maturity_report(inventory, commands))
-    _write_yaml(ai / "maturity-score.yaml", _maturity_score(inventory, commands, config))
+    _write_text(ai / "maturity-report.md", _maturity_report(inventory, commands, weapon_selection))
+    _write_yaml(ai / "maturity-score.yaml", _maturity_score(inventory, commands, config, weapon_selection))
     _write_text(ai / "evolution-plan.md", _evolution_plan())
 
-    _write_text(ai / "guides" / "project-context.md", _guide("project-context", inventory))
-    _write_text(ai / "guides" / "coding-rules.md", _guide("coding-rules", inventory))
-    _write_text(ai / "guides" / "architecture.md", _guide("architecture", inventory))
+    _write_text(ai / "guides" / "project-context.md", _guide("project-context", inventory, weapon_selection))
+    _write_text(ai / "guides" / "coding-rules.md", _guide("coding-rules", inventory, weapon_selection))
+    _write_text(ai / "guides" / "architecture.md", _guide("architecture", inventory, weapon_selection))
     _write_text(ai / "guides" / "task-templates" / "bugfix.md", _task_template("bugfix"))
     _write_text(ai / "guides" / "task-templates" / "lightweight-feature.md", _task_template("lightweight"))
 
-    _write_text(ai / "sensors" / "verification.md", _sensor_doc(commands))
-    _write_text(ai / "sensors" / "test-strategy.md", _test_strategy(commands))
+    _write_text(ai / "sensors" / "verification.md", _sensor_doc(commands, weapon_selection))
+    _write_text(ai / "sensors" / "test-strategy.md", _test_strategy(commands, weapon_selection))
     _copy_workflow_skills(ai)
     _write_text(ai / "experience" / "pending-improvements.md", "# Pending Improvements\n\nNo reviewed improvements yet.\n")
     return ai
@@ -77,7 +81,7 @@ def _scan_report(inventory: ProjectInventory, commands: CommandCatalog) -> str:
     )
 
 
-def _maturity_report(inventory: ProjectInventory, commands: CommandCatalog) -> str:
+def _maturity_report(inventory: ProjectInventory, commands: CommandCatalog, weapon_selection: WeaponLibrarySelection) -> str:
     level = "L2" if commands.commands else "L1"
     return (
         "# 成熟度评估报告\n\n"
@@ -92,6 +96,7 @@ def _maturity_report(inventory: ProjectInventory, commands: CommandCatalog) -> s
         "## 证据\n\n"
         f"- 已识别技术栈：`{inventory.primary_stack}`。\n"
         f"- 已识别验证命令数量：{len(commands.commands)}。\n"
+        f"- 已命中武器库：{len(weapon_selection.guide_weapon_ids)} 条 Guide，{len(weapon_selection.sensor_weapon_ids)} 条 Sensor。\n"
         "- 已生成项目级 Workflow Skill，但尚未接入完整 IDE Runtime。\n\n"
         "## 阻断原因\n\n"
         "- 风险目录和团队规则仍需要人工确认。\n"
@@ -103,7 +108,9 @@ def _maturity_report(inventory: ProjectInventory, commands: CommandCatalog) -> s
     )
 
 
-def _maturity_score(inventory: ProjectInventory, commands: CommandCatalog, config: HarnessConfig) -> dict[str, Any]:
+def _maturity_score(
+    inventory: ProjectInventory, commands: CommandCatalog, config: HarnessConfig, weapon_selection: WeaponLibrarySelection
+) -> dict[str, Any]:
     return {
         "schema_version": "1.0",
         "overall_level": "L2" if commands.commands else "L1",
@@ -119,6 +126,7 @@ def _maturity_score(inventory: ProjectInventory, commands: CommandCatalog, confi
             f"识别到主技术栈：{inventory.primary_stack}",
             f"识别到模块数量：{len(inventory.modules)}",
             f"识别到验证命令数量：{len(commands.commands)}",
+            f"命中武器库：Guide {len(weapon_selection.guide_weapon_ids)} 条，Sensor {len(weapon_selection.sensor_weapon_ids)} 条",
             "已生成 lightweight 与 bugfix Workflow Skill",
         ],
         "blocking_reasons": [
@@ -142,14 +150,19 @@ def _evolution_plan() -> str:
     )
 
 
-def _guide(name: str, inventory: ProjectInventory) -> str:
+def _guide(name: str, inventory: ProjectInventory, weapon_selection: WeaponLibrarySelection) -> str:
     module_lines = "\n".join(f"- `{module['path']}` ({module['kind']})" for module in inventory.modules) or "- No modules detected"
     evidence_lines = "\n".join(f"- `{item['path']}`：{item['reason']}" for item in inventory.evidence) or "- 暂未发现直接证据"
-    recommended_lines = "\n".join(f"- {item}" for item in _guide_recommendations(inventory.primary_stack))
+    match_lines = _weapon_match_lines(weapon_selection.guide_weapons)
+    recommended_lines = "\n".join(f"- `{item.id}`：{item.recommended_action}" for item in weapon_selection.guide_weapons)
     return (
         _frontmatter("guide")
         + f"# {name}\n\n"
         + f"仓库 `{inventory.repo_name}` 被识别为 `{inventory.primary_stack}`。\n\n"
+        + "## 武器库匹配结果\n\n"
+        + f"- 来源：`{weapon_selection.source}`。\n"
+        + f"- 已选择技术栈：{', '.join(f'`{stack}`' for stack in weapon_selection.selected_stacks)}。\n"
+        + f"{match_lines}\n\n"
         + "## 适用范围\n\n"
         + "当前覆盖整个仓库，正式生效前需要维护者审查。\n\n"
         + "## 当前项目事实\n\n"
@@ -160,7 +173,7 @@ def _guide(name: str, inventory: ProjectInventory) -> str:
         + "## 来源证据\n\n"
         + f"{evidence_lines}\n\n"
         + "## 候选规则\n\n"
-        + f"{_candidate_rules(inventory.primary_stack)}\n\n"
+        + f"{_guide_rule_lines(weapon_selection.guide_weapons)}\n\n"
         + "## Harness Builder 推荐补齐项\n\n"
         + f"{recommended_lines}\n\n"
         + "## 人工确认点\n\n"
@@ -181,22 +194,28 @@ def _task_template(kind: str) -> str:
     )
 
 
-def _sensor_doc(commands: CommandCatalog) -> str:
+def _sensor_doc(commands: CommandCatalog, weapon_selection: WeaponLibrarySelection) -> str:
     command_lines = "\n".join(
         f"- `{command.id}`：`{command.command}`，gate=`{command.gate}`，来源 `{command.source}`，verified={command.verified}"
         for command in commands.commands
     ) or "- 暂未发现可执行验证命令"
     missing = _missing_sensor_lines(commands)
+    match_lines = _weapon_match_lines(weapon_selection.sensor_weapons)
+    recommendation_lines = "\n".join(
+        f"- `{weapon.id}`：{weapon.recommended_action} gate=`{weapon.gate}`" for weapon in weapon_selection.sensor_weapons
+    )
     return (
         "# 验证 Sensors\n\n"
+        "## 武器库匹配结果\n\n"
+        f"- 来源：`{weapon_selection.source}`。\n"
+        + f"- 已选择技术栈：{', '.join(f'`{stack}`' for stack in weapon_selection.selected_stacks)}。\n"
+        + f"{match_lines}\n\n"
         "## 已发现的验证命令\n\n"
         f"{command_lines}\n\n"
         "## 缺失验证能力\n\n"
         f"{missing}\n\n"
         "## 推荐验证活动\n\n"
-        "- 为核心后端模块补齐 unit test / integration test。\n"
-        "- 为配置、权限、接口和数据访问路径补充人工确认或 soft signal Sensor。\n"
-        "- 将稳定、快速、可重复的命令提升为 hard gate。\n\n"
+        f"{recommendation_lines}\n\n"
         "## 失败处理策略\n\n"
         "- hard gate 失败时任务保持未完成状态，并记录摘要和人工下一步。\n"
         "- soft signal 失败时进入 handoff summary，不直接阻断 POC 链路。\n"
@@ -204,10 +223,20 @@ def _sensor_doc(commands: CommandCatalog) -> str:
     )
 
 
-def _test_strategy(commands: CommandCatalog) -> str:
+def _test_strategy(commands: CommandCatalog, weapon_selection: WeaponLibrarySelection) -> str:
     hard_gates = [command for command in commands.commands if command.gate == "hard"]
     lines = "\n".join(f"- `{command.command}`" for command in hard_gates) or "- Confirm test strategy with maintainer"
-    return "# 测试策略\n\n## Hard Gates\n\n" + lines + "\n\n## 人工确认点\n\n- 请确认这些命令在团队开发机和 CI 中是否稳定。\n"
+    sensor_lines = "\n".join(
+        f"- `{weapon.id}`：{weapon.guidance}" for weapon in weapon_selection.sensor_weapons if weapon.gate == "hard"
+    )
+    return (
+        "# 测试策略\n\n"
+        "## Hard Gates\n\n"
+        + lines
+        + "\n\n## 武器库建议\n\n"
+        + (sensor_lines or "- 暂无 hard gate 武器。")
+        + "\n\n## 人工确认点\n\n- 请确认这些命令在团队开发机和 CI 中是否稳定。\n"
+    )
 
 
 def _copy_workflow_skills(ai: Path) -> None:
@@ -217,36 +246,12 @@ def _copy_workflow_skills(ai: Path) -> None:
         _write_text(ai / "skills" / name / "SKILL.md", content)
 
 
-def _guide_recommendations(primary_stack: str) -> list[str]:
-    if primary_stack == "java-spring":
-        return [
-            "确认 Maven 多模块之间的依赖边界，避免跨层直接调用。",
-            "补充登录、权限、SQL 和配置变更的风险说明。",
-            "为前端目录和后端接口建立对应关系说明。",
-        ]
-    if primary_stack == "dotnet-aspnet":
-        return [
-            "确认 solution / project 边界与 Clean Architecture 分层是否一致。",
-            "补充 PublicApi、Web、Infrastructure 和测试项目之间的协作说明。",
-            "确认 appsettings 和集成测试依赖的运行环境要求。",
-        ]
-    return ["请维护者补充团队约定、风险区域和测试策略。"]
+def _weapon_match_lines(weapons: list[WeaponLibraryEntry]) -> str:
+    return "\n".join(f"- `{weapon.id}`：{weapon.title}。" for weapon in weapons) or "- 暂未命中武器库条目。"
 
 
-def _candidate_rules(primary_stack: str) -> str:
-    if primary_stack == "java-spring":
-        return (
-            "- Controller 层只处理接口入口和参数映射，业务逻辑应下沉到 Service。\n"
-            "- Mapper / Repository 相关变更需要配套测试或人工确认。\n"
-            "- 登录、权限、SQL 和配置变更默认需要更严格 Sensor。"
-        )
-    if primary_stack == "dotnet-aspnet":
-        return (
-            "- ApplicationCore 应保持领域和业务规则的中心位置。\n"
-            "- Infrastructure 相关变更需要关注外部依赖和集成测试。\n"
-            "- PublicApi / Web 文案或配置变更应至少运行 dotnet test 或记录跳过原因。"
-        )
-    return "- 当前技术栈置信度不足，所有规则先保持 candidate 状态。"
+def _guide_rule_lines(weapons: list[WeaponLibraryEntry]) -> str:
+    return "\n".join(f"- `{weapon.id}`：{weapon.guidance}" for weapon in weapons) or "- 当前技术栈置信度不足，所有规则先保持 candidate 状态。"
 
 
 def _missing_sensor_lines(commands: CommandCatalog) -> str:

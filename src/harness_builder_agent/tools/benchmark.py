@@ -13,6 +13,7 @@ from harness_builder_agent.schemas.improvement_candidate import ImprovementCandi
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.sensor_report import SensorReport
+from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.run_task import run_task
@@ -23,6 +24,7 @@ REQUIRED_FILES = [
     "project-inventory.json",
     "command-catalog.yaml",
     "harness-config.yaml",
+    "weapon-library-selection.yaml",
     "scan-report.md",
     "maturity-report.md",
     "maturity-score.yaml",
@@ -91,6 +93,12 @@ def _schema_checks(ai: Path) -> list[dict[str, Any]]:
         checks.append({"id": "schema:harness-config", "passed": False, "error": str(exc)})
 
     try:
+        WeaponLibrarySelection.model_validate(yaml.safe_load((ai / "weapon-library-selection.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:weapon-library-selection", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:weapon-library-selection", "passed": False, "error": str(exc)})
+
+    try:
         HarnessMap.model_validate(yaml.safe_load((ai / "task-runs" / "demo-task-001" / "harness-map.yaml").read_text(encoding="utf-8")))
         checks.append({"id": "schema:harness-map", "passed": True})
     except Exception as exc:  # pragma: no cover
@@ -123,6 +131,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
+        _weapon_library_selection_check(ai, inventory),
     ]
 
 
@@ -168,12 +177,42 @@ def _stack_specific_guide_check(ai: Path, inventory: ProjectInventory) -> dict[s
     guide = ai / "guides" / "project-context.md"
     text = guide.read_text(encoding="utf-8") if guide.exists() else ""
     if inventory.primary_stack == "java-spring":
-        passed = "Maven" in text and "登录" in text
+        passed = "java-spring.guide.maven-boundary" in text and "java-spring.guide.auth-sql-config-risk" in text
     elif inventory.primary_stack == "dotnet-aspnet":
-        passed = "solution" in text and "PublicApi" in text
+        passed = "dotnet-aspnet.guide.solution-boundary" in text and "dotnet-aspnet.guide.publicapi-config-risk" in text
     else:
         passed = "人工确认" in text
     return {"id": "content:stack-specific-guides", "passed": passed, "stack": inventory.primary_stack}
+
+
+def _weapon_library_selection_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
+    selection_path = ai / "weapon-library-selection.yaml"
+    guide_path = ai / "guides" / "project-context.md"
+    sensor_path = ai / "sensors" / "verification.md"
+    if not selection_path.exists():
+        return {"id": "content:weapon-library-selection", "passed": False, "error": "missing weapon-library-selection.yaml"}
+
+    try:
+        selection = WeaponLibrarySelection.model_validate(yaml.safe_load(selection_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover
+        return {"id": "content:weapon-library-selection", "passed": False, "error": str(exc)}
+
+    guide_text = guide_path.read_text(encoding="utf-8") if guide_path.exists() else ""
+    sensor_text = sensor_path.read_text(encoding="utf-8") if sensor_path.exists() else ""
+    expected_stacks = {"common", inventory.primary_stack}
+    passed = (
+        selection.source == "built_in_weapon_library"
+        and expected_stacks.issubset(set(selection.selected_stacks))
+        and all(weapon_id in guide_text for weapon_id in selection.guide_weapon_ids)
+        and all(weapon_id in sensor_text for weapon_id in selection.sensor_weapon_ids)
+    )
+    return {
+        "id": "content:weapon-library-selection",
+        "passed": passed,
+        "selected_stacks": selection.selected_stacks,
+        "guide_weapon_count": len(selection.guide_weapon_ids),
+        "sensor_weapon_count": len(selection.sensor_weapon_ids),
+    }
 
 
 def _benchmark_task(profile: str) -> str:
