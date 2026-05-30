@@ -131,3 +131,29 @@ def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, mon
     assert trace["command"] == "improve"
     assert trace["status"] == "completed"
     assert "improvement" in trace["stages"]
+
+
+def test_assess_handles_empty_command_catalog_by_lowering_sensor_maturity(tmp_path: Path, monkeypatch):
+    repo = _prepared_task_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    (repo / ".ai" / "command-catalog.yaml").write_text("schema_version: '1.0'\ncommands: []\n", encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["assess", "--repo", str(repo)])
+
+    assert result.exit_code == 0, result.output
+    score = yaml.safe_load((repo / ".ai" / "maturity-score.yaml").read_text(encoding="utf-8"))
+    assert score["schema_version"] == "1.0"
+    assert score["overall_level"] == "L0"
+    assert score["dimension_scores"]["sensors"] == "L0"
+    assert "验证命令数量：0" in score["evidence"]
+
+
+def test_improve_candidates_are_reviewable_and_target_ai_assets(tmp_path: Path, monkeypatch):
+    repo = _prepared_task_repo(tmp_path, "mini-dotnet-webapi", "dotnet-aspnet", monkeypatch)
+
+    result = CliRunner().invoke(app, ["improve", "--repo", str(repo)])
+
+    assert result.exit_code == 0, result.output
+    candidates = yaml.safe_load((repo / ".ai" / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+    assert candidates["candidates"]
+    assert all(item["human_confirmation_required"] is True for item in candidates["candidates"])
+    assert all(item["suggested_target"].startswith(".ai/") for item in candidates["candidates"])
