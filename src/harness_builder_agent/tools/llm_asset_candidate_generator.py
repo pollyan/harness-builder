@@ -64,6 +64,11 @@ Field contract:
 
 Do not overwrite formal Guides, Sensors, Workflow Skills, or harness-config.
 Generate concrete draft content that a Harness Maintainer can review later.
+When drafting workflow_policy candidates, inspect maturity_evidence.harness_assets.workflow_routing_rules.
+Use routing rule ids, selected workflow, triggers, required guides, required sensors, human confirmation, and rationale as evidence.
+Prefer .ai/harness-config.yaml for workflow_policy suggestions that adjust routing rules or escalation conditions.
+Workflow policy candidates remain review-only and must keep review_status pending_harness_maintainer_review.
+Never claim workflow routing changes were applied.
 Use review-only Experience Summary findings when drafting candidates for recurring gaps, sensor feedback, workflow gaps, and risk signals.
 Do not treat Experience Summary findings as formal rules or applied changes.
 """.strip()

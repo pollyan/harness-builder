@@ -6,7 +6,7 @@ import pytest
 
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidate, ImprovementCandidateReport
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
-from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
+from harness_builder_agent.schemas.maturity_evidence import HarnessAssetEvidence, MaturityEvidencePack, WorkflowRoutingRuleEvidence
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.llm_asset_candidate_generator import (
@@ -24,6 +24,22 @@ def _evidence_pack() -> MaturityEvidencePack:
     return MaturityEvidencePack(
         repo_name="demo",
         primary_stack="java-spring",
+        harness_assets=HarnessAssetEvidence(
+            workflow_routing_rule_count=1,
+            has_standard_escalation_rule=True,
+            workflow_routing_rules=[
+                WorkflowRoutingRuleEvidence(
+                    id="standard-escalation",
+                    selected_workflow="standard",
+                    task_type_hints=["feature"],
+                    triggers=["high_risk_module", "security_or_permission"],
+                    required_guides=[".ai/guides/architecture.md"],
+                    required_sensors=[".ai/sensors/verification.md"],
+                    human_confirmation_required=True,
+                    rationale="Escalate risky work.",
+                )
+            ],
+        ),
         maturity_inputs=[".ai/project-inventory.json"],
     )
 
@@ -147,6 +163,32 @@ def test_generate_asset_candidates_rejects_non_ai_path():
         )
 
 
+def test_generate_asset_candidates_accepts_workflow_policy_candidate():
+    report = parse_asset_candidate_response(
+        json.dumps(
+            {
+                "candidates": [
+                    {
+                        "id": "workflow-routing-standard-escalation",
+                        "kind": "workflow_policy",
+                        "source_candidate_id": "candidate-1",
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/harness-config.yaml",
+                        "title": "Refine standard escalation routing",
+                        "rationale": "Uses routing evidence.",
+                        "draft_content": "workflow_routing:\n  rules:\n    - id: standard-escalation",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ]
+            }
+        ),
+        {"candidate-1"},
+    )
+
+    assert report.candidates[0].kind == "workflow_policy"
+    assert report.candidates[0].suggested_path == ".ai/harness-config.yaml"
+
+
 def test_build_asset_candidate_messages_includes_experience_summary_when_present():
     messages = build_asset_candidate_messages(
         _score(),
@@ -158,6 +200,11 @@ def test_build_asset_candidate_messages_includes_experience_summary_when_present
     content = messages[-1]["content"]
     assert '"experience_summary"' in content
     assert "workflow-gap-routing" in content
+    assert "workflow_routing_rules" in content
+    assert "standard-escalation" in content
+    assert "security_or_permission" in content
+    assert "When drafting workflow_policy candidates" in content
+    assert "pending_harness_maintainer_review" in content
     assert "review-only Experience Summary findings" in content
 
 

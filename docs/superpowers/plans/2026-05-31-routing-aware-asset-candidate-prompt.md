@@ -19,7 +19,7 @@
 
 ## Task 1: Routing-Aware Prompt Contract
 
-- [ ] **Step 1: Write failing prompt assertion**
+- [x] **Step 1: Write failing prompt assertion**
 
 In `tests/unit/test_llm_asset_candidate_generator.py`, import `HarnessAssetEvidence` and `WorkflowRoutingRuleEvidence` from `schemas.maturity_evidence`.
 
@@ -54,7 +54,7 @@ assert "When drafting workflow_policy candidates" in content
 assert "pending_harness_maintainer_review" in content
 ```
 
-- [ ] **Step 2: Run targeted test and confirm failure**
+- [x] **Step 2: Run targeted test and confirm failure**
 
 Run:
 
@@ -64,7 +64,7 @@ Run:
 
 Expected: fail because the payload contains routing evidence after the fixture change, but the prompt does not contain the explicit workflow policy instruction.
 
-- [ ] **Step 3: Update prompt contract**
+- [x] **Step 3: Update prompt contract**
 
 In `llm_asset_candidate_generator.py`, add to `schema_contract`:
 
@@ -76,13 +76,13 @@ Workflow policy candidates remain review-only and must keep review_status pendin
 Never claim workflow routing changes were applied.
 ```
 
-- [ ] **Step 4: Run targeted test and confirm pass**
+- [x] **Step 4: Run targeted test and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 2: Parser Regression for Workflow Policy Candidate
 
-- [ ] **Step 1: Add parser test for workflow policy candidate**
+- [x] **Step 1: Add parser test for workflow policy candidate**
 
 In `tests/unit/test_llm_asset_candidate_generator.py`, add:
 
@@ -113,7 +113,7 @@ def test_generate_asset_candidates_accepts_workflow_policy_candidate():
     assert report.candidates[0].suggested_path == ".ai/harness-config.yaml"
 ```
 
-- [ ] **Step 2: Run unit tests**
+- [x] **Step 2: Run unit tests**
 
 Run:
 
@@ -125,11 +125,11 @@ Expected: pass.
 
 ## Task 3: Docs, Verification, Commit
 
-- [ ] **Step 1: Update LLM engineering docs**
+- [x] **Step 1: Update LLM engineering docs**
 
 In `docs/engineering/llm-contracts.md`, add that asset candidate generation must treat `maturity_evidence.harness_assets.workflow_routing_rules` as review-only evidence when drafting workflow policy candidates, and must not claim the policy was applied.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run:
 
@@ -137,7 +137,7 @@ Run:
 .venv/bin/python -m pytest tests/unit/test_llm_asset_candidate_generator.py -q
 ```
 
-- [ ] **Step 3: Run fast regression**
+- [x] **Step 3: Run fast regression**
 
 Run:
 
@@ -145,7 +145,7 @@ Run:
 scripts/test-fast.sh
 ```
 
-- [ ] **Step 4: Self-Harness Improvement Gate**
+- [x] **Step 4: Self-Harness Improvement Gate**
 
 Record the result in this plan. Expected:
 
@@ -153,6 +153,15 @@ Record the result in this plan. Expected:
 - Parser accepts review-only workflow policy candidates under `.ai/`.
 - No schema, runtime, or formal config mutation is introduced.
 - Next candidate gap: task-brief-specific LLM routing recommendation.
+
+Result:
+
+- Focused regression: `6 passed`.
+- Fast regression: `126 passed`.
+- Prompt tests now require explicit routing evidence guidance for `workflow_policy` candidates.
+- Parser regression accepts review-only workflow policy candidates under `.ai/harness-config.yaml` and existing path/source validation remains covered.
+- No schema, runtime execution, formal config mutation, or `.ai/task-runs` generation was introduced.
+- Next candidate gap: task-brief-specific LLM routing recommendation against `workflow_routing_rules`.
 
 - [ ] **Step 5: Commit**
 

@@ -109,6 +109,7 @@ Prompt 是系统行为的一部分，应当可维护。
 - LLM asset candidate generation 只能输出结构化 draft candidates，必须保持 `pending_harness_maintainer_review`，不能声称已应用到正式 Harness 资产。
 - LLM experience summary 只能输出结构化 Experience findings，必须保持 `pending_harness_maintainer_review`，不能声称已经沉淀为正式 Guides、Sensors、Workflow 或风险策略。
 - LLM maturity review 和 asset candidate generation 的 prompt 在 `.ai/experience/experience-summary.yaml` 存在时应注入可选 `experience_summary` 上下文；缺失时显式传入 `null`，不能自动运行 summarizer 或伪造摘要。
+- LLM asset candidate generation 在生成 `workflow_policy` 候选时，应显式消费 `maturity_evidence.harness_assets.workflow_routing_rules`，但这些 routing rules 只能作为 review-only evidence；候选必须保持 `pending_harness_maintainer_review`，不能声称已经修改或应用 `.ai/harness-config.yaml`。
 
 未来如果 Prompt 数量增加，应考虑拆到专门目录，例如 `src/harness_builder_agent/prompts/`。
 
