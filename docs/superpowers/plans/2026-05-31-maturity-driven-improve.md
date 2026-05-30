@@ -24,7 +24,7 @@
 - Modify: `tests/unit/test_schema_contracts.py`
 - Modify: `src/harness_builder_agent/schemas/improvement_candidate.py`
 
-- [ ] **Step 1: Write failing schema assertions**
+- [x] **Step 1: Write failing schema assertions**
 
 Update `test_improvement_candidate_report_requires_reviewable_candidates` so the candidate payload includes traceability fields and the assertions read them:
 
@@ -45,7 +45,7 @@ Add assertions:
     assert ".ai/maturity-evidence.yaml" in report.candidates[0].evidence_sources
 ```
 
-- [ ] **Step 2: Run schema test and confirm failure**
+- [x] **Step 2: Run schema test and confirm failure**
 
 Run:
 
@@ -55,7 +55,7 @@ Run:
 
 Expected: fail because `ImprovementCandidate` does not expose `target_dimension`.
 
-- [ ] **Step 3: Extend schema**
+- [x] **Step 3: Extend schema**
 
 Add fields to `ImprovementCandidate`:
 
@@ -67,7 +67,7 @@ Add fields to `ImprovementCandidate`:
     evidence_sources: list[str] = Field(default_factory=list)
 ```
 
-- [ ] **Step 4: Run schema test and confirm pass**
+- [x] **Step 4: Run schema test and confirm pass**
 
 Run:
 
@@ -83,7 +83,7 @@ Expected: pass.
 - Modify: `tests/integration/test_assess_improve_commands.py`
 - Modify: `src/harness_builder_agent/tools/generate_improvements.py`
 
-- [ ] **Step 1: Write failing improve assertions**
+- [x] **Step 1: Write failing improve assertions**
 
 In `test_improve_generates_reviewable_improvement_candidates`, delete the evidence pack after `assess`, then assert `improve` rebuilds it and emits maturity-linked candidate metadata:
 
@@ -105,7 +105,7 @@ Add assertions after loading candidates:
     assert "Maturity dimension" in evolution
 ```
 
-- [ ] **Step 2: Run improve test and confirm failure**
+- [x] **Step 2: Run improve test and confirm failure**
 
 Run:
 
@@ -115,7 +115,7 @@ Run:
 
 Expected: fail because `improve` does not rebuild missing evidence and candidates lack traceability fields.
 
-- [ ] **Step 3: Load maturity evidence in improve**
+- [x] **Step 3: Load maturity evidence in improve**
 
 In `generate_improvements.py`:
 
@@ -137,7 +137,7 @@ Load the evidence pack:
     candidates = ImprovementCandidateReport(candidates=_candidates(score, evidence_pack))
 ```
 
-- [ ] **Step 4: Generate candidates from next steps, caps, and warnings**
+- [x] **Step 4: Generate candidates from next steps, caps, and warnings**
 
 Replace `_candidates(score)` with `_candidates(score, evidence_pack)`:
 
@@ -256,7 +256,7 @@ def _candidate_from_cap(cap, evidence_pack: MaturityEvidencePack) -> Improvement
     )
 ```
 
-- [ ] **Step 5: Update Markdown writers**
+- [x] **Step 5: Update Markdown writers**
 
 Update `_write_evolution_plan` lines so each item includes:
 
@@ -267,7 +267,7 @@ Acceptance checks: <joined checks>
 
 Update `_write_pending_improvements` lines so each item includes the same two labels.
 
-- [ ] **Step 6: Run improve test and confirm pass**
+- [x] **Step 6: Run improve test and confirm pass**
 
 Run:
 
@@ -282,7 +282,7 @@ Expected: pass.
 **Files:**
 - All modified code and tests.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -292,7 +292,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 2: Run fast regression**
+- [x] **Step 2: Run fast regression**
 
 Run:
 
@@ -302,11 +302,11 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 3: Self-Harness Improvement Gate**
+- [x] **Step 3: Self-Harness Improvement Gate**
 
 Check whether this milestone requires engineering docs or benchmark changes. Expected result: no engineering doc change is required because the existing architecture and init-workflow docs already define `improve`, candidate-only rule changes, schema validation, and benchmark validation for `improvement-candidates.yaml`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 

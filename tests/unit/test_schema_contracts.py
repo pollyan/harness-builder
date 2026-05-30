@@ -388,6 +388,11 @@ def test_improvement_candidate_report_requires_reviewable_candidates():
                     "rationale": "Add missing team rule.",
                     "evidence": ["human confirmation"],
                     "human_confirmation_required": True,
+                    "target_dimension": "guides",
+                    "source_next_step": "guides-bind-workflow",
+                    "source_blocking_cap": None,
+                    "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                    "evidence_sources": [".ai/maturity-evidence.yaml", ".ai/project-inventory.json"],
                 }
             ]
         }
@@ -395,6 +400,10 @@ def test_improvement_candidate_report_requires_reviewable_candidates():
 
     assert report.candidates[0].suggested_target.startswith(".ai/")
     assert report.candidates[0].human_confirmation_required is True
+    assert report.candidates[0].target_dimension == "guides"
+    assert report.candidates[0].source_next_step == "guides-bind-workflow"
+    assert report.candidates[0].acceptance_checks == ["Benchmark content:guides-quality passes."]
+    assert ".ai/maturity-evidence.yaml" in report.candidates[0].evidence_sources
 
 
 def test_improvement_candidate_report_rejects_unknown_candidate_type():

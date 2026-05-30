@@ -16,6 +16,11 @@ class ImprovementCandidate(BaseModel):
     confidence: Confidence = "medium"
     human_confirmation_required: bool = True
     priority: Literal["high", "medium", "low"] = "medium"
+    target_dimension: str | None = None
+    source_next_step: str | None = None
+    source_blocking_cap: str | None = None
+    acceptance_checks: list[str] = Field(default_factory=list)
+    evidence_sources: list[str] = Field(default_factory=list)
 
 
 class ImprovementCandidateReport(BaseModel):

@@ -126,10 +126,12 @@ def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, mon
     runner = CliRunner()
     assess_result = runner.invoke(app, ["assess", "--repo", str(repo)])
     assert assess_result.exit_code == 0, assess_result.output
+    (repo / ".ai" / "maturity-evidence.yaml").unlink()
 
     result = runner.invoke(app, ["improve", "--repo", str(repo)])
 
     assert result.exit_code == 0, result.output
+    assert (repo / ".ai" / "maturity-evidence.yaml").exists()
     candidates = yaml.safe_load((repo / ".ai" / "improvement-candidates.yaml").read_text(encoding="utf-8"))
     pending = (repo / ".ai" / "experience" / "pending-improvements.md").read_text(encoding="utf-8")
     evolution = (repo / ".ai" / "evolution-plan.md").read_text(encoding="utf-8")
@@ -139,8 +141,14 @@ def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, mon
     assert first["candidate_type"] in {"guide_update", "sensor_update", "workflow_policy_update", "maturity_action"}
     assert first["suggested_target"].startswith(".ai/")
     assert first["human_confirmation_required"] is True
+    assert first["target_dimension"]
+    assert first["source_next_step"] or first["source_blocking_cap"]
+    assert first["acceptance_checks"]
+    assert ".ai/maturity-evidence.yaml" in first["evidence_sources"]
     assert "## 待确认改进候选" in pending
+    assert "Acceptance checks" in pending
     assert "## 优先级路线图" in evolution
+    assert "Maturity dimension" in evolution
     trace = _latest_trace(repo)
     assert trace["command"] == "improve"
     assert trace["status"] == "completed"
