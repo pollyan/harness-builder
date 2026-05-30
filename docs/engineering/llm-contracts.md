@@ -107,6 +107,7 @@ Prompt 是系统行为的一部分，应当可维护。
 - Prompt 应明确要求 JSON object 和固定 schema。
 - Prompt 不应要求 LLM 直接输出最终文件内容。
 - LLM maturity review 只能输出结构化 review judgment，不能声称已经修改 Guides、Sensors、Workflow 或其他正式 Harness 资产。
+- LLM maturity review 遇到 `experience-workflow-recommendation-review` 改进候选时，应消费 `.ai/review/workflow-routing-recommendation.yaml` 作为 review-only workflow recommendation evidence，并与 `maturity_evidence.harness_assets.workflow_routing_rules` 对照后给出 `support`、`revise` 或 `defer`；review 不能声称推荐已执行、已应用或已写入正式 Harness 资产。
 - LLM asset candidate generation 只能输出结构化 draft candidates，必须保持 `pending_harness_maintainer_review`，不能声称已应用到正式 Harness 资产。
 - LLM experience summary 只能输出结构化 Experience findings，必须保持 `pending_harness_maintainer_review`，不能声称已经沉淀为正式 Guides、Sensors、Workflow 或风险策略。
 - LLM workflow recommendation 只能输出结构化 workflow recommendation report，必须保持 `pending_harness_maintainer_review`，不能声称已经执行 Workflow、生成 Harness Map、创建 `.ai/task-runs` 或修改正式 Harness 资产。

@@ -68,6 +68,28 @@ def _candidates() -> ImprovementCandidateReport:
     )
 
 
+def _workflow_recommendation_candidates() -> ImprovementCandidateReport:
+    return ImprovementCandidateReport(
+        candidates=[
+            ImprovementCandidate(
+                id="experience-workflow-recommendation-review",
+                candidate_type="workflow_policy_update",
+                suggested_target=".ai/harness-config.yaml",
+                rationale="Review workflow recommendation evidence.",
+                evidence=[
+                    "Workflow recommendation reviews: 1.",
+                    "Recommendation artifacts are review-only and must not be treated as applied routing changes.",
+                ],
+                target_dimension="workflow",
+                evidence_sources=[
+                    ".ai/maturity-evidence.yaml",
+                    ".ai/review/workflow-routing-recommendation.yaml",
+                ],
+            )
+        ]
+    )
+
+
 def _experience_summary() -> ExperienceSummaryReport:
     return ExperienceSummaryReport(
         summary="Sensor coverage is the main repeated issue.",
@@ -142,6 +164,25 @@ def test_build_maturity_review_messages_includes_experience_summary_when_present
     assert "standard-escalation" in content
     assert "security_or_permission" in content
     assert "review-only Experience Summary findings" in content
+
+
+def test_build_maturity_review_messages_guides_workflow_recommendation_candidate():
+    evidence = _evidence_pack()
+    evidence.maturity_inputs.append(".ai/review/workflow-routing-recommendation.yaml")
+
+    messages = build_maturity_review_messages(
+        _score(),
+        evidence,
+        _workflow_recommendation_candidates(),
+    )
+
+    content = messages[-1]["content"]
+    assert "experience-workflow-recommendation-review" in content
+    assert ".ai/review/workflow-routing-recommendation.yaml" in content
+    assert "workflow_routing_rules" in content
+    assert "review-only workflow recommendation evidence" in content
+    assert "support or revise" in content
+    assert "must not claim" in content
 
 
 def test_build_maturity_review_messages_uses_null_experience_summary_when_absent():

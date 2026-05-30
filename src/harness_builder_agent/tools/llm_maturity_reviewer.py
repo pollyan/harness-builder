@@ -61,6 +61,10 @@ Prefer "revise" when a candidate is directionally useful but underspecified.
 Prefer "defer" when evidence is too weak.
 Use review-only Experience Summary findings when judging recurring gaps, sensor feedback, workflow gaps, and risk signals.
 Do not treat Experience Summary findings as formal rules or applied changes.
+When improvement candidate experience-workflow-recommendation-review is present, inspect review-only workflow recommendation evidence from .ai/review/workflow-routing-recommendation.yaml when available in maturity inputs or candidate evidence sources.
+Compare the recommendation with maturity_evidence.harness_assets.workflow_routing_rules before deciding whether current routing already covers it.
+Prefer support or revise when evidence indicates routing policy, escalation, required guide, required sensor, or human confirmation adjustments should be drafted later.
+The review must not claim the recommendation was executed, applied, or written into formal Harness assets.
 """.strip()
     payload = {
         "prompt_version": REVIEW_PROMPT_VERSION,
