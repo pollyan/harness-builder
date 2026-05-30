@@ -93,6 +93,15 @@ Benchmark 不应：
 - 把失败吞掉后返回成功。
 - 因为真实命令失败就隐藏错误。
 
+Benchmark 质量评分应覆盖：
+
+- `scan_quality`：evidence coverage、stack confidence、command reliability。
+- `guide_quality`：规则具体性、来源证据、stack-specific 内容。
+- `sensor_quality`：可执行 hard gate、失败处理策略、缺失验证能力说明。
+- `workflow_quality`：workflow skill 引用完整性、runtime trace 完整性。
+
+质量评分不能替代 hard gate。`status` 仍表示硬验收 pass/fail；`quality_status` 表示质量评分结论，可以是 `passed`、`degraded` 或 `failed`。hard gate failed/skipped 时，benchmark hard status 必须是 `failed`。
+
 ## Sensor Report 规则
 
 Sensor report 应能被程序读取。
@@ -145,4 +154,3 @@ Sensor 不是孤立文件。它应该和以下产物一致：
 - 人工确认后把 candidate sensor 晋升为正式 sensor。
 
 但这些增强不能改变一个底线：Sensor 必须帮助暴露真实质量问题，而不是制造看起来通过的幻觉。
-

@@ -83,6 +83,12 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
 
 `assess` 更新成熟度评估，`improve` 生成待确认改进候选，`benchmark` 会检查文件存在、schema、内容质量和 hard gate Sensor 结果。
 
+`benchmark-report.yaml` 中：
+
+- `status` 表示硬验收是否通过，缺文件、schema 错误或 hard gate failed/skipped 会让它变成 `failed`。
+- `quality_status` 表示质量评分结论：`passed`、`degraded` 或 `failed`。
+- `quality_scores` 给出 scan、guide、sensor、workflow 的分项评分、原因和建议。
+
 ## 真实开源仓库验证
 
 真实仓库放在 ignored 的 `.benchmarks/` 下：

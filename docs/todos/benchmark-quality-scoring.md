@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态：open
+- 状态：implemented
 - 优先级：medium-high
 - 发现日期：2026-05-30
 - 相关命令：`harness-builder-agent benchmark`
@@ -96,3 +96,11 @@ quality_scores:
 
 第一版重点是把当前结构检查升级为有解释力的分项质量评估。
 
+## 实现结果
+
+- `benchmark-report.yaml` 已包含 `quality_status`、`quality_scores` 和 `quality_summary`。
+- 评分覆盖 `scan_quality`、`guide_quality`、`sensor_quality`、`workflow_quality` 四类。
+- `status` 保持硬验收 pass/fail 语义，缺文件、schema 错误或 hard gate failed/skipped 仍会让 benchmark failed。
+- `quality_status` 表达质量评分结论：`passed`、`degraded` 或 `failed`。
+- 每个质量评分项包含 `score`、`max_score`、`passed`、`reasons` 和 `recommendations`。
+- 已补充 passed、degraded、failed 报告测试，包括 guide evidence reference 缺失、command reliability 降分、hard gate skipped 失败等场景。
