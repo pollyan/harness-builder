@@ -56,18 +56,7 @@ def benchmark_command(
     """Run benchmark checks for a fixture or real target repository."""
     trace = GenerationTrace.start(repo, "benchmark")
     try:
-        trace.event("benchmark", "started", "Benchmark started.", {"profile": profile})
-        report = run_benchmark(repo, profile)
-        report_path = repo.resolve() / ".ai" / "benchmark-report.yaml"
-        trace.artifact(report_path, "benchmark_report")
-        event_type = "completed" if report["status"] == "passed" else "failed"
-        trace.event(
-            "benchmark",
-            event_type,
-            f"Benchmark {report['status']}.",
-            {"profile": report["profile"], "status": report["status"], "check_count": len(report["checks"])},
-        )
-        trace.finish("completed" if report["status"] == "passed" else "failed", {"status": report["status"], "profile": report["profile"]})
+        report = run_benchmark(repo, profile, trace=trace)
     except Exception as exc:
         trace.event("benchmark", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})

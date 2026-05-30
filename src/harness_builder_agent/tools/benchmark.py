@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ from harness_builder_agent.schemas.scan import LLMScanProposal, ScanMetadata
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
+from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.run_task import run_task
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
@@ -43,20 +45,34 @@ REQUIRED_FILES = [
 ]
 
 
-def run_benchmark(repo: Path, profile: str | None = None) -> dict[str, Any]:
+def run_benchmark(repo: Path, profile: str | None = None, trace: GenerationTrace | None = None) -> dict[str, Any]:
     root = repo.resolve()
+    if trace:
+        trace.event("benchmark", "started", "Benchmark started.", {"profile": profile})
     inventory, commands = scan_repository(root)
-    write_initial_assets(root, inventory, commands)
+    if trace:
+        trace.event(
+            "scan",
+            "completed",
+            "Repository scan completed for benchmark.",
+            {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)},
+        )
+    write_initial_assets(root, inventory, commands, trace=trace)
     run_task(root, _benchmark_task(profile or inventory.primary_stack))
     assess_maturity(root)
     generate_improvements(root)
     ai = root / ".ai"
+    if trace:
+        trace.artifact(ai / "benchmark-report.yaml", "benchmark_report")
+        trace.event("benchmark", "completed", "Benchmark checks are ready to evaluate.", {"profile": profile or inventory.primary_stack})
+        trace.finish("completed", {"profile": profile or inventory.primary_stack, "primary_stack": inventory.primary_stack})
 
     checks: list[dict[str, Any]] = []
     for rel in REQUIRED_FILES:
         checks.append({"id": f"exists:{rel}", "passed": (ai / rel).exists(), "path": f".ai/{rel}"})
 
     checks.extend(_schema_checks(ai))
+    checks.extend(_generation_trace_checks(ai))
     checks.extend(_content_checks(ai, inventory))
     if profile:
         checks.append({"id": "profile_matches_stack", "passed": profile == inventory.primary_stack, "expected": profile, "actual": inventory.primary_stack})
@@ -72,6 +88,11 @@ def run_benchmark(repo: Path, profile: str | None = None) -> dict[str, Any]:
     report["status"] = "passed" if all(check["passed"] for check in report["checks"]) else "failed"
     BenchmarkReport.model_validate(report)
     (ai / "benchmark-report.yaml").write_text(yaml.safe_dump(report, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    if trace:
+        trace.finish(
+            "completed" if report["status"] == "passed" else "failed",
+            {"profile": report["profile"], "status": report["status"], "check_count": len(report["checks"])},
+        )
     return report
 
 
@@ -136,6 +157,53 @@ def _schema_checks(ai: Path) -> list[dict[str, Any]]:
         checks.append({"id": "schema:improvement-candidates", "passed": True})
     except Exception as exc:  # pragma: no cover
         checks.append({"id": "schema:improvement-candidates", "passed": False, "error": str(exc)})
+    return checks
+
+
+def _generation_trace_checks(ai: Path) -> list[dict[str, Any]]:
+    runs = ai / "runs"
+    if not runs.exists():
+        return [
+            {"id": "exists:runs-trace", "passed": False, "error": "missing .ai/runs"},
+            {"id": "schema:generation-trace", "passed": False, "error": "missing trace.yaml"},
+            {"id": "content:generation-trace", "passed": False, "error": "missing trace content"},
+        ]
+
+    run_dirs = sorted(path for path in runs.iterdir() if path.is_dir())
+    if not run_dirs:
+        return [
+            {"id": "exists:runs-trace", "passed": False, "error": "no run directories"},
+            {"id": "schema:generation-trace", "passed": False, "error": "missing trace.yaml"},
+            {"id": "content:generation-trace", "passed": False, "error": "missing trace content"},
+        ]
+
+    latest = run_dirs[-1]
+    checks: list[dict[str, Any]] = [{"id": "exists:runs-trace", "passed": True, "path": f".ai/runs/{latest.name}"}]
+    try:
+        trace = yaml.safe_load((latest / "trace.yaml").read_text(encoding="utf-8"))
+        required = {"schema_version", "run_id", "command", "status", "stages", "summary"}
+        checks.append({"id": "schema:generation-trace", "passed": required.issubset(set(trace)), "run_id": trace.get("run_id")})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:generation-trace", "passed": False, "error": str(exc)})
+        trace = {}
+
+    events_path = latest / "events.jsonl"
+    artifacts_path = latest / "artifacts.yaml"
+    try:
+        events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        artifacts = yaml.safe_load(artifacts_path.read_text(encoding="utf-8"))
+        passed = bool(trace.get("stages")) and bool(events) and bool(artifacts.get("artifacts"))
+        checks.append(
+            {
+                "id": "content:generation-trace",
+                "passed": passed,
+                "stage_count": len(trace.get("stages", [])),
+                "event_count": len(events),
+                "artifact_count": len(artifacts.get("artifacts", [])),
+            }
+        )
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "content:generation-trace", "passed": False, "error": str(exc)})
     return checks
 
 
