@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import shutil
 import json
+import shutil
 from pathlib import Path
 
 import yaml
@@ -99,6 +99,32 @@ def _assert_task_outputs(repo: Path, expected_workflow: str) -> None:
     assert sensor_report["task_id"] == "demo-task-001"
     assert sensor_report["sensor_results"]
     assert sensor_report["sensor_results"][0]["status"] in {"passed", "failed", "skipped"}
+
+    assert (task_dir / "workflow-events.jsonl").exists()
+    assert (task_dir / "used-guides.yaml").exists()
+    assert (task_dir / "runtime-summary.yaml").exists()
+
+    events = [json.loads(line) for line in (task_dir / "workflow-events.jsonl").read_text(encoding="utf-8").splitlines()]
+    stages = {event["stage"] for event in events}
+    assert {
+        "task-classification",
+        "guide-selection",
+        "workflow-selection",
+        "sensor-selection",
+        "sensor-execution",
+        "handoff",
+        "experience-candidate",
+    }.issubset(stages)
+
+    used_guides = yaml.safe_load((task_dir / "used-guides.yaml").read_text(encoding="utf-8"))
+    assert used_guides["workflow_skill"]["path"] == f".ai/skills/{expected_workflow}/SKILL.md"
+    assert all(item["path"].startswith(".ai/guides/") for item in used_guides["required_guides"])
+    assert all(item["exists"] is True for item in used_guides["required_guides"])
+
+    runtime = yaml.safe_load((task_dir / "runtime-summary.yaml").read_text(encoding="utf-8"))
+    assert runtime["selected_workflow"] == expected_workflow
+    assert runtime["used_guide_count"] == len(used_guides["required_guides"])
+    assert runtime["sensor_statuses"]
 
 
 def test_run_generates_bugfix_control_loop_outputs(tmp_path: Path, monkeypatch):

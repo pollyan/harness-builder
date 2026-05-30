@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,36 @@ def run_task(repo: Path, task: str, task_id: str = "demo-task-001") -> Path:
     task_dir = ai / "task-runs" / task_id
     task_dir.mkdir(parents=True, exist_ok=True)
     _write_yaml(task_dir / "harness-map.yaml", harness_map.model_dump(mode="json"))
+    events = [
+        _workflow_event(
+            task_id,
+            "task-classification",
+            "completed",
+            "Task classified and harness map created.",
+            {"task_type": task_type, "risk_level": harness_map.risk_level},
+        ),
+        _workflow_event(
+            task_id,
+            "guide-selection",
+            "completed",
+            "Required guides selected.",
+            {"guide_count": len(harness_map.guide_policy["required"])},
+        ),
+        _workflow_event(
+            task_id,
+            "workflow-selection",
+            "completed",
+            "Workflow skill selected.",
+            {"selected_workflow": selected_workflow, "skill_path": harness_map.workflow_skill["path"]},
+        ),
+        _workflow_event(
+            task_id,
+            "sensor-selection",
+            "completed",
+            "Hard gate sensors selected.",
+            {"hard_gate_count": len(harness_map.sensor_policy.get("hard_gates", []))},
+        ),
+    ]
 
     selected_commands = [command for command in commands.commands if command.id in harness_map.sensor_policy.get("hard_gates", [])]
     sensor_results = [run_sensor(root, command) for command in selected_commands]
@@ -65,8 +96,39 @@ def run_task(repo: Path, task: str, task_id: str = "demo-task-001") -> Path:
                 "summary": "No hard gate sensor was detected for this repository.",
             }
         ]
+    for result in sensor_results:
+        events.append(
+            _workflow_event(
+                task_id,
+                "sensor-execution",
+                result["status"],
+                result["summary"],
+                {"sensor_id": result["id"], "command": result["command"], "exit_code": result["exit_code"]},
+            )
+        )
     sensor_report = {"schema_version": "1.0", "task_id": task_id, "task": task, "sensor_results": sensor_results}
     _write_yaml(task_dir / "sensor-report.yaml", sensor_report)
+    _write_yaml(task_dir / "used-guides.yaml", _used_guides(root, task_id, harness_map))
+    _write_yaml(task_dir / "runtime-summary.yaml", _runtime_summary(task_id, harness_map, sensor_results))
+    events.append(
+        _workflow_event(
+            task_id,
+            "handoff",
+            "completed",
+            "Handoff assets generated.",
+            {"unresolved_sensor_count": len([item for item in sensor_results if item["status"] != "passed"])},
+        )
+    )
+    events.append(
+        _workflow_event(
+            task_id,
+            "experience-candidate",
+            "completed",
+            "Experience candidates generated.",
+            {"candidate_count": len([item for item in sensor_results if item["status"] != "passed"]) or 1},
+        )
+    )
+    _write_workflow_events(task_dir / "workflow-events.jsonl", events)
     _write_text(task_dir / "decision-log.md", _decision_log(task, harness_map, sensor_results))
     _write_text(task_dir / "handoff-summary.md", _handoff_summary(task, harness_map, sensor_results))
     _write_text(task_dir / "experience-candidates.md", _experience_candidates(sensor_results))
@@ -86,6 +148,48 @@ def _write_text(path: Path, content: str) -> None:
 
 def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
     _write_text(path, yaml.safe_dump(payload, sort_keys=False, allow_unicode=True))
+
+
+def _workflow_event(task_id: str, stage: str, event_type: str, message: str, details: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "1.0",
+        "task_id": task_id,
+        "stage": stage,
+        "event_type": event_type,
+        "message": message,
+        "details": details,
+    }
+
+
+def _write_workflow_events(path: Path, events: list[dict[str, Any]]) -> None:
+    _write_text(path, "\n".join(json.dumps(event, ensure_ascii=False, sort_keys=True) for event in events) + "\n")
+
+
+def _used_guides(root: Path, task_id: str, harness_map: HarnessMap) -> dict[str, Any]:
+    return {
+        "schema_version": "1.0",
+        "task_id": task_id,
+        "workflow_skill": harness_map.workflow_skill,
+        "required_guides": [
+            {"path": path, "exists": (root / path).exists()}
+            for path in harness_map.guide_policy.get("required", [])
+        ],
+    }
+
+
+def _runtime_summary(task_id: str, harness_map: HarnessMap, sensor_results: list[dict[str, Any]]) -> dict[str, Any]:
+    unresolved = [item for item in sensor_results if item["status"] != "passed"]
+    return {
+        "schema_version": "1.0",
+        "task_id": task_id,
+        "task_type": harness_map.task_type,
+        "selected_workflow": harness_map.selected_workflow,
+        "hard_gate_count": len(harness_map.sensor_policy.get("hard_gates", [])),
+        "sensor_statuses": {item["id"]: item["status"] for item in sensor_results},
+        "unresolved_sensor_count": len(unresolved),
+        "used_guide_count": len(harness_map.guide_policy.get("required", [])),
+        "workflow_skill_path": harness_map.workflow_skill["path"],
+    }
 
 
 def _decision_log(task: str, harness_map: HarnessMap, sensor_results: list[dict[str, Any]]) -> str:
