@@ -18,7 +18,7 @@ def reconcile_scan(
     base_url: str | None = None,
 ) -> tuple[ProjectInventory, CommandCatalog, ScanMetadata]:
     _veto_impossible_stack(evidence, proposal)
-    warnings: list[ScanWarning] = []
+    warnings: list[ScanWarning] = _coverage_warnings(evidence)
     commands = [_command_from_candidate(candidate, evidence, warnings) for candidate in proposal.command_candidates]
     metadata = ScanMetadata(
         prompt_version=SCAN_PROMPT_VERSION,
@@ -27,6 +27,7 @@ def reconcile_scan(
         evidence_file_count=evidence.detected_file_count,
         truncated_files=evidence.truncations,
         warnings=warnings,
+        coverage=evidence.coverage.model_dump(mode="json") if evidence.coverage else None,
         reasoning_summary=proposal.reasoning_summary,
     )
     inventory = ProjectInventory(
@@ -49,6 +50,30 @@ def reconcile_scan(
         },
     )
     return inventory, CommandCatalog(commands=commands), metadata
+
+
+def _coverage_warnings(evidence: EvidenceBundle) -> list[ScanWarning]:
+    if not evidence.coverage:
+        return []
+    warnings: list[ScanWarning] = []
+    for item in evidence.coverage.warnings:
+        warnings.append(
+            ScanWarning(
+                code=str(item.get("code", "evidence_coverage_warning")),
+                message=str(item.get("message", "Evidence coverage warning.")),
+                severity="warning",
+                evidence=[str(item.get("bucket"))] if item.get("bucket") else [],
+            )
+        )
+    if not evidence.test_files:
+        warnings.append(
+            ScanWarning(
+                code="test_evidence_not_found",
+                message="No dedicated test evidence bucket was found; test strategy needs human confirmation.",
+                severity="warning",
+            )
+        )
+    return warnings
 
 
 def _command_from_candidate(

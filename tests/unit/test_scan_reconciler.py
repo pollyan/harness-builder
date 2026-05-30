@@ -64,6 +64,36 @@ def test_reconcile_downgrades_hard_gate_without_evidence():
     assert any("without evidence" in warning.message for warning in metadata.warnings)
 
 
+def test_reconcile_persists_evidence_coverage_and_warnings():
+    evidence = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[EvidenceFile(path="pom.xml", kind="build", priority="critical", bucket="build")],
+        key_files=[EvidenceFile(path="pom.xml", kind="build", priority="critical", bucket="build")],
+        coverage={
+            "detected_file_count": 40,
+            "selected_evidence_count": 3,
+            "bucket_coverage": [
+                {
+                    "bucket": "source:.java",
+                    "total_count": 30,
+                    "selected_count": 2,
+                    "skipped_count": 28,
+                    "selected_paths": ["src/App.java"],
+                }
+            ],
+            "warnings": [{"code": "source_sampling_truncated", "message": "source:.java skipped files"}],
+        },
+    )
+
+    inventory, _commands, metadata = reconcile_scan(evidence, _proposal())
+
+    assert metadata.coverage["selected_evidence_count"] == 3
+    assert metadata.coverage["bucket_coverage"][0]["skipped_count"] == 28
+    assert any(warning.code == "source_sampling_truncated" for warning in metadata.warnings)
+    assert inventory.stack_extensions["scan_metadata"]["coverage"]["selected_evidence_count"] == 3
+
+
 def test_reconcile_vetoes_impossible_dotnet_claim():
     evidence = EvidenceBundle(
         repo_name="demo",
