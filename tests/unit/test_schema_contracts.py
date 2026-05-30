@@ -9,6 +9,7 @@ from harness_builder_agent.schemas.improvement_candidate import ImprovementCandi
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.sensor_report import SensorReport
+from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceBucketCoverage, EvidenceCoverage, EvidenceFile, ScanMetadata
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 
 
@@ -28,6 +29,63 @@ def test_project_inventory_records_stack_modules_and_evidence():
     assert payload["primary_stack"] == "java-spring"
     assert payload["modules"][0]["kind"] == "backend"
     assert payload["evidence"][0]["path"] == "pom.xml"
+
+
+def test_evidence_bundle_records_priority_buckets_and_coverage():
+    bundle = EvidenceBundle(
+        repo_name="large-repo",
+        root_path="/tmp/large-repo",
+        files=[EvidenceFile(path="pom.xml", kind="build", priority="critical", reason="Maven build file", bucket="build")],
+        priority_files=[EvidenceFile(path="pom.xml", kind="build", priority="critical", reason="Maven build file", bucket="build")],
+        test_files=[EvidenceFile(path="quality/checks/UserFlowSpec.cs", kind="test", priority="high", bucket="test")],
+        api_entrypoints=[EvidenceFile(path="src/api/UserController.java", kind="api_entrypoint", priority="critical", bucket="api_entrypoint")],
+        risk_files=[EvidenceFile(path="src/security/AuthConfig.java", kind="risk", priority="high", bucket="risk")],
+        coverage=EvidenceCoverage(
+            detected_file_count=120,
+            selected_evidence_count=4,
+            bucket_coverage=[
+                EvidenceBucketCoverage(
+                    bucket="source:.java",
+                    total_count=80,
+                    selected_count=2,
+                    skipped_count=78,
+                    selected_paths=["src/api/UserController.java"],
+                )
+            ],
+            warnings=[{"code": "source_sampling_truncated", "message": "source:.java had skipped files"}],
+        ),
+    )
+
+    payload = bundle.model_dump(mode="json")
+
+    assert payload["files"][0]["priority"] == "critical"
+    assert payload["priority_files"][0]["bucket"] == "build"
+    assert payload["coverage"]["bucket_coverage"][0]["skipped_count"] == 78
+    assert payload["coverage"]["warnings"][0]["code"] == "source_sampling_truncated"
+
+
+def test_scan_metadata_accepts_evidence_coverage():
+    metadata = ScanMetadata(
+        prompt_version="test",
+        evidence_file_count=120,
+        coverage={
+            "schema_version": "1.0",
+            "detected_file_count": 120,
+            "selected_evidence_count": 10,
+            "bucket_coverage": [
+                {
+                    "bucket": "test",
+                    "total_count": 3,
+                    "selected_count": 2,
+                    "skipped_count": 1,
+                    "selected_paths": ["quality/checks/UserFlowSpec.cs"],
+                }
+            ],
+            "warnings": [],
+        },
+    )
+
+    assert metadata.coverage["selected_evidence_count"] == 10
 
 
 def test_command_catalog_requires_source_and_gate_metadata():
