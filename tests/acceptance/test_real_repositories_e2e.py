@@ -14,6 +14,7 @@ BENCHMARKS = ROOT / ".benchmarks"
 def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.setdefault("HARNESS_BUILDER_SENSOR_TIMEOUT_SECONDS", "20")
+    env.setdefault("HARNESS_BUILDER_LLM_TIMEOUT_SECONDS", "180")
     return subprocess.run(
         [sys.executable, "-m", "harness_builder_agent.cli", *args],
         cwd=ROOT,
@@ -21,7 +22,7 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        timeout=180,
+        timeout=300,
         check=False,
     )
 
@@ -56,6 +57,8 @@ def _assert_real_repo(repo_name: str, profile: str, task: str, expected_workflow
     check_ids = {check["id"] for check in report["checks"]}
     assert "schema:scan-metadata" in check_ids
     assert "schema:llm-scan-proposal" in check_ids
+    assert "schema:generation-trace" in check_ids
+    assert "content:generation-trace" in check_ids
     if benchmark_result.returncode == 0:
         assert report["status"] == "passed"
     else:
@@ -64,6 +67,12 @@ def _assert_real_repo(repo_name: str, profile: str, task: str, expected_workflow
         assert hard_gate_check["passed"] is False
         assert hard_gate_check["failed_or_skipped"]
         assert hard_gate_check["failed_or_skipped"][0]["summary"]
+    runs = sorted((ai / "runs").iterdir())
+    assert runs
+    trace = yaml.safe_load((runs[-1] / "trace.yaml").read_text())
+    assert trace["command"] == "benchmark"
+    assert trace["status"] in {"completed", "failed"}
+    assert "benchmark" in trace["stages"]
     harness_map = yaml.safe_load((ai / "task-runs" / "demo-task-001" / "harness-map.yaml").read_text())
     assert harness_map["selected_workflow"] == expected_workflow
 
