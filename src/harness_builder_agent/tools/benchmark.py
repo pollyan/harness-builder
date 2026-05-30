@@ -44,6 +44,7 @@ REQUIRED_FILES = [
     "sensors/test-strategy.md",
     "skills/lightweight/SKILL.md",
     "skills/bugfix/SKILL.md",
+    "skills/standard/SKILL.md",
     "improvement-candidates.yaml",
     "experience/experience-index.yaml",
     "review/llm-enhancement-candidates.md",
@@ -291,11 +292,17 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
 def _workflow_skills_check(ai: Path) -> dict[str, Any]:
     lightweight = ai / "skills" / "lightweight" / "SKILL.md"
     bugfix = ai / "skills" / "bugfix" / "SKILL.md"
-    passed = (
-        lightweight.exists()
-        and bugfix.exists()
-        and "轻量级开发工作流" in lightweight.read_text(encoding="utf-8")
-        and "缺陷修复工作流" in bugfix.read_text(encoding="utf-8")
+    standard = ai / "skills" / "standard" / "SKILL.md"
+    lightweight_text = lightweight.read_text(encoding="utf-8") if lightweight.exists() else ""
+    bugfix_text = bugfix.read_text(encoding="utf-8") if bugfix.exists() else ""
+    standard_text = standard.read_text(encoding="utf-8") if standard.exists() else ""
+    passed = all(
+        (
+            "轻量级开发工作流" in lightweight_text,
+            "缺陷修复工作流" in bugfix_text,
+            "标准开发工作流" in standard_text,
+            "Requirement Alignment" in standard_text,
+        )
     )
     return {"id": "content:workflow-skills", "passed": passed}
 

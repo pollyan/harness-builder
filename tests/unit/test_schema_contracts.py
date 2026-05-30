@@ -152,9 +152,12 @@ def test_harness_config_has_lightweight_and_bugfix_workflows():
 
     workflow_names = set(config.workflows.keys())
 
-    assert {"lightweight", "bugfix"}.issubset(workflow_names)
+    assert {"lightweight", "bugfix", "standard"}.issubset(workflow_names)
     assert config.workflows["lightweight"].skill_path == ".ai/skills/lightweight/SKILL.md"
     assert config.workflows["bugfix"].skill_path == ".ai/skills/bugfix/SKILL.md"
+    assert config.workflows["standard"].skill_path == ".ai/skills/standard/SKILL.md"
+    assert "solution_design" in config.workflows["standard"].stages
+    assert "test_first_build_verify" in config.workflows["standard"].stages
     assert config.runtime.default_workflow == "lightweight"
     assert config.sensors.max_repair_attempts == 1
 
@@ -176,6 +179,22 @@ def test_harness_map_accepts_workflow_and_policy_contract():
 
     assert harness_map.selected_workflow == "bugfix"
     assert harness_map.workflow_skill["path"] == ".ai/skills/bugfix/SKILL.md"
+
+
+def test_harness_map_accepts_standard_workflow_contract():
+    harness_map = HarnessMap.model_validate(
+        {
+            "task_id": "demo-task-002",
+            "task_type": "standard",
+            "selected_workflow": "standard",
+            "risk_level": "high",
+            "guide_policy": {"required": [".ai/guides/architecture.md"]},
+            "workflow_skill": {"path": ".ai/skills/standard/SKILL.md"},
+            "sensor_policy": {"hard_gates": ["unit_test"]},
+        }
+    )
+
+    assert harness_map.selected_workflow == "standard"
 
 
 def test_harness_map_rejects_unknown_workflow():

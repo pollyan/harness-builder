@@ -228,7 +228,7 @@ def test_benchmark_degrades_command_reliability_for_low_confidence_hard_gate(tmp
 def test_benchmark_content_checks_fail_when_workflow_skill_file_is_missing(tmp_path: Path, monkeypatch):
     repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
     ai = repo / ".ai"
-    (ai / "skills" / "bugfix" / "SKILL.md").unlink()
+    (ai / "skills" / "standard" / "SKILL.md").unlink()
     inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
 
     checks = _content_checks(ai, inventory)

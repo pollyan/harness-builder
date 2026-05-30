@@ -50,5 +50,16 @@ class HarnessConfig(BaseModel):
                         "handoff",
                     ]
                 ),
+                "standard": WorkflowDefinition(
+                    skill_path=".ai/skills/standard/SKILL.md",
+                    stages=[
+                        "requirement_alignment",
+                        "harness_mapping",
+                        "solution_design",
+                        "implementation_plan",
+                        "test_first_build_verify",
+                        "review_handoff",
+                    ],
+                ),
             }
         )

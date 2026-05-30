@@ -56,6 +56,7 @@ def _assert_real_repo(repo_name: str, profile: str) -> None:
     assert (ai / "llm-scan-proposal.json").exists()
     assert (ai / "skills" / "lightweight" / "SKILL.md").exists()
     assert (ai / "skills" / "bugfix" / "SKILL.md").exists()
+    assert (ai / "skills" / "standard" / "SKILL.md").exists()
     assert not (ai / "task-runs").exists()
     assert report_path.exists(), benchmark_result.stderr + benchmark_result.stdout
     report = yaml.safe_load(report_path.read_text())

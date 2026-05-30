@@ -146,6 +146,9 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 - `.ai/skills/lightweight/SKILL.md`
 - `.ai/skills/bugfix/SKILL.md`
+- `.ai/skills/standard/SKILL.md`
+
+`standard` 是面向复杂、高风险、跨模块、安全/数据/架构影响任务的固定模板。它只声明宿主 AI Coding Runtime 应执行的流程和任务级过程数据契约，`init` 不生成 `.ai/task-runs`。
 
 必须生成的候选增强产物：
 

@@ -71,7 +71,7 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - 资产生成应该由确定性程序完成，不能让 LLM 直接随意写文件。
 - 生成 Markdown 可以是语义化内容，但必须保留稳定章节，便于测试和人工审查。
 - 生成 JSON/YAML 必须符合 schema。
-- Workflow Skill 当前来自固定模板，不做动态 LLM 生成。
+- Workflow Skill 当前来自固定模板，内置模板包括 `lightweight`、`bugfix` 和 `standard`，不做动态 LLM 生成。
 - 如果 writer 文件持续膨胀，应优先按产物类型拆分，而不是继续堆在单文件中。
 
 ### 武器库层
