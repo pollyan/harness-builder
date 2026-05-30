@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
-from harness_builder_agent.tools.benchmark import _content_checks, _schema_checks
+from harness_builder_agent.tools.benchmark import _content_checks, _quality_scores, _schema_checks
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -108,6 +108,12 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text())
     assert report["profile"] == "java-spring"
     assert report["status"] == "passed"
+    assert report["quality_status"] in {"passed", "degraded"}
+    assert "scan_quality" in report["quality_scores"]
+    assert "guide_quality" in report["quality_scores"]
+    assert "sensor_quality" in report["quality_scores"]
+    assert "workflow_quality" in report["quality_scores"]
+    assert report["quality_summary"]["total_score"] >= 0
     assert report["checks"]
     assert all(check["passed"] for check in report["checks"])
     check_ids = {check["id"] for check in report["checks"]}
@@ -201,6 +207,21 @@ def test_benchmark_content_checks_fail_when_guide_required_sections_are_missing(
     stack_check = next(check for check in checks if check["id"] == "content:stack-specific-guides")
     assert guide_check["passed"] is False
     assert stack_check["passed"] is False
+
+
+def test_benchmark_quality_degrades_when_guide_lacks_evidence_reference(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    guide = ai / "guides" / "project-context.md"
+    guide.write_text(guide.read_text(encoding="utf-8").replace("## 来源证据", "## 来源说明"), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    scores = _quality_scores(ai, inventory)
+
+    item = scores["guide_quality"]["evidence_reference"]
+    assert item["score"] < 5
+    assert item["passed"] is False
+    assert item["reasons"]
 
 
 def test_benchmark_content_checks_fail_when_workflow_skill_file_is_missing(tmp_path: Path, monkeypatch):

@@ -87,15 +87,22 @@ def run_benchmark(repo: Path, profile: str | None = None, trace: GenerationTrace
     if profile:
         checks.append({"id": "profile_matches_stack", "passed": profile == inventory.primary_stack, "expected": profile, "actual": inventory.primary_stack})
 
+    hard_status = "passed" if all(check["passed"] for check in checks) else "failed"
+    quality_scores = _quality_scores(ai, inventory)
+    quality_summary = _quality_summary(quality_scores)
     report = {
         "schema_version": "1.0",
         "repo_name": root.name,
         "profile": profile or inventory.primary_stack,
-        "status": "passed" if all(check["passed"] for check in checks) else "failed",
+        "status": hard_status,
         "checks": checks,
+        "quality_status": _quality_status(hard_status, quality_summary),
+        "quality_scores": quality_scores,
+        "quality_summary": quality_summary,
     }
     report["checks"].append({"id": "schema:benchmark-report", "passed": True})
     report["status"] = "passed" if all(check["passed"] for check in report["checks"]) else "failed"
+    report["quality_status"] = _quality_status(report["status"], quality_summary)
     BenchmarkReport.model_validate(report)
     (ai / "benchmark-report.yaml").write_text(yaml.safe_dump(report, sort_keys=False, allow_unicode=True), encoding="utf-8")
     if trace:
@@ -436,6 +443,215 @@ def _hard_gate_sensors_check(ai: Path) -> dict[str, Any]:
         "passed": not failing,
         "failed_or_skipped": [result.model_dump(mode="json") for result in failing],
     }
+
+
+def _quality_scores(ai: Path, inventory: ProjectInventory) -> dict[str, dict[str, dict[str, Any]]]:
+    return {
+        "scan_quality": {
+            "evidence_coverage": _score_evidence_coverage(ai),
+            "stack_confidence": _score_stack_confidence(ai),
+            "command_reliability": _score_command_reliability(ai),
+        },
+        "guide_quality": {
+            "specificity": _score_guide_specificity(ai, inventory),
+            "evidence_reference": _score_guide_evidence_reference(ai),
+            "stack_specificity": _score_guide_stack_specificity(ai, inventory),
+        },
+        "sensor_quality": {
+            "executable_gate": _score_executable_gate(ai),
+            "failure_policy": _score_failure_policy(ai),
+            "missing_capability_clarity": _score_missing_capability_clarity(ai),
+        },
+        "workflow_quality": {
+            "skill_reference_integrity": _score_skill_reference_integrity(ai),
+            "runtime_trace_completeness": _score_runtime_trace_completeness(ai),
+        },
+    }
+
+
+def _score_item(score: int, reasons: list[str] | None = None, recommendations: list[str] | None = None) -> dict[str, Any]:
+    return {
+        "score": score,
+        "max_score": 5,
+        "passed": score >= 4,
+        "reasons": reasons or [],
+        "recommendations": recommendations or [],
+    }
+
+
+def _quality_summary(scores: dict[str, dict[str, dict[str, Any]]]) -> dict[str, Any]:
+    flat = [(f"{category}.{name}", item) for category, items in scores.items() for name, item in items.items()]
+    total_possible = len(flat) * 5
+    total = sum(item["score"] for _name, item in flat)
+    total_score = int(round((total / total_possible) * 100)) if total_possible else 0
+    minimum_score = min((item["score"] for _name, item in flat), default=0)
+    degraded_items = [name for name, item in flat if 0 < item["score"] < 4]
+    failed_items = [name for name, item in flat if item["score"] == 0]
+    return {
+        "total_score": total_score,
+        "minimum_score": minimum_score,
+        "degraded_items": degraded_items,
+        "failed_items": failed_items,
+    }
+
+
+def _quality_status(hard_status: str, summary: dict[str, Any]) -> str:
+    if hard_status == "failed" or summary["failed_items"]:
+        return "failed"
+    if summary["degraded_items"]:
+        return "degraded"
+    return "passed"
+
+
+def _score_evidence_coverage(ai: Path) -> dict[str, Any]:
+    try:
+        metadata = yaml.safe_load((ai / "scan-metadata.yaml").read_text(encoding="utf-8"))
+    except Exception as exc:
+        return _score_item(0, [f"scan-metadata.yaml 不可读：{exc}"], ["修复 scan metadata schema 或重新运行 init。"])
+    coverage = metadata.get("coverage")
+    evidence_count = metadata.get("evidence_file_count", 0)
+    if coverage and coverage.get("selected_evidence_count", 0) > 0:
+        warnings = coverage.get("warnings", [])
+        if warnings:
+            return _score_item(4, ["存在 evidence coverage warning。"], ["检查 scan-metadata.yaml 中的 coverage warnings。"])
+        return _score_item(5)
+    if evidence_count > 0:
+        return _score_item(3, ["缺少 coverage 详情，但存在 evidence 文件计数。"], ["重新运行支持 coverage 的 init。"])
+    return _score_item(1, ["未发现 evidence 文件计数。"], ["检查 evidence collector 是否正常运行。"])
+
+
+def _score_stack_confidence(ai: Path) -> dict[str, Any]:
+    try:
+        proposal = json.loads((ai / "llm-scan-proposal.json").read_text(encoding="utf-8"))
+    except Exception as exc:
+        return _score_item(0, [f"llm-scan-proposal.json 不可读：{exc}"], ["重新运行 LLM scan。"])
+    confidence = proposal.get("confidence")
+    primary_stack = proposal.get("primary_stack")
+    if confidence == "high" and primary_stack != "unknown":
+        return _score_item(5)
+    if confidence == "medium" and primary_stack != "unknown":
+        return _score_item(3, ["LLM scan confidence 为 medium。"], ["人工确认 stack 判断。"])
+    return _score_item(1, ["LLM scan confidence 低或 primary_stack unknown。"], ["补充 context 或 evidence 后重新 init。"])
+
+
+def _score_command_reliability(ai: Path) -> dict[str, Any]:
+    try:
+        catalog = yaml.safe_load((ai / "command-catalog.yaml").read_text(encoding="utf-8"))
+    except Exception as exc:
+        return _score_item(0, [f"command-catalog.yaml 不可读：{exc}"], ["修复 command catalog。"])
+    hard_commands = [command for command in catalog.get("commands", []) if command.get("gate") == "hard"]
+    if not hard_commands:
+        return _score_item(1, ["没有 hard gate command。"], ["确认至少一个可执行验证命令。"])
+    if any(not command.get("source") or command.get("confidence") == "low" for command in hard_commands):
+        return _score_item(2, ["存在 source 缺失或 low confidence 的 hard command。"], ["将不可靠命令降级为 advisory 或补充证据。"])
+    if any(command.get("confidence") == "medium" for command in hard_commands):
+        return _score_item(4, ["部分 hard command confidence 为 medium。"], ["人工确认这些命令在本地和 CI 稳定。"])
+    return _score_item(5)
+
+
+def _score_guide_specificity(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
+    text = _read_text(ai / "guides" / "project-context.md")
+    if text is None:
+        return _score_item(0, ["project-context guide 不可读。"], ["重新生成 guides。"])
+    has_stack = inventory.primary_stack in text
+    has_module = any(str(module.get("path")) in text for module in inventory.modules)
+    has_weapon = ".guide." in text
+    has_context = "## 团队上下文" in text
+    if has_stack and has_module and has_weapon and has_context:
+        return _score_item(5)
+    if has_stack and has_module and has_weapon:
+        return _score_item(4, ["缺少团队上下文章节。"], ["补充团队 context。"])
+    if all(section in text for section in ["## 当前项目事实", "## 候选规则", "## 人工确认点"]):
+        return _score_item(2, ["guide 有必需章节但缺少具体 stack/module/weapon 内容。"], ["增强 guide 生成内容。"])
+    return _score_item(0, ["guide 缺少关键章节。"], ["重新生成 guides。"])
+
+
+def _score_guide_evidence_reference(ai: Path) -> dict[str, Any]:
+    text = _read_text(ai / "guides" / "project-context.md")
+    if text is None:
+        return _score_item(0, ["project-context guide 不可读。"], ["重新生成 guides。"])
+    if "## 来源证据" not in text:
+        return _score_item(0, ["缺少来源证据章节。"], ["在 guide 中补充来源证据。"])
+    evidence_section = text.split("## 来源证据", 1)[1]
+    has_path = "`" in evidence_section and "/" in evidence_section or ".xml" in evidence_section or ".csproj" in evidence_section
+    if has_path:
+        return _score_item(5)
+    return _score_item(2, ["来源证据章节存在但缺少 evidence path。"], ["在 guide 中补充 evidence path。"])
+
+
+def _score_guide_stack_specificity(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
+    text = _read_text(ai / "guides" / "project-context.md")
+    if text is None:
+        return _score_item(0, ["project-context guide 不可读。"], ["重新生成 guides。"])
+    if inventory.primary_stack == "unknown":
+        return _score_item(1, ["primary_stack unknown。"], ["人工确认技术栈。"])
+    if f"{inventory.primary_stack}.guide." in text:
+        return _score_item(5)
+    if "common.guide." in text:
+        return _score_item(3, ["只命中 common guide weapon。"], ["补充 stack-specific guide。"])
+    return _score_item(0, ["guide 中没有 weapon id。"], ["检查 weapon library selection。"])
+
+
+def _score_executable_gate(ai: Path) -> dict[str, Any]:
+    try:
+        sensor_report = SensorReport.model_validate(yaml.safe_load((ai / "task-runs" / "demo-task-001" / "sensor-report.yaml").read_text(encoding="utf-8")))
+    except Exception as exc:
+        return _score_item(0, [f"sensor-report.yaml 不可读：{exc}"], ["重新运行 task sensors。"])
+    if not sensor_report.sensor_results:
+        return _score_item(1, ["没有 hard gate sensor result。"], ["确认 hard gate sensor。"])
+    if any(result.status == "passed" for result in sensor_report.sensor_results):
+        return _score_item(5)
+    return _score_item(3, ["存在 hard gate，但没有 passed result。"], ["处理 failed/skipped sensor。"])
+
+
+def _score_failure_policy(ai: Path) -> dict[str, Any]:
+    text = _read_text(ai / "sensors" / "verification.md")
+    if text is None:
+        return _score_item(0, ["verification sensor Markdown 不可读。"], ["重新生成 sensors。"])
+    if "## 失败处理策略" not in text:
+        return _score_item(0, ["缺少失败处理策略。"], ["补充失败处理策略。"])
+    report = _hard_gate_sensors_check(ai)
+    if report.get("failed_or_skipped") or report.get("passed"):
+        return _score_item(5)
+    return _score_item(3, ["有失败处理策略，但没有 hard gate 结果。"], ["运行 task sensors。"])
+
+
+def _score_missing_capability_clarity(ai: Path) -> dict[str, Any]:
+    text = _read_text(ai / "sensors" / "verification.md")
+    if text is None:
+        return _score_item(0, ["verification sensor Markdown 不可读。"], ["重新生成 sensors。"])
+    has_missing = "## 缺失验证能力" in text
+    has_recommended = "## 推荐验证活动" in text
+    if has_missing and has_recommended:
+        return _score_item(5)
+    if has_missing or has_recommended:
+        return _score_item(2, ["缺失验证能力或推荐验证活动章节不完整。"], ["补齐 sensor Markdown 章节。"])
+    return _score_item(0, ["缺少缺失验证能力和推荐验证活动章节。"], ["补齐 sensor Markdown 章节。"])
+
+
+def _score_skill_reference_integrity(ai: Path) -> dict[str, Any]:
+    check = _harness_map_skill_check(ai)
+    if check["passed"]:
+        return _score_item(5)
+    return _score_item(0, [check.get("error", "workflow skill 引用无效。")], ["修复 harness-map workflow skill path。"])
+
+
+def _score_runtime_trace_completeness(ai: Path) -> dict[str, Any]:
+    checks = _runtime_trace_checks(ai)
+    content = next((check for check in checks if check["id"] == "content:runtime-workflow-trace"), None)
+    schema = next((check for check in checks if check["id"] == "schema:runtime-summary"), None)
+    if content and content.get("passed"):
+        return _score_item(5)
+    if schema and schema.get("passed"):
+        return _score_item(3, ["runtime summary 存在，但 workflow events 或 used guides 不完整。"], ["检查 runtime trace 产物。"])
+    return _score_item(0, ["runtime trace 不可读。"], ["重新运行 task workflow。"])
+
+
+def _read_text(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception:
+        return None
 
 
 def _benchmark_task(profile: str) -> str:
