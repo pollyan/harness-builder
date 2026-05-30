@@ -108,6 +108,13 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert config.workflows["lightweight"].skill_path == ".ai/skills/lightweight/SKILL.md"
     assert config.workflows["bugfix"].skill_path == ".ai/skills/bugfix/SKILL.md"
     assert config.workflows["standard"].skill_path == ".ai/skills/standard/SKILL.md"
+    routing_rule_ids = {rule.id for rule in config.workflow_routing.rules}
+    assert config.workflow_routing.default_workflow == "lightweight"
+    assert {"bugfix-intent", "low-risk-lightweight", "standard-escalation"}.issubset(routing_rule_ids)
+    standard_routing_rule = next(rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation")
+    assert standard_routing_rule.selected_workflow == "standard"
+    assert standard_routing_rule.human_confirmation_required is True
+    assert "security_or_permission" in standard_routing_rule.triggers
     scan_metadata = yaml.safe_load((ai / "scan-metadata.yaml").read_text(encoding="utf-8"))
     assert scan_metadata["llm_status"] == "succeeded"
     llm_proposal = json.loads((ai / "llm-scan-proposal.json").read_text(encoding="utf-8"))

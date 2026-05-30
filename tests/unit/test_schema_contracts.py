@@ -160,6 +160,16 @@ def test_harness_config_has_lightweight_and_bugfix_workflows():
     assert "test_first_build_verify" in config.workflows["standard"].stages
     assert config.runtime.default_workflow == "lightweight"
     assert config.sensors.max_repair_attempts == 1
+    routing = config.workflow_routing
+    rule_ids = {rule.id for rule in routing.rules}
+    assert routing.default_workflow == "lightweight"
+    assert {"bugfix-intent", "low-risk-lightweight", "standard-escalation"}.issubset(rule_ids)
+    standard_rule = next(rule for rule in routing.rules if rule.id == "standard-escalation")
+    assert standard_rule.selected_workflow == "standard"
+    assert standard_rule.human_confirmation_required is True
+    assert "cross_module_design" in standard_rule.triggers
+    assert "security_or_permission" in standard_rule.triggers
+    assert "insufficient_sensor_coverage" in standard_rule.triggers
 
 
 # These schemas are retained as future AI Coding Runtime artifact contracts.

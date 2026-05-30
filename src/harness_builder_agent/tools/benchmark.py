@@ -281,6 +281,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
     return [
         _workflow_skills_check(ai),
         _workflow_skill_config_reference_check(ai),
+        _workflow_routing_policy_check(ai),
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
@@ -325,6 +326,50 @@ def _workflow_skill_config_reference_check(ai: Path) -> dict[str, Any]:
         "passed": not missing and bool(config.workflows),
         "workflow_count": len(config.workflows),
         "missing": missing,
+    }
+
+
+def _workflow_routing_policy_check(ai: Path) -> dict[str, Any]:
+    config_path = ai / "harness-config.yaml"
+    if not config_path.exists():
+        return {"id": "content:workflow-routing-policy", "passed": False, "errors": ["missing_harness_config"]}
+    try:
+        config = HarnessConfig.model_validate(yaml.safe_load(config_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover
+        return {"id": "content:workflow-routing-policy", "passed": False, "errors": [str(exc)]}
+
+    errors: list[str] = []
+    available_workflows = set(config.workflows)
+    rules = config.workflow_routing.rules
+    if config.workflow_routing.default_workflow != "lightweight":
+        errors.append("default_workflow_not_lightweight")
+    if config.workflow_routing.default_workflow not in available_workflows:
+        errors.append("default_workflow_unknown")
+
+    rule_ids = {rule.id for rule in rules}
+    if not {"bugfix-intent", "low-risk-lightweight", "standard-escalation"}.issubset(rule_ids):
+        errors.append("missing_required_routing_rules")
+
+    unknown_workflows = sorted({rule.selected_workflow for rule in rules if rule.selected_workflow not in available_workflows})
+    if unknown_workflows:
+        errors.append("unknown_selected_workflow")
+
+    standard_rules = [rule for rule in rules if rule.id == "standard-escalation" and rule.selected_workflow == "standard"]
+    if not standard_rules:
+        errors.append("missing_standard_escalation")
+    else:
+        triggers = set(standard_rules[0].triggers)
+        required_triggers = {"high_risk_module", "cross_module_design", "security_or_permission", "insufficient_sensor_coverage"}
+        if not required_triggers.issubset(triggers):
+            errors.append("incomplete_standard_escalation_triggers")
+        if not standard_rules[0].human_confirmation_required:
+            errors.append("standard_escalation_without_human_confirmation")
+
+    return {
+        "id": "content:workflow-routing-policy",
+        "passed": not errors,
+        "rule_count": len(rules),
+        "errors": errors,
     }
 
 

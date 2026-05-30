@@ -198,6 +198,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 `experience-index.yaml` 是 Experience Integration 的机器契约。它必须通过 Pydantic schema 校验，且 benchmark 必须检查 `schema:experience-index`。Experience Markdown 是可编辑语义资产，初始化时只能补齐缺失文件，不能覆盖客户已编辑内容。
 
+`harness-config.yaml` 必须包含 `workflows` 和 `workflow_routing`。`workflow_routing` 是宿主 AI Coding Runtime 的任务路由策略契约，至少要覆盖 bugfix intent、low-risk lightweight 和 standard escalation，并明确高风险、跨模块、安全/权限、数据迁移、低置信度和 Sensor 覆盖不足等升级触发条件。`init` 只生成该策略，不基于用户任务文本执行路由，也不生成 `.ai/task-runs`。
+
 Markdown 产物要求：
 
 - 可以使用中文自然语言。

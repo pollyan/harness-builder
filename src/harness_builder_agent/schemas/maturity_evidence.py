@@ -22,6 +22,8 @@ class HarnessAssetEvidence(BaseModel):
     guide_count: int = 0
     sensor_count: int = 0
     workflow_skill_count: int = 0
+    workflow_routing_rule_count: int = 0
+    has_standard_escalation_rule: bool = False
     has_harness_config: bool = False
     has_weapon_library_selection: bool = False
 

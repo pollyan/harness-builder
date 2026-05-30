@@ -110,10 +110,16 @@ def _harness_assets(ai: Path, config: HarnessConfig, weapon_selection: WeaponLib
         sensor_count = len(weapon_selection.sensor_weapon_ids)
     if workflow_skill_count == 0:
         workflow_skill_count = len(config.workflows)
+    routing_rules = config.workflow_routing.rules
+    has_standard_escalation_rule = any(
+        rule.selected_workflow == "standard" and "high_risk_module" in rule.triggers for rule in routing_rules
+    )
     return HarnessAssetEvidence(
         guide_count=guide_count,
         sensor_count=sensor_count,
         workflow_skill_count=workflow_skill_count,
+        workflow_routing_rule_count=len(routing_rules),
+        has_standard_escalation_rule=has_standard_escalation_rule,
         has_harness_config=(ai / "harness-config.yaml").exists() or bool(config.workflows),
         has_weapon_library_selection=(ai / "weapon-library-selection.yaml").exists() or weapon_selection is not None,
     )

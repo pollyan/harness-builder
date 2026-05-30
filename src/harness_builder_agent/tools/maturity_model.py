@@ -121,20 +121,38 @@ def _sensors_dimension(commands: CommandCatalog) -> MaturityDimensionReport:
 
 
 def _workflow_dimension(workflow_ready: bool, config: HarnessConfig) -> MaturityDimensionReport:
+    routing_rules = config.workflow_routing.rules
+    has_standard_escalation = any(
+        rule.selected_workflow == "standard" and "high_risk_module" in rule.triggers for rule in routing_rules
+    )
+    level: MaturityLevel = "L3" if workflow_ready and has_standard_escalation else ("L2" if workflow_ready else "L1")
+    blockers = [
+        MaturityBlocker(
+            id="workflow-routing-not-validated",
+            reason="Workflow routing policy exists, but runtime task history has not yet validated routing outcomes.",
+            prevents_level="L4",
+        )
+    ] if has_standard_escalation else [
+        MaturityBlocker(
+            id="workflow-not-risk-adaptive",
+            reason="Workflow routing is present but not yet adaptive by maturity, task risk, and historical outcomes.",
+            prevents_level="L3",
+        )
+    ]
+    next_level_requirements = (
+        ["Validate routing outcomes against runtime task history.", "Use task outcomes to tune routing and escalation rules."]
+        if has_standard_escalation
+        else ["Add risk-based workflow routing and non-skippable hard gate policy."]
+    )
     return MaturityDimensionReport(
-        level="L2" if workflow_ready else "L1",
+        level=level,
         evidence=[
             MaturityEvidence(source=".ai/harness-config.yaml", summary=f"Configured workflow count: {len(config.workflows)}."),
             MaturityEvidence(source=".ai/skills/", summary=f"Workflow skill files ready: {workflow_ready}."),
+            MaturityEvidence(source=".ai/harness-config.yaml", summary=f"Workflow routing rules configured: {len(routing_rules)}."),
         ],
-        blockers=[
-            MaturityBlocker(
-                id="workflow-not-risk-adaptive",
-                reason="Workflow routing is present but not yet adaptive by maturity, task risk, and historical outcomes.",
-                prevents_level="L3",
-            )
-        ],
-        next_level_requirements=["Add risk-based workflow routing and non-skippable hard gate policy."],
+        blockers=blockers,
+        next_level_requirements=next_level_requirements,
         confidence="high" if workflow_ready else "medium",
     )
 

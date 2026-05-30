@@ -28,7 +28,7 @@
 
 ## Task 1: Harness Config Routing Contract
 
-- [ ] **Step 1: Write failing schema assertions**
+- [x] **Step 1: Write failing schema assertions**
 
 In `tests/unit/test_schema_contracts.py`, extend `test_harness_config_has_lightweight_and_bugfix_workflows`:
 
@@ -45,7 +45,7 @@ assert "security_or_permission" in standard_rule.triggers
 assert "insufficient_sensor_coverage" in standard_rule.triggers
 ```
 
-- [ ] **Step 2: Run schema test and confirm failure**
+- [x] **Step 2: Run schema test and confirm failure**
 
 Run:
 
@@ -55,7 +55,7 @@ Run:
 
 Expected: fail because `workflow_routing` does not exist.
 
-- [ ] **Step 3: Add Pydantic routing models and defaults**
+- [x] **Step 3: Add Pydantic routing models and defaults**
 
 Add `WorkflowRoutingRule` and `WorkflowRoutingPolicy` to `schemas/harness_config.py`, then add `workflow_routing` to `HarnessConfig`.
 
@@ -67,13 +67,13 @@ Default policy:
 
 Keep `RuntimeConfig.default_workflow = "lightweight"`.
 
-- [ ] **Step 4: Run schema test and confirm pass**
+- [x] **Step 4: Run schema test and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 2: Init Serialization and Maturity Evidence
 
-- [ ] **Step 1: Write failing init/evidence assertions**
+- [x] **Step 1: Write failing init/evidence assertions**
 
 In `tests/integration/test_init_on_fixture_projects.py`, assert generated config has routing and standard escalation.
 
@@ -84,7 +84,7 @@ assert pack.harness_assets.workflow_routing_rule_count == 3
 assert pack.harness_assets.has_standard_escalation_rule is True
 ```
 
-- [ ] **Step 2: Run targeted tests and confirm failure**
+- [x] **Step 2: Run targeted tests and confirm failure**
 
 Run:
 
@@ -94,7 +94,7 @@ Run:
 
 Expected: fail until maturity evidence includes routing fields.
 
-- [ ] **Step 3: Add maturity evidence fields and collection**
+- [x] **Step 3: Add maturity evidence fields and collection**
 
 Extend `HarnessAssetEvidence` with:
 
@@ -105,17 +105,17 @@ has_standard_escalation_rule: bool = False
 
 Populate these from `config.workflow_routing.rules`.
 
-- [ ] **Step 4: Run targeted tests and confirm pass**
+- [x] **Step 4: Run targeted tests and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 3: Benchmark and Maturity Model Consumption
 
-- [ ] **Step 1: Write failing benchmark assertions**
+- [x] **Step 1: Write failing benchmark assertions**
 
 In `tests/integration/test_benchmark_command.py`, assert benchmark includes `content:workflow-routing-policy`, and add a test that removes the `standard-escalation` rule from `harness-config.yaml`; benchmark content check must fail.
 
-- [ ] **Step 2: Run benchmark test and confirm failure**
+- [x] **Step 2: Run benchmark test and confirm failure**
 
 Run:
 
@@ -125,23 +125,23 @@ Run:
 
 Expected: fail until benchmark checks routing.
 
-- [ ] **Step 3: Add benchmark routing check and maturity wording**
+- [x] **Step 3: Add benchmark routing check and maturity wording**
 
 In `benchmark.py`, add `_workflow_routing_policy_check`.
 
 In `maturity_model.py`, use routing availability to distinguish workflow evidence and next-level requirements.
 
-- [ ] **Step 4: Run benchmark test and confirm pass**
+- [x] **Step 4: Run benchmark test and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 4: Docs, Verification, Commit
 
-- [ ] **Step 1: Update engineering docs**
+- [x] **Step 1: Update engineering docs**
 
 Update architecture/init workflow docs to mention `workflow_routing` in `harness-config.yaml`.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run:
 
@@ -149,7 +149,7 @@ Run:
 .venv/bin/python -m pytest tests/unit/test_schema_contracts.py tests/unit/test_maturity_evidence.py tests/integration/test_init_on_fixture_projects.py tests/integration/test_benchmark_command.py tests/integration/test_assess_improve_commands.py -q
 ```
 
-- [ ] **Step 3: Run fast regression**
+- [x] **Step 3: Run fast regression**
 
 Run:
 
@@ -157,9 +157,18 @@ Run:
 scripts/test-fast.sh
 ```
 
-- [ ] **Step 4: Self-Harness Improvement Gate**
+- [x] **Step 4: Self-Harness Improvement Gate**
 
 Record result here before commit.
+
+Result:
+
+- Focused regression: `51 passed`.
+- Fast regression: `124 passed`.
+- New routing contract is covered by schema, init, maturity evidence, maturity report, benchmark, and engineering docs.
+- Benchmark now checks `content:workflow-routing-policy` and fails when `standard-escalation` is missing.
+- Runtime boundary remains intact: this milestone only generates host Runtime policy, and Builder still does not generate `.ai/task-runs`.
+- Next candidate gap: LLM-assisted task-to-routing recommendation against this policy, or maturity-driven improve candidates that use routing evidence.
 
 - [ ] **Step 5: Commit**
 

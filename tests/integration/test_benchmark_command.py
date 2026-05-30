@@ -97,6 +97,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "exists:llm-scan-proposal.json" in check_ids
     assert "content:workflow-skills" in check_ids
     assert "content:workflow-skill-config-reference" in check_ids
+    assert "content:workflow-routing-policy" in check_ids
     assert "content:guides-quality" in check_ids
     assert "content:stack-specific-guides" in check_ids
     assert "content:sensors-quality" in check_ids
@@ -237,3 +238,21 @@ def test_benchmark_content_checks_fail_when_workflow_skill_file_is_missing(tmp_p
     harness_map_skill = next(check for check in checks if check["id"] == "content:workflow-skill-config-reference")
     assert workflow_skill["passed"] is False
     assert harness_map_skill["passed"] is False
+
+
+def test_benchmark_content_checks_fail_when_standard_routing_rule_is_missing(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    config_path = ai / "harness-config.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    config["workflow_routing"]["rules"] = [
+        rule for rule in config["workflow_routing"]["rules"] if rule["id"] != "standard-escalation"
+    ]
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    routing_policy = next(check for check in checks if check["id"] == "content:workflow-routing-policy")
+    assert routing_policy["passed"] is False
+    assert "missing_standard_escalation" in routing_policy["errors"]

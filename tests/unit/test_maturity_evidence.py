@@ -2,6 +2,7 @@ from pathlib import Path
 
 import yaml
 
+from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.tools.maturity_evidence import collect_maturity_evidence
 
 
@@ -17,7 +18,7 @@ def _write_base_ai(ai: Path) -> None:
         encoding="utf-8",
     )
     _write_yaml(ai / "command-catalog.yaml", {"schema_version": "1.0", "commands": []})
-    _write_yaml(ai / "harness-config.yaml", {"version": 1, "workflows": {}})
+    _write_yaml(ai / "harness-config.yaml", HarnessConfig.default().model_dump(mode="json"))
     _write_yaml(
         ai / "weapon-library-selection.yaml",
         {
@@ -83,6 +84,8 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
     assert pack.experience.experience_file_count == 5
     assert pack.experience.has_experience_summary is True
     assert pack.experience.experience_summary_finding_count == 1
+    assert pack.harness_assets.workflow_routing_rule_count == 3
+    assert pack.harness_assets.has_standard_escalation_rule is True
 
 
 def test_collect_maturity_evidence_keeps_pending_only_legacy_path(tmp_path: Path):
