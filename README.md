@@ -112,3 +112,17 @@ git clone --depth 1 https://github.com/dotnet-architecture/eShopOnWeb.git .bench
 ```
 
 默认测试不运行 `tests/acceptance`，用于 CI 的 mock LLM 验证。显式运行 acceptance 时会实际请求 DeepSeek；没有 `DEEPSEEK_API_KEY` 会失败，不会跳过。
+
+## 本地提交保护
+
+安装仓库内置 Git hooks：
+
+```bash
+scripts/install-git-hooks.sh
+```
+
+安装后：
+
+- `pre-commit` 会在提交前运行 `.venv/bin/python -m pytest -q`。
+- `pre-push` 会在推送前再次运行 `.venv/bin/python -m pytest -q`。
+- 推送完成后，运行 `scripts/check-ci.sh` 查看当前分支最新 GitHub Actions 结果。

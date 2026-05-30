@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+if [ -x ".venv/bin/python" ]; then
+  PYTHON=".venv/bin/python"
+else
+  PYTHON="python"
+fi
+
+echo "Running regression tests before push..."
+"$PYTHON" -m pytest -q
+
+cat <<'MSG'
+Local regression passed.
+After the push completes, run:
+  scripts/check-ci.sh
+MSG
+
