@@ -10,7 +10,7 @@ from harness_builder_agent.schemas.scan import EvidenceBundle, LLMScanProposal
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
 
-SCAN_PROMPT_VERSION = "llm-first-scan-v1"
+SCAN_PROMPT_VERSION = "llm-first-scan-v2"
 
 
 def analyze_evidence_with_llm(
@@ -58,6 +58,13 @@ Stack decision rules:
 - Choose node when evidence contains package.json plus Node application/runtime signals.
 - Choose unknown only when stack evidence is genuinely insufficient or conflicting.
 
+Evidence coverage rules:
+- Review coverage, priority_files, test_files, api_entrypoints, and risk_files before deciding confidence.
+- Prefer critical/high priority evidence over ordinary source samples.
+- Do not conclude there are no tests only because a standard tests directory is missing. Inspect test_files and command evidence.
+- If coverage warnings show skipped source buckets or missing key buckets, lower confidence or set needs_human_confirmation=true.
+- Mention important coverage uncertainty briefly in reasoning_summary.
+
 Example JSON shape:
 {
   "schema_version": "1.0",
@@ -96,7 +103,7 @@ Example JSON shape:
             "role": "user",
             "content": (
                 f"{schema_contract}\n\n"
-                f"Evidence JSON:\n{evidence.model_dump_json()}"
+                f"Evidence JSON:\n{evidence.model_dump_json(exclude_none=True)}"
             ),
         },
     ]

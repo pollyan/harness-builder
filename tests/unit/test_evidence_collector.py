@@ -87,3 +87,17 @@ def test_collect_evidence_marks_priority_reason_and_bucket(tmp_path: Path):
     assert program.reason
     assert spec.priority == "high"
     assert spec.bucket == "test"
+
+
+def test_collect_evidence_keeps_full_file_index_lightweight(tmp_path: Path):
+    _write(tmp_path / "pom.xml", "<project />")
+    for index in range(10):
+        _write(tmp_path / "src" / f"Ordinary{index}.java", "class Ordinary {}")
+
+    bundle = collect_evidence(tmp_path, max_source_samples=2)
+
+    ordinary_index = next(item for item in bundle.files if item.path == "src/Ordinary9.java")
+    assert ordinary_index.summary is None
+    assert ordinary_index.truncated is False
+    selected_source = next(item for item in bundle.source_samples if item.path == "src/Ordinary0.java")
+    assert selected_source.summary == "class Ordinary {}"

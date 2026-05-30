@@ -105,6 +105,51 @@ def test_scan_prompt_contains_stack_decision_rules():
     assert "ASP.NET Core" in combined
 
 
+def test_scan_prompt_explains_coverage_and_priority_evidence():
+    bundle = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        priority_files=[{"path": "pom.xml", "kind": "build", "priority": "critical", "bucket": "build"}],
+        test_files=[{"path": "quality/checks/UserFlowSpec.cs", "kind": "test", "priority": "high", "bucket": "test"}],
+        api_entrypoints=[
+            {
+                "path": "src/api/UserController.java",
+                "kind": "api_entrypoint",
+                "priority": "critical",
+                "bucket": "api_entrypoint",
+            }
+        ],
+        coverage={
+            "detected_file_count": 50,
+            "selected_evidence_count": 3,
+            "bucket_coverage": [],
+            "warnings": [{"code": "source_sampling_truncated", "message": "source skipped"}],
+        },
+    )
+
+    combined = "\n".join(message["content"] for message in build_scan_messages(bundle))
+
+    assert "coverage" in combined.lower()
+    assert "priority_files" in combined
+    assert "test_files" in combined
+    assert "api_entrypoints" in combined
+    assert "Do not conclude there are no tests only because a standard tests directory is missing" in combined
+
+
+def test_scan_prompt_omits_null_evidence_fields():
+    bundle = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[{"path": "src/App.java", "kind": "file"}],
+    )
+
+    combined = "\n".join(message["content"] for message in build_scan_messages(bundle))
+
+    assert '"summary":null' not in combined
+    assert '"reason":null' not in combined
+    assert '"bucket":null' not in combined
+
+
 def test_call_deepseek_requests_json_object_response(monkeypatch: pytest.MonkeyPatch):
     captured = {}
 
