@@ -179,6 +179,8 @@ def test_benchmark_fails_when_hard_gate_sensor_is_skipped(tmp_path: Path, monkey
     assert result.exit_code == 1, result.output
     report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text())
     assert report["status"] == "failed"
+    assert report["quality_status"] == "failed"
+    assert report["quality_summary"]["failed_items"] or report["quality_summary"]["degraded_items"]
     hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-sensors-passed")
     assert hard_gate_check["passed"] is False
 
@@ -220,6 +222,23 @@ def test_benchmark_quality_degrades_when_guide_lacks_evidence_reference(tmp_path
 
     item = scores["guide_quality"]["evidence_reference"]
     assert item["score"] < 5
+    assert item["passed"] is False
+    assert item["reasons"]
+
+
+def test_benchmark_degrades_command_reliability_for_low_confidence_hard_gate(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    catalog_path = ai / "command-catalog.yaml"
+    catalog = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    catalog["commands"][0]["confidence"] = "low"
+    catalog_path.write_text(yaml.safe_dump(catalog, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    scores = _quality_scores(ai, inventory)
+
+    item = scores["scan_quality"]["command_reliability"]
+    assert item["score"] < 4
     assert item["passed"] is False
     assert item["reasons"]
 
