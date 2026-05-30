@@ -16,8 +16,8 @@
 
 实现前必须阅读：
 
-- `docs/plans/2026-05-25-scanner-skill-requirements.md`
-- `docs/specs/scanner-output-contract.md`
+- `docs/superpowers/plans/2026-05-25-scanner-skill-requirements.md`
+- `docs/superpowers/specs/POC-scanner-skill-design.md`
 - 本地私密上下文：`private/context/Harness Builder — 产品整体规划 v1.0（内部上下文）.md`
 
 注意：`private/` 已被 `.gitignore` 忽略，禁止提交其中任何内容。

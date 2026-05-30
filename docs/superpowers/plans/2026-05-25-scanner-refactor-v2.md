@@ -3,7 +3,7 @@
 > **For implementer:** Use TDD throughout. Write failing test first. Watch it fail. Then implement.
 > **API:** DeepSeek V4 Flash（OpenAI 兼容格式，key 已存 .env）
 > **Baseline:** 113 tests passing, 16 source files, 13 test files
-> **Predecessor:** `docs/plans/2026-05-25-scanner-refactor-plan.md`（v1，已废弃）
+> **Predecessor:** `docs/superpowers/plans/2026-05-25-scanner-refactor-plan.md`（v1，已废弃）
 
 ---
 

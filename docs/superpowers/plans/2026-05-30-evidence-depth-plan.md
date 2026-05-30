@@ -1,5 +1,7 @@
 # Evidence Depth Implementation Plan
 
+> 历史说明：本计划对应的大仓库 evidence depth 增强已经完成并归档。当前后续工作以 `docs/todos/scanner-v2-review-and-migration.md` 的旧 scanner v2 审查为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Improve repository evidence collection so large repositories produce stratified, prioritized, auditable evidence and scan coverage metadata.

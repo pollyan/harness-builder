@@ -1,5 +1,7 @@
 # Todo Implementation Roadmap Design
 
+> 历史说明：本路线图记录 2026-05-30 当时的 active todo 集合。当前待办入口以 `docs/todos/README.md` 为准。
+
 ## 目标
 
 将 `docs/todos/` 中积累的 5 个 open todo 拆解为一组可按 Superpowers 流程逐个推进的子项目，明确每个子项目的边界、依赖顺序、完成标准和验证方式。
@@ -254,4 +256,3 @@ Benchmark 质量评分应排在后面。它需要利用增强后的 evidence、w
 `docs/todos/testing-coverage-and-acceptance-strategy.md`
 
 原因：它是后续所有重构和功能改造的保护网。
-
