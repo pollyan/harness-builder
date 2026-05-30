@@ -12,6 +12,7 @@ from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.experience_index import write_experience_index
+from harness_builder_agent.tools.experience_summary import load_experience_summary
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.llm_asset_candidate_generator import generate_asset_candidates_with_llm
 from harness_builder_agent.tools.review_maturity import review_maturity
@@ -35,7 +36,14 @@ def generate_asset_candidates(repo: Path) -> Path:
     maturity_review = MaturityReviewReport.model_validate(
         yaml.safe_load((ai / "review" / "maturity-review.yaml").read_text(encoding="utf-8"))
     )
-    report = generate_asset_candidates_with_llm(score, evidence_pack, improvement_candidates, maturity_review)
+    experience_summary = load_experience_summary(ai)
+    report = generate_asset_candidates_with_llm(
+        score,
+        evidence_pack,
+        improvement_candidates,
+        maturity_review,
+        experience_summary=experience_summary,
+    )
     review_dir = ai / "review"
     _write_yaml(review_dir / "asset-candidates.yaml", report.model_dump(mode="json"))
     _write_kind_markdown(review_dir / "asset-candidate-guides.md", "Asset Candidate Guides", report, "guide")

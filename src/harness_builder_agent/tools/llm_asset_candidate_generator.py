@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pydantic import ValidationError
 
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
@@ -22,10 +23,17 @@ def generate_asset_candidates_with_llm(
     evidence_pack: MaturityEvidencePack,
     improvement_candidates: ImprovementCandidateReport,
     maturity_review: MaturityReviewReport,
+    experience_summary: ExperienceSummaryReport | None = None,
     caller: Callable[[list[dict[str, str]]], str] | None = None,
     config: DeepSeekConfig | None = None,
 ) -> AssetCandidateReport:
-    messages = build_asset_candidate_messages(score, evidence_pack, improvement_candidates, maturity_review)
+    messages = build_asset_candidate_messages(
+        score,
+        evidence_pack,
+        improvement_candidates,
+        maturity_review,
+        experience_summary=experience_summary,
+    )
     content = caller(messages) if caller else call_deepseek(messages, config=config)
     if not content.strip():
         raise ValueError("DeepSeek asset candidate response is empty")
@@ -38,6 +46,7 @@ def build_asset_candidate_messages(
     evidence_pack: MaturityEvidencePack,
     improvement_candidates: ImprovementCandidateReport,
     maturity_review: MaturityReviewReport,
+    experience_summary: ExperienceSummaryReport | None = None,
 ) -> list[dict[str, str]]:
     schema_contract = """
 Return one JSON object only. Do not include markdown commentary.
@@ -55,6 +64,8 @@ Field contract:
 
 Do not overwrite formal Guides, Sensors, Workflow Skills, or harness-config.
 Generate concrete draft content that a Harness Maintainer can review later.
+Use review-only Experience Summary findings when drafting candidates for recurring gaps, sensor feedback, workflow gaps, and risk signals.
+Do not treat Experience Summary findings as formal rules or applied changes.
 """.strip()
     payload = {
         "prompt_version": ASSET_CANDIDATE_PROMPT_VERSION,
@@ -62,6 +73,7 @@ Generate concrete draft content that a Harness Maintainer can review later.
         "maturity_evidence": evidence_pack.model_dump(mode="json"),
         "improvement_candidates": improvement_candidates.model_dump(mode="json"),
         "maturity_review": maturity_review.model_dump(mode="json"),
+        "experience_summary": experience_summary.model_dump(mode="json") if experience_summary else None,
     }
     return [
         {

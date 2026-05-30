@@ -16,6 +16,7 @@
 - Modify: `src/harness_builder_agent/tools/llm_asset_candidate_generator.py`
 - Modify: `src/harness_builder_agent/tools/review_maturity.py`
 - Modify: `src/harness_builder_agent/tools/generate_asset_candidates.py`
+- Create: `src/harness_builder_agent/tools/experience_summary.py`
 - Modify: `tests/unit/test_llm_maturity_reviewer.py`
 - Modify: `tests/unit/test_llm_asset_candidate_generator.py`
 - Modify: `tests/integration/test_assess_improve_commands.py`
@@ -24,7 +25,7 @@
 
 ## Task 1: Prompt Builders Accept Optional Experience Summary
 
-- [ ] **Step 1: Write failing maturity reviewer prompt test**
+- [x] **Step 1: Write failing maturity reviewer prompt test**
 
 In `tests/unit/test_llm_maturity_reviewer.py`, import `ExperienceSummaryReport` and `build_maturity_review_messages`:
 
@@ -63,7 +64,7 @@ def test_build_maturity_review_messages_includes_experience_summary_when_present
     assert "review-only Experience Summary findings" in content
 ```
 
-- [ ] **Step 2: Write failing asset candidate prompt test**
+- [x] **Step 2: Write failing asset candidate prompt test**
 
 In `tests/unit/test_llm_asset_candidate_generator.py`, import `ExperienceSummaryReport` and `build_asset_candidate_messages`:
 
@@ -108,7 +109,7 @@ def test_build_asset_candidate_messages_includes_experience_summary_when_present
     assert "review-only Experience Summary findings" in content
 ```
 
-- [ ] **Step 3: Run prompt tests and confirm failure**
+- [x] **Step 3: Run prompt tests and confirm failure**
 
 Run:
 
@@ -118,7 +119,7 @@ Run:
 
 Expected: fail because prompt builders do not accept `experience_summary`.
 
-- [ ] **Step 4: Implement optional prompt parameters**
+- [x] **Step 4: Implement optional prompt parameters**
 
 In `src/harness_builder_agent/tools/llm_maturity_reviewer.py`:
 
@@ -136,13 +137,13 @@ Do not treat Experience Summary findings as formal rules or applied changes.
 
 In `src/harness_builder_agent/tools/llm_asset_candidate_generator.py`, make the same style of changes for `generate_asset_candidates_with_llm` and `build_asset_candidate_messages`.
 
-- [ ] **Step 5: Run prompt tests and confirm pass**
+- [x] **Step 5: Run prompt tests and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 2: Orchestration Loads Existing Summary
 
-- [ ] **Step 1: Write failing integration assertions**
+- [x] **Step 1: Write failing integration assertions**
 
 In `tests/integration/test_assess_improve_commands.py`, extend `test_review_maturity_writes_llm_review_artifacts`:
 
@@ -186,7 +187,7 @@ def fake_asset_candidates(score, evidence_pack, improvement_candidates, maturity
     assert experience_summary.findings[0].kind == "workflow_gap"
 ```
 
-- [ ] **Step 2: Run integration tests and confirm failure**
+- [x] **Step 2: Run integration tests and confirm failure**
 
 Run:
 
@@ -196,7 +197,7 @@ Run:
 
 Expected: fail because orchestration does not load or pass `experience_summary`.
 
-- [ ] **Step 3: Implement summary loading helper in both orchestrators**
+- [x] **Step 3: Implement summary loading helper in both orchestrators**
 
 In `src/harness_builder_agent/tools/review_maturity.py`:
 
@@ -225,13 +226,13 @@ experience_summary = _load_experience_summary(ai)
 report = generate_asset_candidates_with_llm(score, evidence_pack, improvement_candidates, maturity_review, experience_summary=experience_summary)
 ```
 
-- [ ] **Step 4: Run integration tests and confirm pass**
+- [x] **Step 4: Run integration tests and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 3: Compatibility Without Summary
 
-- [ ] **Step 1: Add unit assertions that summary is optional**
+- [x] **Step 1: Add unit assertions that summary is optional**
 
 In `tests/unit/test_llm_maturity_reviewer.py`, add:
 
@@ -249,7 +250,7 @@ def test_build_asset_candidate_messages_uses_null_experience_summary_when_absent
     assert '"experience_summary": null' in messages[-1]["content"]
 ```
 
-- [ ] **Step 2: Run compatibility tests**
+- [x] **Step 2: Run compatibility tests**
 
 Run:
 
@@ -261,11 +262,11 @@ Expected: pass.
 
 ## Task 4: Docs, Verification, Commit
 
-- [ ] **Step 1: Update LLM contract docs**
+- [x] **Step 1: Update LLM contract docs**
 
 In `docs/engineering/llm-contracts.md`, add that maturity review and asset candidate prompts should include optional `experience_summary` when `.ai/experience/experience-summary.yaml` exists, and must treat it as review-only semantic context.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run:
 
@@ -275,7 +276,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 3: Run fast regression**
+- [x] **Step 3: Run fast regression**
 
 Run:
 
@@ -285,7 +286,7 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 4: Self-Harness Improvement Gate**
+- [x] **Step 4: Self-Harness Improvement Gate**
 
 Record the gate result in this plan. Expected:
 
@@ -295,7 +296,17 @@ Record the gate result in this plan. Expected:
 - No benchmark update is needed because this is optional prompt context.
 - Next candidate gap: Workflow Toolkit Evolution or Experience Summary freshness metadata.
 
-- [ ] **Step 5: Commit**
+Gate conclusion:
+
+- Prompt tests cover Experience Summary present and absent paths for both maturity review and asset candidate generation.
+- Integration tests prove existing `.ai/experience/experience-summary.yaml` is parsed and passed to both downstream LLM wrappers.
+- No LLM output schemas changed; no formal Guides, Sensors, Workflow Skills, `harness-config.yaml`, or `.ai/task-runs` behavior changed.
+- Shared `load_experience_summary` avoids scattering optional summary parsing across orchestration and evidence modules.
+- `docs/engineering/llm-contracts.md` now records optional `experience_summary` prompt context and its review-only boundary.
+- Benchmark remains unchanged because summary injection is optional prompt context, not a required generated artifact.
+- Next candidate gap: add freshness/source metadata for Experience Summary, or move to Workflow Toolkit Evolution.
+
+- [x] **Step 5: Commit**
 
 Run:
 

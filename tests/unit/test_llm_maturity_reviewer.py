@@ -5,9 +5,14 @@ import json
 import pytest
 
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidate, ImprovementCandidateReport
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
-from harness_builder_agent.tools.llm_maturity_reviewer import parse_maturity_review_response, review_maturity_with_llm
+from harness_builder_agent.tools.llm_maturity_reviewer import (
+    build_maturity_review_messages,
+    parse_maturity_review_response,
+    review_maturity_with_llm,
+)
 
 
 def _score() -> MaturityReport:
@@ -44,6 +49,22 @@ def _candidates() -> ImprovementCandidateReport:
                 evidence_sources=[".ai/maturity-evidence.yaml"],
             )
         ]
+    )
+
+
+def _experience_summary() -> ExperienceSummaryReport:
+    return ExperienceSummaryReport(
+        summary="Sensor coverage is the main repeated issue.",
+        findings=[
+            {
+                "id": "sensor-coverage-gap",
+                "kind": "sensor_feedback",
+                "title": "Sensor coverage gap",
+                "summary": "Pending improvements point to missing sensor coverage.",
+                "evidence_sources": [".ai/experience/pending-improvements.md"],
+                "confidence": "high",
+            }
+        ],
     )
 
 
@@ -95,3 +116,16 @@ def test_review_maturity_with_llm_rejects_unknown_candidate_id():
 def test_parse_maturity_review_response_rejects_invalid_json():
     with pytest.raises(ValueError, match="must be valid JSON"):
         parse_maturity_review_response("not json", {"candidate-1"})
+
+
+def test_build_maturity_review_messages_includes_experience_summary_when_present():
+    messages = build_maturity_review_messages(_score(), _evidence_pack(), _candidates(), experience_summary=_experience_summary())
+    content = messages[-1]["content"]
+    assert '"experience_summary"' in content
+    assert "sensor-coverage-gap" in content
+    assert "review-only Experience Summary findings" in content
+
+
+def test_build_maturity_review_messages_uses_null_experience_summary_when_absent():
+    messages = build_maturity_review_messages(_score(), _evidence_pack(), _candidates())
+    assert '"experience_summary": null' in messages[-1]["content"]

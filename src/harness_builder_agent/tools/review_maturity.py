@@ -10,6 +10,7 @@ from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.experience_summary import load_experience_summary
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.llm_maturity_reviewer import review_maturity_with_llm
 
@@ -27,7 +28,8 @@ def review_maturity(repo: Path) -> Path:
     candidates = ImprovementCandidateReport.model_validate(
         yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8"))
     )
-    review = review_maturity_with_llm(score, evidence_pack, candidates)
+    experience_summary = load_experience_summary(ai)
+    review = review_maturity_with_llm(score, evidence_pack, candidates, experience_summary=experience_summary)
     _write_yaml(ai / "review" / "maturity-review.yaml", review.model_dump(mode="json"))
     _write_markdown(ai / "review" / "maturity-review.md", review)
     return ai

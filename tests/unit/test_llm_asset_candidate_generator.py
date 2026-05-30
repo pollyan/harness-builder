@@ -5,10 +5,12 @@ import json
 import pytest
 
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidate, ImprovementCandidateReport
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.llm_asset_candidate_generator import (
+    build_asset_candidate_messages,
     generate_asset_candidates_with_llm,
     parse_asset_candidate_response,
 )
@@ -47,6 +49,22 @@ def _maturity_review() -> MaturityReviewReport:
                 "candidate_id": "candidate-1",
                 "decision": "support",
                 "rationale": "Candidate is aligned.",
+            }
+        ],
+    )
+
+
+def _experience_summary() -> ExperienceSummaryReport:
+    return ExperienceSummaryReport(
+        summary="Workflow gaps are repeated.",
+        findings=[
+            {
+                "id": "workflow-gap-routing",
+                "kind": "workflow_gap",
+                "title": "Workflow routing gap",
+                "summary": "Experience findings point to missing routing rules.",
+                "evidence_sources": [".ai/experience/experience-summary.yaml"],
+                "confidence": "medium",
             }
         ],
     )
@@ -127,3 +145,22 @@ def test_generate_asset_candidates_rejects_non_ai_path():
             ),
             {"candidate-1"},
         )
+
+
+def test_build_asset_candidate_messages_includes_experience_summary_when_present():
+    messages = build_asset_candidate_messages(
+        _score(),
+        _evidence_pack(),
+        _improvement_candidates(),
+        _maturity_review(),
+        experience_summary=_experience_summary(),
+    )
+    content = messages[-1]["content"]
+    assert '"experience_summary"' in content
+    assert "workflow-gap-routing" in content
+    assert "review-only Experience Summary findings" in content
+
+
+def test_build_asset_candidate_messages_uses_null_experience_summary_when_absent():
+    messages = build_asset_candidate_messages(_score(), _evidence_pack(), _improvement_candidates(), _maturity_review())
+    assert '"experience_summary": null' in messages[-1]["content"]

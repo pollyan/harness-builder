@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from pydantic import ValidationError
 
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
@@ -20,10 +21,11 @@ def review_maturity_with_llm(
     score: MaturityReport,
     evidence_pack: MaturityEvidencePack,
     candidates: ImprovementCandidateReport,
+    experience_summary: ExperienceSummaryReport | None = None,
     caller: Callable[[list[dict[str, str]]], str] | None = None,
     config: DeepSeekConfig | None = None,
 ) -> MaturityReviewReport:
-    messages = build_maturity_review_messages(score, evidence_pack, candidates)
+    messages = build_maturity_review_messages(score, evidence_pack, candidates, experience_summary=experience_summary)
     content = caller(messages) if caller else call_deepseek(messages, config=config)
     if not content.strip():
         raise ValueError("DeepSeek maturity review response is empty")
@@ -35,6 +37,7 @@ def build_maturity_review_messages(
     score: MaturityReport,
     evidence_pack: MaturityEvidencePack,
     candidates: ImprovementCandidateReport,
+    experience_summary: ExperienceSummaryReport | None = None,
 ) -> list[dict[str, str]]:
     schema_contract = """
 Return one JSON object only. Do not include markdown commentary.
@@ -56,12 +59,15 @@ Field contract:
 Do not claim any Harness asset was edited. This is review-only output.
 Prefer "revise" when a candidate is directionally useful but underspecified.
 Prefer "defer" when evidence is too weak.
+Use review-only Experience Summary findings when judging recurring gaps, sensor feedback, workflow gaps, and risk signals.
+Do not treat Experience Summary findings as formal rules or applied changes.
 """.strip()
     payload = {
         "prompt_version": REVIEW_PROMPT_VERSION,
         "maturity_score": score.model_dump(mode="json"),
         "maturity_evidence": evidence_pack.model_dump(mode="json"),
         "improvement_candidates": candidates.model_dump(mode="json"),
+        "experience_summary": experience_summary.model_dump(mode="json") if experience_summary else None,
     }
     return [
         {

@@ -6,7 +6,6 @@ import yaml
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
-from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.maturity_evidence import (
     BenchmarkEvidence,
@@ -19,6 +18,7 @@ from harness_builder_agent.schemas.maturity_evidence import (
 )
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.tools.experience_summary import load_experience_summary
 
 MATURITY_INPUTS = [
     ".ai/project-inventory.json",
@@ -138,7 +138,7 @@ def _observability(ai: Path) -> ObservabilityEvidence:
 
 
 def _experience(ai: Path) -> ExperienceEvidence:
-    summary = _experience_summary(ai)
+    summary = load_experience_summary(ai)
     index_path = ai / "experience" / "experience-index.yaml"
     if index_path.exists():
         index = ExperienceIndex.model_validate(yaml.safe_load(index_path.read_text(encoding="utf-8")))
@@ -169,13 +169,6 @@ def _experience(ai: Path) -> ExperienceEvidence:
         has_experience_summary=summary is not None,
         experience_summary_finding_count=len(summary.findings) if summary else 0,
     )
-
-
-def _experience_summary(ai: Path) -> ExperienceSummaryReport | None:
-    path = ai / "experience" / "experience-summary.yaml"
-    if not path.exists():
-        return None
-    return ExperienceSummaryReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
 
 
 def _benchmark(ai: Path) -> BenchmarkEvidence:

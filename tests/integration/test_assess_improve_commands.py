@@ -196,8 +196,29 @@ def test_review_maturity_writes_llm_review_artifacts(tmp_path: Path, monkeypatch
     assert assess_result.exit_code == 0, assess_result.output
     improve_result = runner.invoke(app, ["improve", "--repo", str(repo)])
     assert improve_result.exit_code == 0, improve_result.output
+    (repo / ".ai" / "experience" / "experience-summary.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "summary": "Sensor coverage is the repeated signal.",
+                "findings": [
+                    {
+                        "id": "sensor-coverage-gap",
+                        "kind": "sensor_feedback",
+                        "title": "Sensor coverage gap",
+                        "summary": "Pending improvements point to missing sensor coverage.",
+                        "evidence_sources": [".ai/experience/pending-improvements.md"],
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
 
-    def fake_review(score, evidence_pack, candidates):
+    def fake_review(score, evidence_pack, candidates, experience_summary=None):
+        assert experience_summary is not None
+        assert experience_summary.findings[0].id == "sensor-coverage-gap"
         return MaturityReviewReport(
             summary="Candidates are aligned.",
             reviewer_model="deepseek-test",
@@ -235,7 +256,7 @@ def test_generate_asset_candidates_writes_review_only_drafts(tmp_path: Path, mon
     improve_result = runner.invoke(app, ["improve", "--repo", str(repo)])
     assert improve_result.exit_code == 0, improve_result.output
 
-    def fake_review(score, evidence_pack, candidates):
+    def fake_review(score, evidence_pack, candidates, experience_summary=None):
         return MaturityReviewReport(
             summary="Candidates are aligned.",
             candidate_reviews=[
@@ -251,8 +272,29 @@ def test_generate_asset_candidates_writes_review_only_drafts(tmp_path: Path, mon
     review_result = runner.invoke(app, ["review-maturity", "--repo", str(repo)])
     assert review_result.exit_code == 0, review_result.output
     formal_guide_before = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    (repo / ".ai" / "experience" / "experience-summary.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "summary": "Workflow gaps are repeated.",
+                "findings": [
+                    {
+                        "id": "workflow-gap-routing",
+                        "kind": "workflow_gap",
+                        "title": "Workflow routing gap",
+                        "summary": "Experience findings point to missing routing rules.",
+                        "evidence_sources": [".ai/experience/experience-summary.yaml"],
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
 
-    def fake_asset_candidates(score, evidence_pack, improvement_candidates, maturity_review):
+    def fake_asset_candidates(score, evidence_pack, improvement_candidates, maturity_review, experience_summary=None):
+        assert experience_summary is not None
+        assert experience_summary.findings[0].kind == "workflow_gap"
         return AssetCandidateReport(
             candidates=[
                 {
