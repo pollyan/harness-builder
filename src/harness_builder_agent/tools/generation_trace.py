@@ -21,7 +21,7 @@ class GenerationTrace:
     @classmethod
     def start(cls, repo: Path, command: str, run_id: str | None = None) -> "GenerationTrace":
         root = repo.resolve()
-        trace_run_id = run_id or f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{command}"
+        trace_run_id = run_id or f"{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}-{command}"
         run_dir = root / ".ai" / "runs" / trace_run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         return cls(repo=root, command=command, run_id=trace_run_id, run_dir=run_dir)
@@ -86,4 +86,3 @@ class GenerationTrace:
             "## Warnings And Failures\n\n"
             f"{warning_lines}\n"
         )
-

@@ -78,6 +78,12 @@ def _skipped_sensor(_repo, command):
     }
 
 
+def _latest_trace(repo: Path) -> dict:
+    runs = sorted((repo / ".ai" / "runs").iterdir())
+    assert runs
+    return yaml.safe_load((runs[-1] / "trace.yaml").read_text(encoding="utf-8"))
+
+
 def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = tmp_path / "mini-spring-boot"
     shutil.copytree(FIXTURES / "mini-spring-boot", repo)
@@ -111,6 +117,10 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "schema:maturity-score" in check_ids
     assert "schema:improvement-candidates" in check_ids
     assert (repo / ".ai" / "task-runs" / "demo-task-001" / "harness-map.yaml").exists()
+    trace = _latest_trace(repo)
+    assert trace["command"] == "benchmark"
+    assert trace["status"] == "completed"
+    assert "benchmark" in trace["stages"]
 
 
 def test_benchmark_generates_report_for_dotnet_fixture(tmp_path: Path, monkeypatch):

@@ -80,6 +80,12 @@ def _prepared_task_repo(tmp_path: Path, fixture_name: str, primary_stack: str, m
     return repo
 
 
+def _latest_trace(repo: Path) -> dict:
+    runs = sorted((repo / ".ai" / "runs").iterdir())
+    assert runs
+    return yaml.safe_load((runs[-1] / "trace.yaml").read_text(encoding="utf-8"))
+
+
 def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, monkeypatch):
     repo = _prepared_task_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
 
@@ -95,6 +101,10 @@ def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, mo
     assert score["blocking_reasons"]
     assert score["recommended_next_steps"]
     assert "## 证据" in report
+    trace = _latest_trace(repo)
+    assert trace["command"] == "assess"
+    assert trace["status"] == "completed"
+    assert "maturity" in trace["stages"]
 
 
 def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, monkeypatch):
@@ -117,3 +127,7 @@ def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, mon
     assert first["human_confirmation_required"] is True
     assert "## 待确认改进候选" in pending
     assert "## 优先级路线图" in evolution
+    trace = _latest_trace(repo)
+    assert trace["command"] == "improve"
+    assert trace["status"] == "completed"
+    assert "improvement" in trace["stages"]
