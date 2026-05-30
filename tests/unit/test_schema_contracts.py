@@ -154,6 +154,8 @@ def test_harness_config_has_lightweight_and_bugfix_workflows():
     assert config.sensors.max_repair_attempts == 1
 
 
+# These schemas are retained as future AI Coding Runtime artifact contracts.
+# Harness Builder no longer generates these files itself.
 def test_harness_map_accepts_workflow_and_policy_contract():
     harness_map = HarnessMap.model_validate(
         {

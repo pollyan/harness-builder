@@ -183,7 +183,7 @@ Skill 产物要求：
 
 - 当前来自内置模板。
 - 不能每次由 LLM 动态生成。
-- `harness-config` 和 `harness-map` 引用的路径必须真实存在。
+- `harness-config` 引用的 Workflow Skill 路径必须真实存在。
 
 ## 测试要求
 
@@ -201,7 +201,7 @@ Skill 产物要求：
 - guide/sensor 包含 stack-specific 内容。
 - workflow skill 被 config 或 harness map 正确引用。
 - generation trace 包含关键阶段和产物。
-- benchmark 能发现缺失文件、schema 错误、内容章节缺失和 hard gate 失败。
+- benchmark 能发现缺失文件、schema 错误、内容章节缺失和 hard gate command 证据不足。
 
 测试不能只断言文件存在。每个新增产物都应至少断言：
 

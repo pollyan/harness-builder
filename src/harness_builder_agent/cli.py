@@ -10,9 +10,8 @@ from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
-from harness_builder_agent.tools.run_task import run_task
 
-app = typer.Typer(help="Generate and exercise project-level AI Coding Harness assets.")
+app = typer.Typer(help="Generate, assess, improve, and benchmark project-level AI Coding Harness assets.")
 
 
 @app.command("init")
@@ -42,16 +41,6 @@ def init_command(
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
     typer.echo(f"Generated harness assets in {output_dir}")
-
-
-@app.command("run")
-def run_command(
-    task: str = typer.Argument(...),
-    repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True),
-) -> None:
-    """Generate a task-level harness map and controlled task handoff assets."""
-    task_dir = run_task(repo, task)
-    typer.echo(f"Generated task run assets in {task_dir}")
 
 
 @app.command("benchmark")

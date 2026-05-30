@@ -54,9 +54,9 @@ Hard gate 是质量底线。
 规则：
 
 - hard gate 必须有可执行命令或明确验证机制。
-- hard gate 执行失败必须显式报告。
-- hard gate skipped 必须显式报告原因。
-- benchmark 不能把 hard gate failed/skipped 当作 passed。
+- Harness Builder benchmark 必须检查 hard gate command 是否有明确 source、confidence 和 gate 证据。
+- 真实 hard gate 执行失败或 skipped 必须由未来宿主 AI Coding Runtime 在 `sensor-report.yaml` 中显式报告。
+- future runtime 不能把 hard gate failed/skipped 当作 passed。
 - 如果命令过重、缺少依赖或无法确认，应先标记为 advisory 或 manual，而不是 hard。
 
 适合 hard gate 的例子：
@@ -82,9 +82,8 @@ Benchmark 应检查：
 - Markdown 必需章节存在。
 - workflow skill 文件存在并被引用。
 - generation trace 存在且包含阶段和 artifact。
-- runtime trace 存在且包含 workflow、guide、sensor 信息。
 - weapon library selection 与生成 guide/sensor 内容一致。
-- hard gate sensor 结果真实反映 passed/failed/skipped。
+- hard gate command 有 source、confidence、type 和 gate 证据。
 
 Benchmark 不应：
 
@@ -98,13 +97,13 @@ Benchmark 质量评分应覆盖：
 - `scan_quality`：evidence coverage、stack confidence、command reliability。
 - `guide_quality`：规则具体性、来源证据、stack-specific 内容。
 - `sensor_quality`：可执行 hard gate、失败处理策略、缺失验证能力说明。
-- `workflow_quality`：workflow skill 引用完整性、runtime trace 完整性。
+- `workflow_quality`：workflow skill 引用完整性。
 
-质量评分不能替代 hard gate。`status` 仍表示硬验收 pass/fail；`quality_status` 表示质量评分结论，可以是 `passed`、`degraded` 或 `failed`。hard gate failed/skipped 时，benchmark hard status 必须是 `failed`。
+质量评分不能替代 hard gate。`status` 仍表示硬验收 pass/fail；`quality_status` 表示质量评分结论，可以是 `passed`、`degraded` 或 `failed`。hard gate command 证据不足时，benchmark hard status 必须是 `failed`。
 
-## Sensor Report 规则
+## Runtime Sensor Report 规则
 
-Sensor report 应能被程序读取。
+Sensor report 是未来宿主 AI Coding Runtime 执行 Workflow Skill 时应写出的任务级 runtime artifact，不是 Harness Builder 当前生成的正式产物。它应能被程序读取。
 
 规则：
 
@@ -121,15 +120,13 @@ Sensor 不是孤立文件。它应该和以下产物一致：
 - `command-catalog.yaml`
 - `harness-config.yaml`
 - `weapon-library-selection.yaml`
-- `runtime-summary.yaml`
-- `sensor-report.yaml`
 - `benchmark-report.yaml`
 
 跨文件引用必须可测试。例如：
 
 - `weapon-library-selection.yaml` 中的 sensor weapon id 应出现在生成的 sensor Markdown 中。
-- `harness-map.yaml` 中选择的 workflow skill 路径必须存在。
-- `sensor-report.yaml` 中的 hard gate 状态应影响 benchmark。
+- `harness-config.yaml` 中配置的 workflow skill 路径必须存在。
+- 未来 runtime 生成的 `sensor-report.yaml` 中 hard gate 状态应影响宿主 runtime 的任务结果。
 
 ## 测试要求
 
@@ -138,9 +135,8 @@ Sensor 不是孤立文件。它应该和以下产物一致：
 - Sensor Markdown 包含必需章节。
 - Stack-specific sensor weapon id 出现在输出中。
 - hard gate passed 时 benchmark 可以通过。
-- hard gate failed 时 benchmark 失败并列出失败摘要。
-- skipped 不被当作 passed。
-- sensor report schema 校验。
+- hard gate command source 缺失或 low confidence 时 benchmark 失败并列出失败摘要。
+- future runtime 中 skipped 不被当作 passed。
 - command catalog 与 sensor 内容有关联。
 
 ## 后续演进

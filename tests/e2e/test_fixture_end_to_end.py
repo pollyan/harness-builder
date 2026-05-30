@@ -56,26 +56,14 @@ def _fake_scan(repo: Path, primary_stack: str):
     return scan_repository(repo, llm_caller=lambda _messages: json.dumps(response))
 
 
-def _passed_sensor(_repo, command):
-    return {
-        "id": command.id,
-        "command": command.command,
-        "status": "passed",
-        "exit_code": 0,
-        "duration_seconds": 0.01,
-        "summary": "Sensor completed.",
-    }
-
-
 def test_fixture_cli_end_to_end_for_java_and_dotnet(tmp_path: Path, monkeypatch):
     cases = [
-        ("mini-spring-boot", "java-spring", "修复登录接口错误提示不一致的问题"),
-        ("mini-dotnet-webapi", "dotnet-aspnet", "调整 Catalog 相关低风险文案"),
+        ("mini-spring-boot", "java-spring"),
+        ("mini-dotnet-webapi", "dotnet-aspnet"),
     ]
     runner = CliRunner()
-    monkeypatch.setattr("harness_builder_agent.tools.run_task.run_sensor", _passed_sensor)
 
-    for fixture_name, profile, task in cases:
+    for fixture_name, profile in cases:
         repo = tmp_path / fixture_name
         shutil.copytree(FIXTURES / fixture_name, repo)
         monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path, stack=profile: _fake_scan(repo_path, stack))
@@ -83,9 +71,6 @@ def test_fixture_cli_end_to_end_for_java_and_dotnet(tmp_path: Path, monkeypatch)
 
         init_result = runner.invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
         assert init_result.exit_code == 0, init_result.output
-
-        run_result = runner.invoke(app, ["run", "--repo", str(repo), task])
-        assert run_result.exit_code == 0, run_result.output
 
         assess_result = runner.invoke(app, ["assess", "--repo", str(repo)])
         assert assess_result.exit_code == 0, assess_result.output
@@ -96,11 +81,7 @@ def test_fixture_cli_end_to_end_for_java_and_dotnet(tmp_path: Path, monkeypatch)
         benchmark_result = runner.invoke(app, ["benchmark", "--repo", str(repo), "--profile", profile])
         assert benchmark_result.exit_code == 0, benchmark_result.output
 
-        task_dir = repo / ".ai" / "task-runs" / "demo-task-001"
-        assert (task_dir / "harness-map.yaml").exists()
-        assert (task_dir / "sensor-report.yaml").exists()
-        assert (task_dir / "runtime-summary.yaml").exists()
-        assert (task_dir / "used-guides.yaml").exists()
+        assert not (repo / ".ai" / "task-runs").exists()
         assert (repo / ".ai" / "scan-metadata.yaml").exists()
         assert (repo / ".ai" / "llm-scan-proposal.json").exists()
         assert (repo / ".ai" / "skills" / "lightweight" / "SKILL.md").exists()
@@ -113,4 +94,5 @@ def test_fixture_cli_end_to_end_for_java_and_dotnet(tmp_path: Path, monkeypatch)
         assert "content:workflow-skills" in check_ids
         assert "content:guides-quality" in check_ids
         assert "content:sensors-quality" in check_ids
-        assert "content:hard-gate-sensors-passed" in check_ids
+        assert "content:hard-gate-command-evidence" in check_ids
+        assert "content:runtime-workflow-trace" not in check_ids

@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
-from harness_builder_agent.tools.benchmark import _content_checks, _quality_scores, _schema_checks
+from harness_builder_agent.tools.benchmark import _content_checks, _quality_scores, _schema_checks, run_benchmark
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -58,28 +58,6 @@ def _fake_scan(repo: Path, primary_stack: str):
     return scan_repository(repo, llm_caller=lambda _messages: json.dumps(response))
 
 
-def _passed_sensor(_repo, command):
-    return {
-        "id": command.id,
-        "command": command.command,
-        "status": "passed",
-        "exit_code": 0,
-        "duration_seconds": 0.01,
-        "summary": "Sensor completed.",
-    }
-
-
-def _skipped_sensor(_repo, command):
-    return {
-        "id": command.id,
-        "command": command.command,
-        "status": "skipped",
-        "exit_code": None,
-        "duration_seconds": 0.0,
-        "summary": "Executable is not available.",
-    }
-
-
 def _latest_trace(repo: Path) -> dict:
     runs = sorted((repo / ".ai" / "runs").iterdir())
     assert runs
@@ -90,7 +68,6 @@ def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: st
     repo = tmp_path / fixture_name
     shutil.copytree(FIXTURES / fixture_name, repo)
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, profile))
-    monkeypatch.setattr("harness_builder_agent.tools.run_task.run_sensor", _passed_sensor)
     result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", profile])
     assert result.exit_code == 0, result.output
     return repo
@@ -100,7 +77,6 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     repo = tmp_path / "mini-spring-boot"
     shutil.copytree(FIXTURES / "mini-spring-boot", repo)
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
-    monkeypatch.setattr("harness_builder_agent.tools.run_task.run_sensor", _passed_sensor)
 
     result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "java-spring"])
 
@@ -120,14 +96,16 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "exists:scan-metadata.yaml" in check_ids
     assert "exists:llm-scan-proposal.json" in check_ids
     assert "content:workflow-skills" in check_ids
-    assert "content:harness-map-workflow-skill" in check_ids
+    assert "content:workflow-skill-config-reference" in check_ids
     assert "content:guides-quality" in check_ids
     assert "content:stack-specific-guides" in check_ids
     assert "content:sensors-quality" in check_ids
     assert "content:weapon-library-selection" in check_ids
-    assert "content:hard-gate-sensors-passed" in check_ids
-    assert "schema:harness-map" in check_ids
-    assert "schema:sensor-report" in check_ids
+    assert "content:hard-gate-command-evidence" in check_ids
+    assert "content:harness-map-workflow-skill" not in check_ids
+    assert "content:hard-gate-sensors-passed" not in check_ids
+    assert "schema:harness-map" not in check_ids
+    assert "schema:sensor-report" not in check_ids
     assert "schema:scan-metadata" in check_ids
     assert "schema:llm-scan-proposal" in check_ids
     assert "schema:weapon-library-selection" in check_ids
@@ -137,14 +115,14 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "exists:runs-trace" in check_ids
     assert "schema:generation-trace" in check_ids
     assert "content:generation-trace" in check_ids
-    assert "schema:runtime-summary" in check_ids
-    assert "content:runtime-workflow-trace" in check_ids
+    assert "schema:runtime-summary" not in check_ids
+    assert "content:runtime-workflow-trace" not in check_ids
     assert "schema:questionnaire" in check_ids
     assert "content:human-confirmation" in check_ids
     assert "exists:review/llm-enhancement-candidates.md" in check_ids
     assert "schema:weapon-library-candidates" in check_ids
     assert "content:llm-enhancement-candidates" in check_ids
-    assert (repo / ".ai" / "task-runs" / "demo-task-001" / "harness-map.yaml").exists()
+    assert not (repo / ".ai" / "task-runs").exists()
     trace = _latest_trace(repo)
     assert trace["command"] == "benchmark"
     assert trace["status"] == "completed"
@@ -155,7 +133,6 @@ def test_benchmark_generates_report_for_dotnet_fixture(tmp_path: Path, monkeypat
     repo = tmp_path / "mini-dotnet-webapi"
     shutil.copytree(FIXTURES / "mini-dotnet-webapi", repo)
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "dotnet-aspnet"))
-    monkeypatch.setattr("harness_builder_agent.tools.run_task.run_sensor", _passed_sensor)
 
     result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "dotnet-aspnet"])
 
@@ -164,24 +141,27 @@ def test_benchmark_generates_report_for_dotnet_fixture(tmp_path: Path, monkeypat
     assert report["profile"] == "dotnet-aspnet"
     assert report["status"] == "passed"
     check_ids = {check["id"] for check in report["checks"]}
-    assert "content:hard-gate-sensors-passed" in check_ids
+    assert "content:hard-gate-command-evidence" in check_ids
     assert "schema:benchmark-report" in check_ids
 
 
-def test_benchmark_fails_when_hard_gate_sensor_is_skipped(tmp_path: Path, monkeypatch):
+def test_benchmark_fails_when_hard_gate_command_lacks_evidence(tmp_path: Path, monkeypatch):
     repo = tmp_path / "mini-spring-boot"
     shutil.copytree(FIXTURES / "mini-spring-boot", repo)
-    monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
-    monkeypatch.setattr("harness_builder_agent.tools.run_task.run_sensor", _skipped_sensor)
+
+    def fake_scan_without_source(repo_path: Path):
+        inventory, commands = _fake_scan(repo_path, "java-spring")
+        commands.commands[0].source = ""
+        return inventory, commands
+
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", fake_scan_without_source)
 
     result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "java-spring"])
 
     assert result.exit_code == 1, result.output
-    report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text())
+    report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
     assert report["status"] == "failed"
-    assert report["quality_status"] == "failed"
-    assert report["quality_summary"]["failed_items"] or report["quality_summary"]["degraded_items"]
-    hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-sensors-passed")
+    hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-command-evidence")
     assert hard_gate_check["passed"] is False
 
 
@@ -252,6 +232,6 @@ def test_benchmark_content_checks_fail_when_workflow_skill_file_is_missing(tmp_p
     checks = _content_checks(ai, inventory)
 
     workflow_skill = next(check for check in checks if check["id"] == "content:workflow-skills")
-    harness_map_skill = next(check for check in checks if check["id"] == "content:harness-map-workflow-skill")
+    harness_map_skill = next(check for check in checks if check["id"] == "content:workflow-skill-config-reference")
     assert workflow_skill["passed"] is False
     assert harness_map_skill["passed"] is False

@@ -28,7 +28,7 @@ def assess_maturity(repo: Path) -> Path:
             "sensors": "L2" if commands.commands else "L0",
             "workflow": "L2" if _skills_exist(ai) else "L1",
             "risk_control": "L0",
-            "observability": "L1" if _has_task_runs(ai) else "L0",
+            "observability": "L1" if _has_generation_runs(ai) else "L0",
             "experience": "L1" if (ai / "experience" / "pending-improvements.md").exists() else "L0",
         },
         evidence=[
@@ -69,9 +69,9 @@ def _contains_section(path: Path, section: str) -> bool:
     return path.exists() and section in path.read_text(encoding="utf-8")
 
 
-def _has_task_runs(ai: Path) -> bool:
-    task_runs = ai / "task-runs"
-    return task_runs.exists() and any(task_runs.iterdir())
+def _has_generation_runs(ai: Path) -> bool:
+    runs = ai / "runs"
+    return runs.exists() and any(path.is_dir() for path in runs.iterdir())
 
 
 def _overall_level(ai: Path, commands: CommandCatalog, config: HarnessConfig) -> str:

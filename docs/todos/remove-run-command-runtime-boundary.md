@@ -2,11 +2,18 @@
 
 ## 状态
 
-- 状态：open
+- 状态：implemented
 - 优先级：high
 - 发现日期：2026-05-31
 - 相关命令：`harness-builder-agent run`、`harness-builder-agent benchmark`
 - 相关工程规则：`docs/engineering/architecture.md`、`docs/engineering/init-workflow.md`、`docs/engineering/sensor-and-gate-rules.md`、`docs/engineering/testing-strategy.md`
+
+## 完成说明
+
+- 设计文档：`docs/superpowers/specs/2026-05-31-remove-run-runtime-boundary-design.md`
+- 实施计划：`docs/superpowers/plans/2026-05-31-remove-run-runtime-boundary.md`
+- 完成结果：`harness-builder-agent run` 已从 Harness Builder CLI 中移除，`run_task.py` 和 `run_sensor.py` 已删除；benchmark 不再生成或检查 `.ai/task-runs/` runtime trace，而是验证静态 Harness 资产、Workflow Skill 引用和 hard gate command 证据。
+- 可观测性承载：`harness-map.yaml`、`sensor-report.yaml`、`runtime-summary.yaml` 等任务过程数据仍作为未来宿主 AI Coding Runtime 执行 Workflow Skill 时的 runtime artifact contract 保留在 Skill 模板中。
 
 ## 背景
 

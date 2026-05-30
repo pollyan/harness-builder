@@ -56,27 +56,13 @@ def _fake_scan(repo: Path, primary_stack: str):
     return scan_repository(repo, llm_caller=lambda _messages: json.dumps(response))
 
 
-def _passed_sensor(_repo, command):
-    return {
-        "id": command.id,
-        "command": command.command,
-        "status": "passed",
-        "exit_code": 0,
-        "duration_seconds": 0.01,
-        "summary": "Sensor completed.",
-    }
-
-
-def _prepared_task_repo(tmp_path: Path, fixture_name: str, primary_stack: str, monkeypatch) -> Path:
+def _prepared_harness_repo(tmp_path: Path, fixture_name: str, primary_stack: str, monkeypatch) -> Path:
     repo = tmp_path / fixture_name
     shutil.copytree(FIXTURES / fixture_name, repo)
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, primary_stack))
-    monkeypatch.setattr("harness_builder_agent.tools.run_task.run_sensor", _passed_sensor)
     runner = CliRunner()
     init_result = runner.invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
     assert init_result.exit_code == 0, init_result.output
-    run_result = runner.invoke(app, ["run", "--repo", str(repo), "修复登录接口错误提示不一致的问题"])
-    assert run_result.exit_code == 0, run_result.output
     return repo
 
 
@@ -87,7 +73,7 @@ def _latest_trace(repo: Path) -> dict:
 
 
 def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, monkeypatch):
-    repo = _prepared_task_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
 
     result = CliRunner().invoke(app, ["assess", "--repo", str(repo)])
 
@@ -97,10 +83,12 @@ def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, mo
     assert score["schema_version"] == "1.0"
     assert score["overall_level"].startswith("L")
     assert "workflow" in score["dimension_scores"]
+    assert score["dimension_scores"]["observability"] == "L1"
     assert score["evidence"]
     assert score["blocking_reasons"]
     assert score["recommended_next_steps"]
     assert "## 证据" in report
+    assert not (repo / ".ai" / "task-runs").exists()
     trace = _latest_trace(repo)
     assert trace["command"] == "assess"
     assert trace["status"] == "completed"
@@ -108,7 +96,7 @@ def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, mo
 
 
 def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, monkeypatch):
-    repo = _prepared_task_repo(tmp_path, "mini-dotnet-webapi", "dotnet-aspnet", monkeypatch)
+    repo = _prepared_harness_repo(tmp_path, "mini-dotnet-webapi", "dotnet-aspnet", monkeypatch)
     runner = CliRunner()
     assess_result = runner.invoke(app, ["assess", "--repo", str(repo)])
     assert assess_result.exit_code == 0, assess_result.output
@@ -134,7 +122,7 @@ def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, mon
 
 
 def test_assess_handles_empty_command_catalog_by_lowering_sensor_maturity(tmp_path: Path, monkeypatch):
-    repo = _prepared_task_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
     (repo / ".ai" / "command-catalog.yaml").write_text("schema_version: '1.0'\ncommands: []\n", encoding="utf-8")
 
     result = CliRunner().invoke(app, ["assess", "--repo", str(repo)])
@@ -148,7 +136,7 @@ def test_assess_handles_empty_command_catalog_by_lowering_sensor_maturity(tmp_pa
 
 
 def test_improve_candidates_are_reviewable_and_target_ai_assets(tmp_path: Path, monkeypatch):
-    repo = _prepared_task_repo(tmp_path, "mini-dotnet-webapi", "dotnet-aspnet", monkeypatch)
+    repo = _prepared_harness_repo(tmp_path, "mini-dotnet-webapi", "dotnet-aspnet", monkeypatch)
 
     result = CliRunner().invoke(app, ["improve", "--repo", str(repo)])
 
