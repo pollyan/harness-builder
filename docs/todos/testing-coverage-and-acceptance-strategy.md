@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态：open
+- 状态：implemented
 - 优先级：high
 - 发现日期：2026-05-30
 - 相关命令：默认 pytest、`tests/acceptance`、本地 Git hooks、CI
@@ -116,3 +116,12 @@ scripts/test-acceptance.sh
 
 重点是补齐关键业务边界和失败路径，让测试能真正保护后续重构和交互式改造。
 
+## 实现结果
+
+- 已补充 CLI、schema、weapon library、asset writer、benchmark、run task、assess/improve 的关键测试。
+- 默认回归测试从 38 个增加到 61 个。
+- 已新增 `scripts/test-fast.sh`、`scripts/test-acceptance.sh`、`scripts/test-full.sh` 三层本地验证脚本。
+- `pre-commit` 和 `pre-push` 使用 `scripts/test-fast.sh`，保持快速反馈。
+- Acceptance 仍然显式运行，不进入默认 CI；缺少 key、真实仓库、网络或 API 可用性时必须失败。
+- 已验证 `scripts/test-fast.sh` 通过。
+- 已验证 `scripts/test-acceptance.sh` 在提升权限环境下通过，覆盖真实 DeepSeek 和真实开源仓库链路。
