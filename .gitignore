@@ -11,6 +11,7 @@ __pycache__/
 /tmp/
 outputs/
 repos/
+.worktrees/
 
 # Private local context files - never commit
 private/
