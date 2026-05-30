@@ -128,6 +128,10 @@ def test_write_initial_assets_persists_interaction_decisions_and_applies_candida
     human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8")
     assert "Interaction Decisions" in human_input
     assert "所有新增逻辑必须有测试" in human_input
+    project_context = (ai / "guides" / "project-context.md").read_text(encoding="utf-8")
+    assert "## 团队上下文" in project_context
+    assert "Controller 只能调用 Service" in project_context
+    assert "所有新增逻辑必须有测试" in project_context
     candidates = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
     by_id = {item["id"]: item for item in candidates["candidates"]}
     assert by_id["llm-guide-architecture-001"]["status"] == "confirmed"

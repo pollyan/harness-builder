@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
+from harness_builder_agent.schemas.interaction_decision import InteractionDecisions
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
 from harness_builder_agent.tools.asset_writers.shared import record_artifact, write_text
@@ -12,9 +14,14 @@ def write_guide_assets(
     ai: Path,
     inventory: ProjectInventory,
     weapon_selection: WeaponLibrarySelection,
+    context_inputs: dict[str, Any] | None = None,
+    interaction_decisions: InteractionDecisions | None = None,
     trace: GenerationTrace | None = None,
 ) -> None:
-    write_text(ai / "guides" / "project-context.md", _guide("project-context", inventory, weapon_selection))
+    write_text(
+        ai / "guides" / "project-context.md",
+        _guide("project-context", inventory, weapon_selection, context_inputs, interaction_decisions),
+    )
     record_artifact(trace, ai / "guides" / "project-context.md", "guide")
     write_text(ai / "guides" / "coding-rules.md", _guide("coding-rules", inventory, weapon_selection))
     record_artifact(trace, ai / "guides" / "coding-rules.md", "guide")
@@ -38,7 +45,13 @@ def _frontmatter(asset_type: str) -> str:
     )
 
 
-def _guide(name: str, inventory: ProjectInventory, weapon_selection: WeaponLibrarySelection) -> str:
+def _guide(
+    name: str,
+    inventory: ProjectInventory,
+    weapon_selection: WeaponLibrarySelection,
+    context_inputs: dict[str, Any] | None = None,
+    interaction_decisions: InteractionDecisions | None = None,
+) -> str:
     module_lines = "\n".join(f"- `{module['path']}` ({module['kind']})" for module in inventory.modules) or "- No modules detected"
     evidence_lines = "\n".join(f"- `{item['path']}`：{item['reason']}" for item in inventory.evidence) or "- 暂未发现直接证据"
     match_lines = _weapon_match_lines(weapon_selection.guide_weapons)
@@ -53,6 +66,8 @@ def _guide(name: str, inventory: ProjectInventory, weapon_selection: WeaponLibra
         + f"{match_lines}\n\n"
         + "## 适用范围\n\n"
         + "当前覆盖整个仓库，正式生效前需要维护者审查。\n\n"
+        + "## 团队上下文\n\n"
+        + f"{_team_context_section(context_inputs, interaction_decisions)}\n\n"
         + "## 当前项目事实\n\n"
         + f"- 主技术栈：`{inventory.primary_stack}`。\n"
         + f"- 技术栈线索：{', '.join(inventory.stacks) if inventory.stacks else '未知'}。\n"
@@ -68,6 +83,16 @@ def _guide(name: str, inventory: ProjectInventory, weapon_selection: WeaponLibra
         + "- 请确认模块边界是否符合团队真实架构。\n"
         + "- 请确认候选规则是否可以提升为正式 Guide。\n"
     )
+
+
+def _team_context_section(context_inputs: dict[str, Any] | None, interaction_decisions: InteractionDecisions | None) -> str:
+    lines: list[str] = []
+    for item in (context_inputs or {}).get("contexts", []):
+        lines.append(f"- `{item['path']}`: {item['summary']}")
+    if interaction_decisions:
+        for item in interaction_decisions.context_confirmation.inline_contexts:
+            lines.append(f"- {item}")
+    return "\n".join(lines) or "- 暂未提供团队上下文。"
 
 
 def _task_template(kind: str) -> str:

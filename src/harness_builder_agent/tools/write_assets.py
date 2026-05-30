@@ -75,7 +75,7 @@ def write_initial_assets(
 
     write_report_assets(ai, inventory, commands, config, weapon_selection, trace=trace)
 
-    write_guide_assets(ai, inventory, weapon_selection, trace=trace)
+    write_guide_assets(ai, inventory, weapon_selection, context_inputs, decisions, trace=trace)
 
     write_sensor_assets(ai, commands, weapon_selection, trace=trace)
     write_skill_assets(ai, trace=trace)

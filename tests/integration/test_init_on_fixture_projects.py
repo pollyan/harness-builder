@@ -183,6 +183,9 @@ def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     _assert_init_outputs(repo, "java-spring", expected_context_text="团队规则")
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    assert "## 团队上下文" in project_context
+    assert "Controller 只能调用 Service" in project_context
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text())
     assert inventory["primary_stack"] == "java-spring"
 
