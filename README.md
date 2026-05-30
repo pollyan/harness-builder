@@ -4,6 +4,16 @@ Harness Builder 是一个面向既有代码库的 AI Coding Harness POC。当前
 
 当前仍是 POC，不是生产级产品。
 
+## 工程规则文档
+
+本仓库使用 Codex 进行开发，项目级约束入口是 `AGENTS.md`。详细工程规则放在 `docs/engineering/`，按任务渐进式加载：
+
+- `docs/engineering/architecture.md`：架构边界和模块职责。
+- `docs/engineering/init-workflow.md`：`init` 工作流、生成产物和失败行为。
+- `docs/engineering/llm-contracts.md`：DeepSeek、LLM-first 扫描、schema 和 no fallback 规则。
+- `docs/engineering/testing-strategy.md`：测试分层、断言深度和 acceptance 策略。
+- `docs/engineering/sensor-and-gate-rules.md`：Sensor、hard gate 和 benchmark 质量门禁规则。
+
 ## 环境准备
 
 ```bash
