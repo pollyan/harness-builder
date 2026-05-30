@@ -14,9 +14,27 @@ class BenchmarkCheck(BaseModel):
     error: str | None = None
 
 
+class QualityScoreItem(BaseModel):
+    score: int
+    max_score: int = 5
+    passed: bool
+    reasons: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+
+
+class QualitySummary(BaseModel):
+    total_score: int
+    minimum_score: int
+    degraded_items: list[str] = Field(default_factory=list)
+    failed_items: list[str] = Field(default_factory=list)
+
+
 class BenchmarkReport(BaseModel):
     schema_version: str = "1.0"
     repo_name: str
     profile: str
     status: Literal["passed", "failed"]
     checks: list[BenchmarkCheck] = Field(default_factory=list)
+    quality_status: Literal["passed", "degraded", "failed"] = "failed"
+    quality_scores: dict[str, dict[str, QualityScoreItem]] = Field(default_factory=dict)
+    quality_summary: QualitySummary | None = None

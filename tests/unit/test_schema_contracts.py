@@ -88,6 +88,39 @@ def test_scan_metadata_accepts_evidence_coverage():
     assert metadata.coverage["selected_evidence_count"] == 10
 
 
+def test_benchmark_report_accepts_quality_scores():
+    report = BenchmarkReport(
+        repo_name="demo",
+        profile="java-spring",
+        status="passed",
+        quality_status="degraded",
+        checks=[{"id": "content:guides-quality", "passed": True}],
+        quality_scores={
+            "guide_quality": {
+                "evidence_reference": {
+                    "score": 3,
+                    "max_score": 5,
+                    "passed": False,
+                    "reasons": ["来源证据章节存在但缺少路径。"],
+                    "recommendations": ["在 guide 中补充 evidence path。"],
+                }
+            }
+        },
+        quality_summary={
+            "total_score": 60,
+            "minimum_score": 3,
+            "degraded_items": ["guide_quality.evidence_reference"],
+            "failed_items": [],
+        },
+    )
+
+    payload = report.model_dump(mode="json")
+
+    assert payload["quality_status"] == "degraded"
+    assert payload["quality_scores"]["guide_quality"]["evidence_reference"]["score"] == 3
+    assert payload["quality_summary"]["degraded_items"] == ["guide_quality.evidence_reference"]
+
+
 def test_command_catalog_requires_source_and_gate_metadata():
     catalog = CommandCatalog(
         commands=[
