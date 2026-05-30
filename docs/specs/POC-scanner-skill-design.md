@@ -1,346 +1,294 @@
 # Harness Builder — POC 方案设计
 
-> 文档状态：POC 方案修订稿  
-> 目标用途：内部方案讨论、可行性验证、原型演示、资源争取  
-> 当前阶段：只做 Scanner Skill，不做 Task Mapping Skill
+> 文档状态：POC 最新同步稿
+> 目标用途：内部方案讨论、原型验收、后续目标模式执行依据
+> 当前阶段：Harness Builder Agent CLI POC
+> 更新时间：2026-05-30
 
 ---
 
 ## 1. POC 定位
 
-Harness Builder POC 的第一阶段目标，是做出一个可迁移到 AI 编程 IDE 中使用的 **Scanner Skill**。
+Harness Builder POC 的目标，是为既有企业代码库生成一套项目级 AI Coding Harness，使 AI Coding Agent 能在更明确的项目上下文、规范边界、工作流和验证约束下工作。
 
-这个 Skill 安装到编程 IDE 或 AI Coding Agent 环境后，应能够在当前工程根目录运行，自动扫描工程资产，并生成后续 Harness 构建所需的基础事实源。
+当前 POC 不再保留独立的旧 Scanner Skill 路线。当前产品入口是 `harness-builder-agent` CLI，核心命令包括：
 
-第一阶段不做完整 Harness Builder，不做 Task Mapping，不做 AI Coding 执行演示。当前只证明一件事：
+- `init`：扫描目标仓库并生成项目级 `.ai/` Harness。
+- `run`：基于具体任务生成 `harness-map.yaml` 并执行选中的 Sensor。
+- `assess`：生成或更新成熟度评估。
+- `improve`：生成待确认的改进候选。
+- `benchmark`：对生成产物、schema、内容质量和执行结果做验收。
 
-```text
-当前工程根目录 → Scanner Skill → .harness/ 基础事实源 → 人类可审查报告 → 后续 Skill 可消费输入
-```
-
-POC 成功的判断标准，是 Scanner Skill 能在两个不同企业技术栈项目中生成稳定、结构化、可审查、可被后续 Skill 使用的工程资产清单。
-
----
-
-## 2. 为什么先只做 Scanner Skill
-
-Task Mapping 应该是后续独立 Skill，而不是 Scanner 的一部分。
-
-原因：
-
-1. **职责不同**  
-   Scanner 负责回答“当前工程是什么”。  
-   Task Mapping 负责回答“某个任务应该怎么进入这个工程”。
-
-2. **输入依赖不同**  
-   Scanner 的输入是当前工程根目录。  
-   Task Mapping 的输入是 `.harness/` 事实源 + 用户任务描述。
-
-3. **验证节奏不同**  
-   Scanner 可以通过双技术栈代码库稳定验证。  
-   Task Mapping 需要先确认 Scanner 输出质量，否则会建立在不稳定事实源上。
-
-4. **避免首轮范围膨胀**  
-   如果同时做 Scanner、Task Mapping、Agent 执行和 Sensors 验证，POC 会快速接近 MVP，失去低成本验证意义。
-
-因此，当前 POC 明确收敛为：
+当前 POC 的主路径是：
 
 ```text
-第一阶段：Scanner Skill
-第二阶段：Task Mapping Skill
-第三阶段：Harness Generator / Workflow / Sensors
+目标仓库 → LLM-first 扫描 → 武器库匹配 → .ai Harness 生成 → Workflow / Sensor / Benchmark 验收
 ```
 
 ---
 
-## 3. Scanner Skill 的真实使用场景
+## 2. 当前 POC 成功标准
 
-未来真实使用方式是：
+POC 成功需要证明：
 
-```text
-用户在 AI 编程 IDE 中打开一个工程
-安装或加载 Harness Builder Scanner Skill
-调用类似 harness builder init / run scanner 的能力
-Skill 以当前工程根目录为目标进行扫描
-在当前工程下生成 .harness/
-```
-
-因此，Scanner Skill 首轮默认输入不是外部 repo path，而是：
-
-```text
-当前工作目录 = 当前工程根目录
-```
-
-为了测试和自动化验证，可以保留 `--repo <path>` 参数，但这是测试入口，不是主要产品入口。
+1. 能在 Java Spring 和 .NET ASP.NET 真实/示例仓库中运行。
+2. 扫描层以 DeepSeek 为主判断来源，不依赖脆弱的目录命名假设。
+3. DeepSeek 不可用、无 API key、返回不合规时必须失败，不允许 fallback。
+4. 生成 `.ai/` 下的结构化资产和语义上下文资产。
+5. Workflow Skills 以固定内置模板复制到目标仓库，用户可见、可编辑。
+6. Guides / Sensors 通过内置武器库稳定组装，而不是每次让大模型自由生成。
+7. Sensor hard gate 需要真正影响 benchmark 结果。
+8. 测试策略覆盖扫描、武器库、资产生成、CLI 编排、Sensor、Benchmark 和真实 DeepSeek 验收。
 
 ---
 
-## 4. 第一阶段目标
+## 3. `init` 主链路
 
-Scanner Skill 第一阶段需要回答四个问题：
+`init` 是当前 POC 的根命令，负责把目标仓库初始化为一个带 Harness 的仓库。
 
-1. **能否识别当前工程的技术栈与工程结构**  
-   例如 Java/Maven/Spring Boot、.NET/ASP.NET Core、前端项目、测试项目、配置文件、CI 文件等。
+```mermaid
+flowchart TB
+  repo["目标代码库"] --> scan["LLM-first Scan Layer"]
+  scan --> inventory["project-inventory.json"]
+  scan --> commands["command-catalog.yaml"]
+  scan --> metadata["scan-metadata.yaml / warnings"]
 
-2. **能否生成机器可消费的事实源**  
-   事实源包括 `project-inventory.json` 和 `command-catalog.yaml`。
+  inventory --> weapon["Weapon Library Selection"]
+  commands --> weapon
+  weapon --> selection["weapon-library-selection.yaml"]
 
-3. **能否生成面向人类审查的扫描报告**  
-   报告用于解释 Scanner 看到了什么、没看到什么、哪些地方需要人工校准。
+  inventory --> assets["Asset Writer"]
+  commands --> assets
+  metadata --> assets
+  selection --> assets
 
-4. **能否跨两个典型企业技术栈复用**  
-   同一套 Scanner Skill 能处理 RuoYi-Vue 和 eShopOnWeb，证明不是单项目定制脚本。
-
----
-
-## 5. 首轮目标代码库
-
-| 类型 | 代码库 | 技术栈 | 作用 |
-|---|---|---|---|
-| Java B 端项目 | RuoYi-Vue | Java / Spring Boot / Maven / Vue | 验证 Java 多模块、Spring 配置、SQL、前端 package 识别 |
-| 非 Java B 端项目 | eShopOnWeb | .NET / ASP.NET Core / EF Core | 验证 sln/csproj、Clean Architecture、测试项目、CI 识别 |
-| 第二轮复杂候选 | Apache Fineract | Java / Spring Boot / Gradle / PostgreSQL | 后续验证大型金融业务系统和多模块压力场景 |
-
-首轮只使用 **RuoYi-Vue + eShopOnWeb**。Apache Fineract 不进入第一阶段实现范围，只保留为后续复杂业务验证对象。
-
----
-
-## 6. Scanner Skill 输出
-
-Scanner Skill 在当前工程根目录生成：
-
-```text
-.harness/
-  project-inventory.json
-  command-catalog.yaml
-  scanner-report.md
+  assets --> ai[".ai/ Harness"]
+  ai --> guides["guides/*.md"]
+  ai --> sensors["sensors/*.md"]
+  ai --> skills["skills/bugfix 和 skills/lightweight"]
+  ai --> reports["maturity / evolution / scan report"]
 ```
 
-### 6.1 project-inventory.json
+`init` 的职责：
 
-机器事实源，记录：
+- 调用扫描层，获得目标仓库的结构化现状。
+- 调用武器库选择层，选择 `common + stack-specific` 的 Guides / Sensors 条目。
+- 写出 `.ai/` 项目级 Harness 资产。
+- 复制内置 Workflow Skills。
 
-- 仓库基本信息
-- 技术栈识别结果
-- 顶层目录结构
-- 模块列表
-- 构建文件
-- 配置文件
-- 测试资产
-- CI / Docker 资产
-- 文档资产
-- 浅层代码结构
-- 技术栈扩展字段
+`init` 不负责：
 
-### 6.2 command-catalog.yaml
-
-机器事实源，记录：
-
-- build 命令候选
-- test 命令候选
-- run 命令候选
-- frontend 命令候选
-- docker / compose 命令候选
-- 命令来源
-- 置信度
-- 是否已验证
-
-### 6.3 scanner-report.md
-
-人类解释层，记录：
-
-- 项目概览
-- 技术栈识别
-- 模块结构
-- 构建与测试命令
-- 配置与数据库资产
-- CI / Docker / 文档资产
-- Scanner 输出可用于后续哪些 Skill
-- 人工校准点
+- 不根据具体任务选择 workflow。
+- 不执行 sensor。
+- 不生成 task-run。
+- 不做人工向导式确认的完整交互；本轮只预留兼容设计。
 
 ---
 
-## 7. 输出优先级原则
+## 4. LLM-first 扫描层设计
 
-首轮输出以机器可消费为主，人类可审查为辅：
+扫描层必须从“确定性脚本猜测代码库结构”转为“确定性脚本采集事实，DeepSeek 负责主判断，Reconciler 负责校验合并”。
 
-```text
-project-inventory.json / command-catalog.yaml = 事实源
-scanner-report.md = 解释层
+```mermaid
+flowchart TB
+  repo["目标代码库"] --> collector["Evidence Collector<br/>确定性事实采集"]
+  collector --> evidence["Evidence Bundle"]
+
+  prompt["Prompt Registry"] --> analyzer["DeepSeek Analyzer<br/>唯一主判断路径"]
+  config["LLM Config"] --> analyzer
+  evidence --> analyzer
+
+  analyzer --> raw["Raw LLM Output"]
+  raw --> parser["Strict Parser<br/>扫描输出必须 schema 合规"]
+  parser --> proposal["LLM Scan Proposal"]
+
+  evidence --> reconciler["Reconciler<br/>证据校验 冲突处理"]
+  proposal --> reconciler
+
+  reconciler --> inventory["ProjectInventory"]
+  reconciler --> commands["CommandCatalog"]
+  reconciler --> warnings["Scan Warnings"]
+  reconciler --> metadata["Scan Metadata"]
 ```
+
+### 4.1 Evidence Collector
+
+职责：只采集客观事实，不做复杂判断，不生成最终技术栈结论。
+
+输入：
+
+- repo path
+- ignore rules
+- 采样限制，例如最大文件数、最大文件大小、最大片段长度
+
+输出：
+
+- 文件树摘要
+- 语言和扩展名统计
+- 构建文件路径与摘要，例如 `pom.xml`、`.sln`、`.csproj`、`package.json`
+- 配置文件路径与摘要，例如 `application*.yml`、`appsettings*.json`、`.env.example`
+- CI 文件路径与摘要
+- README / docs 摘要
+- 代表性源码片段
+- 采样和截断记录
+
+### 4.2 DeepSeek Analyzer
+
+职责：基于 Evidence Bundle 做主判断，输出严格结构化的 `LLMScanProposal`。
+
+必须判断：
+
+- `primary_stack`
+- `stacks`
+- `modules`
+- `architecture_signals`
+- `risk_areas`
+- `command_candidates`
+- `configs`
+- `ci_files`
+- `confidence`
+- `needs_human_confirmation`
+- `reasoning_summary`
+
+要求：
+
+- DeepSeek API key 必须存在。
+- API 调用失败必须失败。
+- 返回无法解析必须失败。
+- 返回不符合 schema 必须失败。
+- 不允许 fallback 到确定性扫描。
+
+### 4.3 Reconciler
+
+职责：合并 LLM 判断和确定性 evidence，输出后续程序可消费的 `ProjectInventory` 和 `CommandCatalog`。
 
 规则：
 
-1. 后续 Skill 优先读取 JSON/YAML。
-2. Markdown 报告必须从事实源生成或严格基于事实源解释。
-3. 不允许在 Markdown 中编造 JSON/YAML 中不存在的事实。
-4. LLM 可以参与报告解释，但不能生成事实源。
+- LLM 是主判断来源。
+- 确定性 evidence 负责校验、降置信度、增加 warning 和必要的 veto。
+- 只有极硬事实才允许 veto。例如 LLM 判断为 .NET，但仓库没有任何 `.sln`、`.csproj`、`.cs` 证据。
+- LLM 给出的命令只有在 evidence 中有支撑时才可以成为 hard gate。
+- 无证据支撑的命令只能作为 soft/candidate，并需要人工确认。
+- 冲突不能静默吞掉，必须进入 warnings / metadata。
+
+### 4.4 Scan Facade
+
+`scan_repository(repo)` 对其他层保持稳定接口，内部改为：
+
+```text
+collect_evidence → analyze_with_deepseek → parse strict proposal → reconcile → ProjectInventory + CommandCatalog
+```
 
 ---
 
-## 8. Scanner 能力边界
+## 5. 输出产物分级
 
-### 8.1 必须包含
+产物格式严格度不按“人类消费还是机器消费”区分，而按下游是否需要确定性解析和执行区分。
 
-| 能力 | 说明 |
+| 类型 | 下游消费方式 | 格式要求 | 示例 |
+|---|---|---|---|
+| 确定性执行型 | 程序 parse、反序列化、执行、决策 | 必须严格 schema，失败即失败 | `project-inventory.json`、`command-catalog.yaml`、`harness-map.yaml`、`sensor-report.yaml` |
+| 语义上下文型 | LLM / AI IDE 作为上下文理解 | 可以 Markdown / 文本，但章节稳定、证据可追溯 | `guides/*.md`、`sensors/*.md`、`skills/*/SKILL.md` |
+| 审计追踪型 | 调试、复盘、验收 | 可以 JSON/YAML/Markdown，但必须完整记录来源和状态 | `scan-metadata.yaml`、`llm-trace.yaml`、`benchmark-report.yaml` |
+
+---
+
+## 6. 武器库和 Workflow Skills
+
+Guides / Sensors 不让大模型每次自由生成。当前 POC 使用内置武器库：
+
+- `common`
+- `java-spring`
+- `dotnet-aspnet`
+
+扫描结果负责驱动武器库选择。生成结果必须写出：
+
+- `.ai/weapon-library-selection.yaml`
+- Guides 中的 weapon id 引用
+- Sensors 中的 weapon id 引用
+
+Workflow Skills 当前固定内置：
+
+- `.ai/skills/bugfix/SKILL.md`
+- `.ai/skills/lightweight/SKILL.md`
+
+它们在 `init` 阶段复制到目标仓库，保持用户可见、可编辑、可定制。
+
+---
+
+## 7. 人工向导预留
+
+理想形态中，Harness Builder 应该是向导式构建过程：
+
+```text
+扫描 → 生成 draft → 向用户询问组织规范/架构约束/团队习惯 → 用户确认 → 生成最终 Harness
+```
+
+当前 POC 不实现完整交互式向导，但设计必须预留：
+
+- `needs_human_confirmation`
+- `warnings`
+- `manual_confirmation_points`
+- `scan-metadata.yaml`
+- 未来可加入 `approved-harness-inputs.yaml`
+
+---
+
+## 8. DeepSeek 和 CI 策略
+
+当前 POC 的真实扫描必须依赖 DeepSeek。
+
+规则：
+
+- 本地运行真实扫描时，没有 `DEEPSEEK_API_KEY` 直接失败。
+- DeepSeek 调用失败直接失败。
+- DeepSeek 返回不合规直接失败。
+- 不允许 deterministic fallback。
+- CI 默认不跑真实 DeepSeek 测试。
+- CI 使用 mock LLM 覆盖 Analyzer / Reconciler / `init` 逻辑。
+- 本地 acceptance 测试必须跑真实 DeepSeek，无 key 失败。
+
+---
+
+## 9. 测试策略
+
+测试策略按照逻辑层分层建立。
+
+| 层次 | 测试职责 |
 |---|---|
-| 文件系统扫描 | 目录、文件类型、关键文件、文件数量 |
-| 技术栈识别 | Maven、Gradle、dotnet、npm、Vue、Spring Boot、ASP.NET Core |
-| 模块识别 | Maven modules、Gradle modules、sln/csproj、前端项目 |
-| 配置识别 | application.yml、appsettings.json、docker-compose、CI workflow |
-| 命令提取 | build/test/run/frontend/docker 命令候选 |
-| 测试资产识别 | test 目录、测试项目、测试命令 |
-| 文档资产识别 | README、CONTRIBUTING、docs |
-| 浅层代码结构 | Controller/API、Service、Entity/Model、Test、前端页面/组件目录 |
-
-### 8.2 低成本增强
-
-| 能力 | 说明 |
-|---|---|
-| API 路由提取 | 从注解、Controller、Endpoint 中提取路由候选 |
-| 数据库表名提取 | 从 SQL、migration 或实体映射中提取表名候选 |
-| 测试与生产代码关系 | 粗略识别测试项目对应的生产项目 |
-
-### 8.3 暂不包含
-
-| 暂缓能力 | 暂缓理由 |
-|---|---|
-| Task Mapping | 后续独立 Skill，依赖 Scanner 输出 |
-| Risk Zones | 需要业务风险判断，容易误判 |
-| Restricted Paths | 需要权限和流程设计 |
-| Human Escalation | 企业落地阶段再设计 |
-| Experience & Self-Improve | 需要多轮任务数据 |
-| Maturity Model | 更偏售前评估，不适合首轮 Scanner |
-| 完整调用链 | 成本高，偏静态分析平台 |
-| 深度业务流程推理 | LLM 猜测风险高，首轮不做 |
-| AI Coding 执行 | 后续 Workflow / Task Mapping 阶段再做 |
+| Evidence Collector 单测 | 文件树、关键文件、配置、CI、源码片段、采样和截断 |
+| DeepSeek Analyzer 单测 | mock LLM 成功、坏 JSON、缺字段、schema 错误、无 key 失败 |
+| Reconciler 单测 | 一致合并、冲突 warning、极硬事实 veto、无证据命令降级 |
+| Scan Facade 单测 | 扫描门面串联 collector/analyzer/reconciler |
+| `init` 集成测试 | `.ai` 资产完整生成、schema 合法、武器库引用正确 |
+| Sensor 单测 | passed/failed/skipped/timeout，hard gate 行为明确 |
+| Benchmark 集成测试 | 文件存在、schema、内容质量、weapon selection、sensor hard gate |
+| 真实仓库 E2E | RuoYi-Vue 和 eShopOnWeb 完整链路 |
+| 真实 DeepSeek acceptance | 真实 DeepSeek 参与扫描，缺 key 失败 |
 
 ---
 
-## 9. LLM 使用边界
+## 10. 当前 POC 范围外
 
-Scanner 本体确定性优先，LLM 只做解释层和人工校准建议。
+本轮不做：
 
-### 9.1 确定性脚本负责
-
-- 文件扫描
-- 技术栈识别
-- 模块识别
-- 命令提取
-- 配置文件识别
-- 测试资产识别
-- 浅层代码结构识别
-- JSON/YAML 事实源生成
-
-### 9.2 LLM 可以负责
-
-- `scanner-report.md` 的说明性总结
-- 模块职责的初步描述
-- 人工校准点提示
-- 后续 Skill 输入建议
-
-### 9.3 LLM 不负责
-
-- 事实源生成
-- 命令凭空编造
-- 构建是否成功的最终判断
-- 风险区域自动判断
-- 业务流程推断
-- Task Mapping 决策
+- 完整交互式人工向导。
+- 动态生成 Workflow Skills。
+- 动态生成武器库。
+- IDE runtime 集成。
+- 自动修改业务代码。
+- 宿主 Agent 热加载或 runtime extension。
 
 ---
 
-## 10. 输出契约设计
+## 11. 下一阶段实施目标
 
-Scanner 输出采用：
+下一阶段以 TDD 执行：
 
-```text
-统一 core schema + 技术栈扩展字段
-```
-
-### 10.1 Core Schema
-
-所有技术栈都必须输出：
-
-```text
-repo
-structure
-modules
-buildFiles
-configFiles
-testAssets
-documentation
-commands
-shallowCodeStructure
-ciAssets
-dockerAssets
-manualCalibrationPoints
-```
-
-### 10.2 Stack Extensions
-
-技术栈差异放入扩展字段：
-
-```text
-stackExtensions.java
-stackExtensions.dotnet
-stackExtensions.node
-stackExtensions.gradle
-```
-
-原则：
-
-1. 后续 Skill 优先读取 core schema。
-2. 技术栈特定能力读取 stack extensions。
-3. 不为了统一抹平技术栈差异。
-4. 不允许不同技术栈各自发散成不可复用 schema。
-
----
-
-## 11. 第一阶段成功演示
-
-第一阶段成功演示不包含 Task Mapping 和 AI Coding 执行。
-
-演示方式：
-
-1. 在 RuoYi-Vue 工程根目录调用 Scanner Skill。
-2. 生成 `.harness/` 三个文件。
-3. 打开 `project-inventory.json` 和 `command-catalog.yaml` 说明机器事实源。
-4. 打开 `scanner-report.md` 说明人类解释层。
-5. 在 eShopOnWeb 重复同一流程。
-6. 对比两个技术栈下输出结构一致、扩展字段不同。
-7. 说明这些输出如何成为后续 Task Mapping Skill / Harness Generator 的输入。
-
----
-
-## 12. 成功标准
-
-Scanner Skill 第一阶段成功标准：
-
-1. 能在当前工程根目录运行。
-2. 能对 RuoYi-Vue 生成 `.harness/`。
-3. 能对 eShopOnWeb 生成 `.harness/`。
-4. 两个项目都生成 `project-inventory.json`、`command-catalog.yaml`、`scanner-report.md`。
-5. JSON/YAML 是主要事实源。
-6. Markdown 报告不引入事实源之外的关键判断。
-7. 两个技术栈共用同一 core schema。
-8. 技术栈差异进入 stack extensions。
-9. 输出能明确支撑下一阶段 Task Mapping Skill 的设计。
-
----
-
-## 13. 当前建议
-
-当前最合理的推进方式是：
-
-1. 暂停 Task Mapping 相关实现设计。
-2. 先完成 Scanner Skill 的 Brainstorm 和设计文档。
-3. 将 GitHub 仓库中的实施计划降级为草稿，等 Scanner Skill 设计确认后重写。
-4. 第一阶段只开发 `harness-builder init` / `scanner init` 这类初始化扫描能力。
-5. Scanner Skill 稳定后，再进入 Task Mapping Skill 的 Brainstorm。
-
-一句话：
-
-```text
-先把当前工程扫描清楚，再讨论某个任务怎么进入这个工程。
-```
+1. 建立 LLM-first 扫描层。
+2. 删除确定性扫描主判断路径。
+3. 增加 evidence / prompt / config / trace / warning / metadata 结构。
+4. 将 `init` 接入新的扫描层。
+5. 将 DeepSeek smoke 改造为真实扫描 acceptance，而不是 API ping。
+6. 将 sensor hard gate 纳入 benchmark 结果。
+7. 补齐各层测试，保证后续功能迭代有稳定保护网。
