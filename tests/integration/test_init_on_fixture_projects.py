@@ -80,6 +80,10 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert (ai / "context-inputs.yaml").exists()
     assert (ai / "questionnaire.yaml").exists()
     assert (ai / "human-input-needed.md").exists()
+    assert (ai / "review" / "llm-enhancement-candidates.md").exists()
+    assert (ai / "review" / "candidate-guides.md").exists()
+    assert (ai / "review" / "candidate-sensors.md").exists()
+    assert (ai / "experience" / "weapon-library-candidates.yaml").exists()
     assert (ai / "guides" / "project-context.md").exists()
     assert (ai / "guides" / "coding-rules.md").exists()
     assert (ai / "guides" / "architecture.md").exists()
@@ -142,6 +146,12 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert "# Human Input Needed" in human_input
     if expected_context_text:
         assert expected_context_text in human_input
+
+    candidate_report = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
+    assert candidate_report["source"] == "llm_scan_proposal"
+    assert candidate_report["candidates"]
+    assert all(item["status"] == "candidate" for item in candidate_report["candidates"])
+    assert all(item["human_confirmation_required"] is True for item in candidate_report["candidates"])
 
     runs = sorted((ai / "runs").iterdir())
     assert runs

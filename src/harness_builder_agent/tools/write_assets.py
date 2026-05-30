@@ -13,6 +13,12 @@ from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.human_confirmation import build_questionnaire, human_input_markdown, read_context_inputs
+from harness_builder_agent.tools.llm_enhancement_candidates import (
+    build_llm_enhancement_candidates,
+    candidate_guides_markdown,
+    candidate_sensors_markdown,
+    enhancement_summary_markdown,
+)
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 
 
@@ -42,6 +48,7 @@ def write_initial_assets(
     scan_metadata = _scan_metadata(inventory)
     context_inputs = read_context_inputs(context_paths or [])
     questionnaire = build_questionnaire(context_inputs, scan_metadata)
+    enhancement_candidates = build_llm_enhancement_candidates(inventory, commands)
     if trace:
         trace.event(
             "weapon-selection",
@@ -111,6 +118,14 @@ def write_initial_assets(
     _record_artifact(trace, ai / "skills" / "bugfix" / "SKILL.md", "skill")
     _write_text(ai / "experience" / "pending-improvements.md", "# Pending Improvements\n\nNo reviewed improvements yet.\n")
     _record_artifact(trace, ai / "experience" / "pending-improvements.md", "experience")
+    _write_yaml(ai / "experience" / "weapon-library-candidates.yaml", enhancement_candidates)
+    _record_artifact(trace, ai / "experience" / "weapon-library-candidates.yaml", "weapon_library_candidates")
+    _write_text(ai / "review" / "llm-enhancement-candidates.md", enhancement_summary_markdown(enhancement_candidates))
+    _record_artifact(trace, ai / "review" / "llm-enhancement-candidates.md", "review")
+    _write_text(ai / "review" / "candidate-guides.md", candidate_guides_markdown(enhancement_candidates))
+    _record_artifact(trace, ai / "review" / "candidate-guides.md", "review")
+    _write_text(ai / "review" / "candidate-sensors.md", candidate_sensors_markdown(enhancement_candidates))
+    _record_artifact(trace, ai / "review" / "candidate-sensors.md", "review")
     if trace:
         trace.event("asset-write", "completed", "Initial harness asset writing completed.", {"artifact_count": len(trace.artifacts)})
     return ai
