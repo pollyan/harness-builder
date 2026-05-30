@@ -54,10 +54,26 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
             "warnings": [],
         },
     )
+    _write_yaml(
+        ai / "experience" / "experience-summary.yaml",
+        {
+            "summary": "Sensor coverage is the main signal.",
+            "findings": [
+                {
+                    "id": "sensor-coverage-gap",
+                    "kind": "sensor_feedback",
+                    "title": "Sensor coverage gap",
+                    "summary": "Pending improvements point to missing coverage.",
+                    "evidence_sources": [".ai/experience/pending-improvements.md"],
+                }
+            ],
+        },
+    )
 
     pack = collect_maturity_evidence(ai)
 
     assert ".ai/experience/experience-index.yaml" in pack.maturity_inputs
+    assert ".ai/experience/experience-summary.yaml" in pack.maturity_inputs
     assert pack.experience.has_experience_index is True
     assert pack.experience.has_pending_improvements is True
     assert pack.experience.pending_improvement_count == 2
@@ -65,6 +81,8 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
     assert pack.experience.maturity_review_count == 1
     assert pack.experience.runtime_task_run_count == 4
     assert pack.experience.experience_file_count == 5
+    assert pack.experience.has_experience_summary is True
+    assert pack.experience.experience_summary_finding_count == 1
 
 
 def test_collect_maturity_evidence_keeps_pending_only_legacy_path(tmp_path: Path):

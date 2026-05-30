@@ -5,6 +5,7 @@ from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.harness_map import HarnessMap
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
@@ -376,6 +377,8 @@ def test_maturity_evidence_pack_records_harness_inputs_for_review():
                 "maturity_review_count": 1,
                 "runtime_task_run_count": 0,
                 "experience_file_count": 6,
+                "has_experience_summary": True,
+                "experience_summary_finding_count": 1,
             },
             "benchmark": {"has_report": True, "status": "passed"},
             "maturity_inputs": [".ai/project-inventory.json", ".ai/command-catalog.yaml"],
@@ -389,6 +392,8 @@ def test_maturity_evidence_pack_records_harness_inputs_for_review():
     assert pack.experience.has_experience_index is True
     assert pack.experience.asset_candidate_count == 1
     assert pack.experience.experience_file_count == 6
+    assert pack.experience.has_experience_summary is True
+    assert pack.experience.experience_summary_finding_count == 1
 
 
 def test_improvement_candidate_report_requires_reviewable_candidates():
@@ -547,3 +552,46 @@ def test_experience_index_records_sources_and_counts():
 
     assert index.schema_version == "1.0"
     assert index.sources[0].kind == "pending_improvements"
+
+
+def test_experience_summary_report_records_review_only_findings():
+    report = ExperienceSummaryReport.model_validate(
+        {
+            "summary": "Repeated sensor gaps are blocking maturity improvement.",
+            "findings": [
+                {
+                    "id": "sensor-feedback-coverage-gap",
+                    "kind": "sensor_feedback",
+                    "title": "Coverage gap blocks confidence",
+                    "summary": "Pending improvements repeatedly mention missing sensor coverage.",
+                    "evidence_sources": [".ai/experience/pending-improvements.md"],
+                    "confidence": "medium",
+                    "suggested_follow_up": "Create a reviewed sensor candidate.",
+                }
+            ],
+            "warnings": ["Runtime task-runs are absent."],
+        }
+    )
+
+    assert report.schema_version == "1.0"
+    assert report.source == "llm_experience_summary"
+    assert report.review_status == "pending_harness_maintainer_review"
+    assert report.findings[0].kind == "sensor_feedback"
+
+
+def test_experience_summary_report_rejects_invalid_kind():
+    with pytest.raises(ValidationError):
+        ExperienceSummaryReport.model_validate(
+            {
+                "summary": "Invalid.",
+                "findings": [
+                    {
+                        "id": "bad",
+                        "kind": "not_allowed",
+                        "title": "Bad",
+                        "summary": "Bad.",
+                        "evidence_sources": [".ai/experience/pending-improvements.md"],
+                    }
+                ],
+            }
+        )

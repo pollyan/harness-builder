@@ -12,6 +12,7 @@ from harness_builder_agent.tools.generate_improvements import generate_improveme
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
 from harness_builder_agent.tools.review_maturity import review_maturity
+from harness_builder_agent.tools.summarize_experience import summarize_experience
 
 app = typer.Typer(help="Generate, assess, improve, and benchmark project-level AI Coding Harness assets.")
 
@@ -137,6 +138,25 @@ def generate_asset_candidates_command(repo: Path = typer.Option(..., "--repo", e
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
     typer.echo(f"Generated asset candidates in {output_dir / 'review'}")
+
+
+@app.command("summarize-experience")
+def summarize_experience_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
+    """Run LLM semantic summarization over review-only Experience evidence."""
+    trace = GenerationTrace.start(repo, "summarize-experience")
+    try:
+        trace.event("experience-summary", "started", "LLM experience summary started.")
+        output_dir = summarize_experience(repo)
+        trace.artifact(output_dir / "experience" / "experience-summary.yaml", "experience_summary")
+        trace.artifact(output_dir / "experience" / "experience-summary.md", "experience")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.event("experience-summary", "completed", "LLM experience summary completed.", {"artifact_count": 3})
+        trace.finish("completed", {"artifact_count": 3})
+    except Exception as exc:
+        trace.event("experience-summary", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Generated experience summary in {output_dir / 'experience'}")
 
 
 def main() -> None:

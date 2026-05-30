@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.scan_repo import scan_repository
 
@@ -291,3 +292,50 @@ def test_generate_asset_candidates_writes_review_only_drafts(tmp_path: Path, mon
     assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == formal_guide_before
     trace = _latest_trace(repo)
     assert trace["command"] == "generate-asset-candidates"
+
+
+def test_summarize_experience_writes_review_only_summary(tmp_path: Path, monkeypatch):
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    runner = CliRunner()
+    assess_result = runner.invoke(app, ["assess", "--repo", str(repo)])
+    assert assess_result.exit_code == 0, assess_result.output
+    improve_result = runner.invoke(app, ["improve", "--repo", str(repo)])
+    assert improve_result.exit_code == 0, improve_result.output
+    formal_guide_before = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+
+    def fake_summary(index, sources):
+        assert ".ai/experience/pending-improvements.md" in sources
+        return ExperienceSummaryReport(
+            summary="Sensor coverage is the main experience signal.",
+            findings=[
+                {
+                    "id": "sensor-coverage-gap",
+                    "kind": "sensor_feedback",
+                    "title": "Sensor coverage gap",
+                    "summary": "Pending improvements point to missing sensor coverage.",
+                    "evidence_sources": [".ai/experience/pending-improvements.md"],
+                    "confidence": "high",
+                    "suggested_follow_up": "Draft a reviewed sensor candidate.",
+                }
+            ],
+            warnings=["Runtime task-runs are absent."],
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.summarize_experience.summarize_experience_with_llm", fake_summary)
+
+    result = runner.invoke(app, ["summarize-experience", "--repo", str(repo)])
+
+    assert result.exit_code == 0, result.output
+    summary = yaml.safe_load((repo / ".ai" / "experience" / "experience-summary.yaml").read_text(encoding="utf-8"))
+    markdown = (repo / ".ai" / "experience" / "experience-summary.md").read_text(encoding="utf-8")
+    evidence_pack = yaml.safe_load((repo / ".ai" / "maturity-evidence.yaml").read_text(encoding="utf-8"))
+    assert summary["review_status"] == "pending_harness_maintainer_review"
+    assert summary["findings"][0]["kind"] == "sensor_feedback"
+    assert "# Experience Summary" in markdown
+    assert "## Findings" in markdown
+    assert evidence_pack["experience"]["has_experience_summary"] is True
+    assert evidence_pack["experience"]["experience_summary_finding_count"] == 1
+    assert not (repo / ".ai" / "task-runs").exists()
+    assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == formal_guide_before
+    trace = _latest_trace(repo)
+    assert trace["command"] == "summarize-experience"

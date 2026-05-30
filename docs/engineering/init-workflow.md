@@ -111,7 +111,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/maturity-evidence.yaml`
 - `.ai/experience/experience-index.yaml`
 
-其中 `.ai/maturity-evidence.yaml` 是成熟度评估和后续 LLM maturity reviewer 的确定性输入摘要，必须汇总 inventory、command catalog、Harness assets、generation trace、experience、benchmark 和可选 Runtime task-run 可用性。Experience evidence 应优先消费 `.ai/experience/experience-index.yaml`，以暴露 pending improvement、asset candidate、maturity review 和 Runtime task-run 统计；对旧版本生成且尚无 index 的 Harness，可保留只读取 `.ai/experience/pending-improvements.md` 的兼容路径。
+其中 `.ai/maturity-evidence.yaml` 是成熟度评估和后续 LLM maturity reviewer 的确定性输入摘要，必须汇总 inventory、command catalog、Harness assets、generation trace、experience、benchmark 和可选 Runtime task-run 可用性。Experience evidence 应优先消费 `.ai/experience/experience-index.yaml`，以暴露 pending improvement、asset candidate、maturity review 和 Runtime task-run 统计；如果显式运行 `summarize-experience` 后存在 `.ai/experience/experience-summary.yaml`，还必须记录 Experience Summary 可用性和 finding 数量；对旧版本生成且尚无 index 的 Harness，可保留只读取 `.ai/experience/pending-improvements.md` 的兼容路径。
 
 其中 `.ai/experience/experience-index.yaml` 是 Experience 资产的机器消费索引，必须记录已存在的 Experience Markdown、pending improvement 数量、asset candidate 数量、maturity review 数量和可选 Runtime task-run 数量。它由 Builder 在初始化、`improve` 和候选资产生成后刷新；Builder 只统计 `.ai/task-runs` 的宿主 Runtime 过程数据，不主动生成该目录。
 
@@ -134,6 +134,13 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/experience/team-preferences.md`
 - `.ai/experience/pending-improvements.md`
 - `.ai/experience/deprecated-experience.md`
+
+显式运行 `summarize-experience` 后生成的 review-only Experience 语义摘要：
+
+- `.ai/experience/experience-summary.yaml`
+- `.ai/experience/experience-summary.md`
+
+该摘要不是 `init` 和 benchmark 的必需产物；缺失时 `init` 和 benchmark 不应失败。摘要中的 findings 必须保持 `pending_harness_maintainer_review`，不能声称已经修改正式 Guides、Sensors、Workflow Skills 或配置。
 
 必须生成的 workflow skill：
 

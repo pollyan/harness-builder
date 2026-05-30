@@ -40,6 +40,8 @@ class ExperienceEvidence(BaseModel):
     maturity_review_count: int = 0
     runtime_task_run_count: int = 0
     experience_file_count: int = 0
+    has_experience_summary: bool = False
+    experience_summary_finding_count: int = 0
 
 
 class BenchmarkEvidence(BaseModel):

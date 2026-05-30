@@ -28,7 +28,7 @@
 
 ## Task 1: Experience Summary Schema
 
-- [ ] **Step 1: Write failing schema tests**
+- [x] **Step 1: Write failing schema tests**
 
 In `tests/unit/test_schema_contracts.py`, import `ExperienceSummaryReport` and add:
 
@@ -79,7 +79,7 @@ def test_experience_summary_report_rejects_invalid_kind():
         )
 ```
 
-- [ ] **Step 2: Run schema tests and confirm failure**
+- [x] **Step 2: Run schema tests and confirm failure**
 
 Run:
 
@@ -89,7 +89,7 @@ Run:
 
 Expected: fail because `experience_summary.py` does not exist.
 
-- [ ] **Step 3: Implement schema**
+- [x] **Step 3: Implement schema**
 
 Create `src/harness_builder_agent/schemas/experience_summary.py`:
 
@@ -120,13 +120,13 @@ class ExperienceSummaryReport(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 ```
 
-- [ ] **Step 4: Run schema tests and confirm pass**
+- [x] **Step 4: Run schema tests and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 2: LLM Parser and Prompt Builder
 
-- [ ] **Step 1: Write failing parser tests**
+- [x] **Step 1: Write failing parser tests**
 
 Create `tests/unit/test_llm_experience_summarizer.py`:
 
@@ -240,7 +240,7 @@ def test_build_experience_summary_messages_includes_review_only_boundary():
     assert "Do not modify formal Guides" in content
 ```
 
-- [ ] **Step 2: Run parser tests and confirm failure**
+- [x] **Step 2: Run parser tests and confirm failure**
 
 Run:
 
@@ -250,7 +250,7 @@ Run:
 
 Expected: fail because `llm_experience_summarizer.py` does not exist.
 
-- [ ] **Step 3: Implement LLM module**
+- [x] **Step 3: Implement LLM module**
 
 Create `src/harness_builder_agent/tools/llm_experience_summarizer.py` with:
 
@@ -345,13 +345,13 @@ def _extract_json_text(content: str) -> str:
     return stripped
 ```
 
-- [ ] **Step 4: Run parser tests and confirm pass**
+- [x] **Step 4: Run parser tests and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 3: Command Orchestration
 
-- [ ] **Step 1: Write failing integration test**
+- [x] **Step 1: Write failing integration test**
 
 In `tests/integration/test_assess_improve_commands.py`, import `ExperienceSummaryReport` and add:
 
@@ -403,7 +403,7 @@ def test_summarize_experience_writes_review_only_summary(tmp_path: Path, monkeyp
     assert trace["command"] == "summarize-experience"
 ```
 
-- [ ] **Step 2: Run integration test and confirm failure**
+- [x] **Step 2: Run integration test and confirm failure**
 
 Run:
 
@@ -413,7 +413,7 @@ Run:
 
 Expected: fail because the CLI command does not exist.
 
-- [ ] **Step 3: Implement orchestrator and CLI**
+- [x] **Step 3: Implement orchestrator and CLI**
 
 Create `src/harness_builder_agent/tools/summarize_experience.py`:
 
@@ -525,13 +525,13 @@ def summarize_experience_command(repo: Path = typer.Option(..., "--repo", exists
     typer.echo(f"Generated experience summary in {output_dir / 'experience'}")
 ```
 
-- [ ] **Step 4: Run integration test and confirm pass**
+- [x] **Step 4: Run integration test and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 4: Maturity Evidence and Docs
 
-- [ ] **Step 1: Write failing maturity evidence assertions**
+- [x] **Step 1: Write failing maturity evidence assertions**
 
 In `tests/unit/test_maturity_evidence.py`, extend the index-backed test by writing `.ai/experience/experience-summary.yaml`:
 
@@ -560,7 +560,7 @@ assert pack.experience.has_experience_summary is True
 assert pack.experience.experience_summary_finding_count == 1
 ```
 
-- [ ] **Step 2: Run maturity evidence test and confirm failure**
+- [x] **Step 2: Run maturity evidence coverage**
 
 Run:
 
@@ -568,9 +568,9 @@ Run:
 .venv/bin/python -m pytest tests/unit/test_maturity_evidence.py::test_collect_maturity_evidence_uses_experience_index -q
 ```
 
-Expected: fail because summary fields do not exist.
+Expected: the summary fields are covered. In execution, the missing-field failure was first observed through the integration red test before the dedicated unit assertion was added.
 
-- [ ] **Step 3: Extend maturity evidence**
+- [x] **Step 3: Extend maturity evidence**
 
 In `src/harness_builder_agent/schemas/maturity_evidence.py`, add to `ExperienceEvidence`:
 
@@ -602,13 +602,13 @@ def _experience_summary(ai: Path) -> ExperienceSummaryReport | None:
     return ExperienceSummaryReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
 ```
 
-- [ ] **Step 4: Update engineering docs**
+- [x] **Step 4: Update engineering docs**
 
 In `docs/engineering/init-workflow.md`, add `.ai/experience/experience-summary.yaml` to optional semantic/machine Experience assets for explicit summarize command, and state benchmark does not require it yet.
 
 In `docs/engineering/llm-contracts.md`, add `experience summary report` to machine-consumed LLM outputs and add parser test expectations.
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -620,7 +620,7 @@ Expected: pass.
 
 ## Task 5: Verification and Commit
 
-- [ ] **Step 1: Run fast regression**
+- [x] **Step 1: Run fast regression**
 
 Run:
 
@@ -630,7 +630,7 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 2: Self-Harness Improvement Gate**
+- [x] **Step 2: Self-Harness Improvement Gate**
 
 Record the gate result in this plan. Expected checks:
 
@@ -639,6 +639,15 @@ Record the gate result in this plan. Expected checks:
 - Formal Harness assets are not overwritten.
 - Benchmark is not changed because this command is optional and not part of `init` yet.
 - Next likely gap is feeding Experience Summary into maturity review and asset candidate prompts.
+
+Gate conclusion:
+
+- `ExperienceSummaryReport` is a Pydantic schema with schema contract tests.
+- LLM parsing has tests for valid JSON, invalid JSON, non-`.ai/` evidence paths, and unknown evidence sources.
+- `summarize-experience` has integration coverage for YAML/Markdown output, trace command, maturity evidence refresh, no `.ai/task-runs` generation, and no formal guide overwrite.
+- Engineering docs now record the optional summary artifact and LLM contract.
+- Benchmark is unchanged because this is an explicit optional command, not part of `init` or benchmark's required output set.
+- Next candidate gap: pass Experience Summary into maturity review and asset candidate prompts so later LLM steps use the semantic findings directly.
 
 - [ ] **Step 3: Commit**
 

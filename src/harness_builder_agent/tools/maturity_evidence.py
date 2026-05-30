@@ -6,6 +6,7 @@ import yaml
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.maturity_evidence import (
     BenchmarkEvidence,
@@ -31,6 +32,7 @@ MATURITY_INPUTS = [
     ".ai/skills/",
     ".ai/runs/",
     ".ai/experience/experience-index.yaml",
+    ".ai/experience/experience-summary.yaml",
     ".ai/experience/pending-improvements.md",
     ".ai/benchmark-report.yaml",
 ]
@@ -136,6 +138,7 @@ def _observability(ai: Path) -> ObservabilityEvidence:
 
 
 def _experience(ai: Path) -> ExperienceEvidence:
+    summary = _experience_summary(ai)
     index_path = ai / "experience" / "experience-index.yaml"
     if index_path.exists():
         index = ExperienceIndex.model_validate(yaml.safe_load(index_path.read_text(encoding="utf-8")))
@@ -148,14 +151,31 @@ def _experience(ai: Path) -> ExperienceEvidence:
             maturity_review_count=index.maturity_review_count,
             runtime_task_run_count=index.runtime_task_run_count,
             experience_file_count=experience_file_count,
+            has_experience_summary=summary is not None,
+            experience_summary_finding_count=len(summary.findings) if summary else 0,
         )
 
     pending = ai / "experience" / "pending-improvements.md"
     if not pending.exists():
-        return ExperienceEvidence()
+        return ExperienceEvidence(
+            has_experience_summary=summary is not None,
+            experience_summary_finding_count=len(summary.findings) if summary else 0,
+        )
     text = pending.read_text(encoding="utf-8")
     count = sum(1 for line in text.splitlines() if line.lstrip().startswith("- "))
-    return ExperienceEvidence(has_pending_improvements=count > 0, pending_improvement_count=count)
+    return ExperienceEvidence(
+        has_pending_improvements=count > 0,
+        pending_improvement_count=count,
+        has_experience_summary=summary is not None,
+        experience_summary_finding_count=len(summary.findings) if summary else 0,
+    )
+
+
+def _experience_summary(ai: Path) -> ExperienceSummaryReport | None:
+    path = ai / "experience" / "experience-summary.yaml"
+    if not path.exists():
+        return None
+    return ExperienceSummaryReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
 
 
 def _benchmark(ai: Path) -> BenchmarkEvidence:
