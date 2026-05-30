@@ -46,6 +46,7 @@ def test_write_report_assets_writes_reports_scores_plan_and_records_trace(tmp_pa
     assert (ai / "scan-report.md").exists()
     assert (ai / "maturity-report.md").exists()
     assert (ai / "maturity-score.yaml").exists()
+    assert (ai / "maturity-evidence.yaml").exists()
     assert (ai / "evolution-plan.md").exists()
     assert "## 证据" in (ai / "maturity-report.md").read_text(encoding="utf-8")
     maturity = yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8"))
@@ -54,9 +55,15 @@ def test_write_report_assets_writes_reports_scores_plan_and_records_trace(tmp_pa
     assert "guides" in maturity["dimensions"]
     assert maturity["dimensions"]["workflow"]["next_level_requirements"]
     assert "next_steps" in maturity
+    evidence = yaml.safe_load((ai / "maturity-evidence.yaml").read_text(encoding="utf-8"))
+    assert evidence["schema_version"] == "1.0"
+    assert evidence["repo_name"] == tmp_path.name
+    assert evidence["command_summary"]["hard_gate_count"] == 1
+    assert ".ai/project-inventory.json" in evidence["maturity_inputs"]
 
     artifacts = yaml.safe_load((ai / "runs" / "20260530-120000-init" / "artifacts.yaml").read_text(encoding="utf-8"))
     assert {"path": ".ai/scan-report.md", "kind": "report"} in artifacts["artifacts"]
     assert {"path": ".ai/maturity-report.md", "kind": "report"} in artifacts["artifacts"]
     assert {"path": ".ai/maturity-score.yaml", "kind": "maturity_score"} in artifacts["artifacts"]
+    assert {"path": ".ai/maturity-evidence.yaml", "kind": "maturity_evidence"} in artifacts["artifacts"]
     assert {"path": ".ai/evolution-plan.md", "kind": "plan"} in artifacts["artifacts"]

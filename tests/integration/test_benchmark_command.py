@@ -111,6 +111,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "schema:weapon-library-selection" in check_ids
     assert "schema:benchmark-report" in check_ids
     assert "schema:maturity-score" in check_ids
+    assert "schema:maturity-evidence" in check_ids
     assert "schema:improvement-candidates" in check_ids
     assert "exists:runs-trace" in check_ids
     assert "schema:generation-trace" in check_ids

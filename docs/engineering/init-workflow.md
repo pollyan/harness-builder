@@ -108,6 +108,9 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/context-inputs.yaml`
 - `.ai/questionnaire.yaml`
 - `.ai/interaction-decisions.yaml`
+- `.ai/maturity-evidence.yaml`
+
+其中 `.ai/maturity-evidence.yaml` 是成熟度评估和后续 LLM maturity reviewer 的确定性输入摘要，必须汇总 inventory、command catalog、Harness assets、generation trace、experience、benchmark 和可选 Runtime task-run 可用性。
 
 必须生成的语义上下文产物：
 
@@ -199,6 +202,7 @@ Skill 产物要求：
 - `--context` 输入能进入人工确认材料。
 - `--context` 和交互输入能进入 generated guides。
 - `.ai/interaction-decisions.yaml` 能通过 schema 校验并进入 trace artifact。
+- `.ai/maturity-evidence.yaml` 能通过 schema 校验，包含成熟度输入来源，并进入 trace artifact。
 - 生成 JSON/YAML 能通过 schema 校验。
 - guide/sensor 包含 stack-specific 内容。
 - workflow skill 被 config 或 harness map 正确引用。

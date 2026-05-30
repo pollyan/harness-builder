@@ -70,8 +70,9 @@ def assess_command(repo: Path = typer.Option(..., "--repo", exists=True, file_ok
         output_dir = assess_maturity(repo)
         trace.artifact(output_dir / "maturity-report.md", "maturity_report")
         trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
-        trace.event("maturity", "completed", "Maturity assessment completed.", {"artifact_count": 2})
-        trace.finish("completed", {"artifact_count": 2})
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.event("maturity", "completed", "Maturity assessment completed.", {"artifact_count": 3})
+        trace.finish("completed", {"artifact_count": 3})
     except Exception as exc:
         trace.event("maturity", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})

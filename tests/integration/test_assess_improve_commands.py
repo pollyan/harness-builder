@@ -74,6 +74,7 @@ def _latest_trace(repo: Path) -> dict:
 
 def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, monkeypatch):
     repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    (repo / ".ai" / "maturity-evidence.yaml").unlink()
 
     result = CliRunner().invoke(app, ["assess", "--repo", str(repo)])
 
@@ -103,6 +104,11 @@ def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, mo
     assert score["evidence"]
     assert score["blocking_reasons"]
     assert score["recommended_next_steps"]
+    evidence_pack = yaml.safe_load((repo / ".ai" / "maturity-evidence.yaml").read_text(encoding="utf-8"))
+    assert evidence_pack["schema_version"] == "1.0"
+    assert evidence_pack["primary_stack"] == "java-spring"
+    assert evidence_pack["harness_assets"]["workflow_skill_count"] == 2
+    assert evidence_pack["observability"]["generation_run_count"] >= 1
     assert "## 证据" in report
     assert "## 维度详情" in report
     assert "## 下一等级要求" in report
@@ -111,6 +117,8 @@ def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, mo
     assert trace["command"] == "assess"
     assert trace["status"] == "completed"
     assert "maturity" in trace["stages"]
+    artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
+    assert {"path": ".ai/maturity-evidence.yaml", "kind": "maturity_evidence"} in artifacts["artifacts"]
 
 
 def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, monkeypatch):

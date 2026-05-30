@@ -10,6 +10,7 @@ from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
+from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.scan import LLMScanProposal, ScanMetadata
@@ -33,6 +34,7 @@ REQUIRED_FILES = [
     "scan-report.md",
     "maturity-report.md",
     "maturity-score.yaml",
+    "maturity-evidence.yaml",
     "evolution-plan.md",
     "guides/project-context.md",
     "guides/coding-rules.md",
@@ -151,6 +153,12 @@ def _schema_checks(ai: Path) -> list[dict[str, Any]]:
         checks.append({"id": "schema:maturity-score", "passed": True})
     except Exception as exc:  # pragma: no cover
         checks.append({"id": "schema:maturity-score", "passed": False, "error": str(exc)})
+
+    try:
+        MaturityEvidencePack.model_validate(yaml.safe_load((ai / "maturity-evidence.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:maturity-evidence", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:maturity-evidence", "passed": False, "error": str(exc)})
 
     try:
         ImprovementCandidateReport.model_validate(yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8")))
@@ -571,4 +579,3 @@ def _read_text(path: Path) -> str | None:
         return path.read_text(encoding="utf-8")
     except Exception:
         return None
-

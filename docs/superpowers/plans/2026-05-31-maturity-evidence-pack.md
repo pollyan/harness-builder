@@ -17,6 +17,7 @@
 - Modify: `src/harness_builder_agent/tools/asset_writers/reports.py`
 - Modify: `src/harness_builder_agent/tools/assess_maturity.py`
 - Modify: `src/harness_builder_agent/tools/benchmark.py`
+- Modify: `src/harness_builder_agent/cli.py`
 - Modify: `docs/engineering/init-workflow.md`
 - Modify: `tests/unit/test_schema_contracts.py`
 - Modify: `tests/unit/test_asset_writer_reports.py`
@@ -29,7 +30,7 @@
 - Modify: `tests/unit/test_schema_contracts.py`
 - Create: `src/harness_builder_agent/schemas/maturity_evidence.py`
 
-- [ ] **Step 1: Write failing schema test**
+- [x] **Step 1: Write failing schema test**
 
 Add to `tests/unit/test_schema_contracts.py`:
 
@@ -68,7 +69,7 @@ def test_maturity_evidence_pack_records_harness_inputs_for_review():
     assert pack.observability.has_runtime_task_runs is False
 ```
 
-- [ ] **Step 2: Run schema test and confirm failure**
+- [x] **Step 2: Run schema test and confirm failure**
 
 Run:
 
@@ -78,7 +79,7 @@ Run:
 
 Expected: fail because `MaturityEvidencePack` does not exist.
 
-- [ ] **Step 3: Implement schema**
+- [x] **Step 3: Implement schema**
 
 Create `src/harness_builder_agent/schemas/maturity_evidence.py` with Pydantic models:
 
@@ -92,7 +93,7 @@ BenchmarkEvidence
 MaturityEvidencePack
 ```
 
-- [ ] **Step 4: Run schema test and confirm pass**
+- [x] **Step 4: Run schema test and confirm pass**
 
 Run:
 
@@ -109,7 +110,7 @@ Expected: pass.
 - Modify: `src/harness_builder_agent/tools/asset_writers/reports.py`
 - Modify: `tests/unit/test_asset_writer_reports.py`
 
-- [ ] **Step 1: Write failing asset writer assertions**
+- [x] **Step 1: Write failing asset writer assertions**
 
 Extend `test_write_report_assets_writes_reports_scores_plan_and_records_trace`:
 
@@ -123,7 +124,7 @@ Extend `test_write_report_assets_writes_reports_scores_plan_and_records_trace`:
     assert {"path": ".ai/maturity-evidence.yaml", "kind": "maturity_evidence"} in artifacts["artifacts"]
 ```
 
-- [ ] **Step 2: Run asset writer test and confirm failure**
+- [x] **Step 2: Run asset writer test and confirm failure**
 
 Run:
 
@@ -133,15 +134,15 @@ Run:
 
 Expected: fail because the file is not written.
 
-- [ ] **Step 3: Implement collector**
+- [x] **Step 3: Implement collector**
 
 Create `build_maturity_evidence_pack(...)` for in-memory initial generation and `collect_maturity_evidence(ai, ...)` for disk refresh.
 
-- [ ] **Step 4: Wire report asset writer**
+- [x] **Step 4: Wire report asset writer**
 
 In `write_report_assets`, write `.ai/maturity-evidence.yaml` and record artifact kind `maturity_evidence`.
 
-- [ ] **Step 5: Run asset writer test and confirm pass**
+- [x] **Step 5: Run asset writer test and confirm pass**
 
 Run:
 
@@ -157,7 +158,7 @@ Expected: pass.
 - Modify: `src/harness_builder_agent/tools/assess_maturity.py`
 - Modify: `tests/integration/test_assess_improve_commands.py`
 
-- [ ] **Step 1: Write failing assess assertions**
+- [x] **Step 1: Write failing assess assertions**
 
 Extend `test_assess_generates_maturity_score_from_current_harness`:
 
@@ -168,7 +169,7 @@ Extend `test_assess_generates_maturity_score_from_current_harness`:
     assert evidence_pack["observability"]["generation_run_count"] >= 1
 ```
 
-- [ ] **Step 2: Run assess test and confirm failure**
+- [x] **Step 2: Run assess test and confirm failure**
 
 Run:
 
@@ -178,11 +179,11 @@ Run:
 
 Expected: fail because assess does not refresh the evidence pack.
 
-- [ ] **Step 3: Wire assess**
+- [x] **Step 3: Wire assess**
 
 In `assess_maturity`, call `collect_maturity_evidence(...)`, write `.ai/maturity-evidence.yaml`, and keep the command trace artifact.
 
-- [ ] **Step 4: Run assess test and confirm pass**
+- [x] **Step 4: Run assess test and confirm pass**
 
 Run:
 
@@ -199,11 +200,11 @@ Expected: pass.
 - Modify: `tests/integration/test_benchmark_command.py`
 - Modify: `docs/engineering/init-workflow.md`
 
-- [ ] **Step 1: Write failing benchmark assertion**
+- [x] **Step 1: Write failing benchmark assertion**
 
 In benchmark integration, assert `"schema:maturity-evidence"` is present in check ids.
 
-- [ ] **Step 2: Run benchmark test and confirm failure**
+- [x] **Step 2: Run benchmark test and confirm failure**
 
 Run:
 
@@ -213,15 +214,15 @@ Run:
 
 Expected: fail until benchmark validates the new schema.
 
-- [ ] **Step 3: Add benchmark schema validation**
+- [x] **Step 3: Add benchmark schema validation**
 
 Import `MaturityEvidencePack` and validate `.ai/maturity-evidence.yaml`.
 
-- [ ] **Step 4: Update engineering doc**
+- [x] **Step 4: Update engineering doc**
 
 Add `.ai/maturity-evidence.yaml` to machine-consumed init assets and describe it as the deterministic evidence input for maturity review.
 
-- [ ] **Step 5: Run benchmark test and confirm pass**
+- [x] **Step 5: Run benchmark test and confirm pass**
 
 Run:
 
@@ -236,7 +237,7 @@ Expected: pass.
 **Files:**
 - All modified files.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -246,7 +247,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 2: Run fast regression**
+- [x] **Step 2: Run fast regression**
 
 Run:
 
@@ -256,16 +257,16 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 3: Self-Harness Improvement Gate**
+- [x] **Step 3: Self-Harness Improvement Gate**
 
 Check whether AGENTS, engineering docs, benchmark, or tests need additional updates. For this milestone, the expected gate result is that `init-workflow.md`, benchmark schema checks, asset writer tests, and integration tests cover the new contract.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
 ```bash
-git add src/harness_builder_agent/schemas/maturity_evidence.py src/harness_builder_agent/tools/maturity_evidence.py src/harness_builder_agent/tools/asset_writers/reports.py src/harness_builder_agent/tools/assess_maturity.py src/harness_builder_agent/tools/benchmark.py docs/engineering/init-workflow.md tests/unit/test_schema_contracts.py tests/unit/test_asset_writer_reports.py tests/integration/test_assess_improve_commands.py tests/integration/test_benchmark_command.py docs/superpowers/plans/2026-05-31-maturity-evidence-pack.md
+git add src/harness_builder_agent/schemas/maturity_evidence.py src/harness_builder_agent/tools/maturity_evidence.py src/harness_builder_agent/tools/asset_writers/reports.py src/harness_builder_agent/tools/assess_maturity.py src/harness_builder_agent/tools/benchmark.py src/harness_builder_agent/cli.py docs/engineering/init-workflow.md tests/unit/test_schema_contracts.py tests/unit/test_asset_writer_reports.py tests/integration/test_assess_improve_commands.py tests/integration/test_benchmark_command.py docs/superpowers/plans/2026-05-31-maturity-evidence-pack.md
 git commit -m "feat: add maturity evidence pack"
 ```
 

@@ -6,6 +6,7 @@ from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.harness_map import HarnessMap
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
+from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.sensor_report import SensorReport
@@ -343,6 +344,37 @@ def test_maturity_report_records_structured_dimension_roadmap():
     assert report.dimensions["guides"].blockers[0].prevents_level == "L3"
     assert report.blocking_caps[0].active is True
     assert report.next_steps[0].target_dimension == "guides"
+
+
+def test_maturity_evidence_pack_records_harness_inputs_for_review():
+    pack = MaturityEvidencePack.model_validate(
+        {
+            "repo_name": "demo",
+            "primary_stack": "java-spring",
+            "inventory_summary": {"module_count": 2, "evidence_count": 3, "risk_area_count": 1},
+            "command_summary": {"total_count": 2, "hard_gate_count": 1, "soft_gate_count": 1, "command_ids": ["unit_test"]},
+            "harness_assets": {
+                "guide_count": 3,
+                "sensor_count": 2,
+                "workflow_skill_count": 2,
+                "has_harness_config": True,
+                "has_weapon_library_selection": True,
+            },
+            "observability": {
+                "generation_run_count": 1,
+                "has_runtime_task_runs": False,
+                "latest_generation_status": "completed",
+            },
+            "experience": {"has_pending_improvements": True, "pending_improvement_count": 2},
+            "benchmark": {"has_report": True, "status": "passed"},
+            "maturity_inputs": [".ai/project-inventory.json", ".ai/command-catalog.yaml"],
+            "warnings": ["runtime task-runs absent"],
+        }
+    )
+
+    assert pack.schema_version == "1.0"
+    assert pack.command_summary.hard_gate_count == 1
+    assert pack.observability.has_runtime_task_runs is False
 
 
 def test_improvement_candidate_report_requires_reviewable_candidates():
