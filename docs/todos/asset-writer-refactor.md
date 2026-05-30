@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态：open
+- 状态：implemented
 - 优先级：medium
 - 发现日期：2026-05-30
 - 相关模块：`src/harness_builder_agent/tools/write_assets.py`
@@ -93,3 +93,10 @@ src/harness_builder_agent/tools/asset_writers/skills.py
 
 这是重构任务，应以行为不变为基本原则。
 
+## 实现结果
+
+- 已将 core、human confirmation、reports、guides、sensors、skills、candidates 拆分到 `src/harness_builder_agent/tools/asset_writers/`。
+- `write_initial_assets` 对外签名保持不变，现在只负责高层编排、trace 阶段事件和各 writer 的调用顺序。
+- 已补充各 writer 的独立单元测试，并保留 `write_initial_assets` 的整体行为基线测试。
+- 产物路径、主要 Markdown 章节、schema 文件和 trace artifact kind 保持兼容。
+- 已验证 integration、e2e、benchmark 相关测试继续通过。
