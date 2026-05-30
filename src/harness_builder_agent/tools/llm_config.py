@@ -12,7 +12,7 @@ class DeepSeekConfig:
     model: str = "deepseek-v4-pro"
     timeout_seconds: int = 60
     temperature: float = 0.1
-    max_tokens: int = 4096
+    max_tokens: int = 8192
 
     @classmethod
     def from_env(cls, env_path: Path | None = None, load_dotenv: bool = True) -> "DeepSeekConfig":
@@ -29,7 +29,7 @@ class DeepSeekConfig:
             model=os.getenv("HARNESS_BUILDER_LLM_MODEL", "deepseek-v4-pro"),
             timeout_seconds=int(os.getenv("HARNESS_BUILDER_LLM_TIMEOUT_SECONDS", "60")),
             temperature=float(os.getenv("HARNESS_BUILDER_LLM_TEMPERATURE", "0.1")),
-            max_tokens=int(os.getenv("HARNESS_BUILDER_LLM_MAX_TOKENS", "4096")),
+            max_tokens=int(os.getenv("HARNESS_BUILDER_LLM_MAX_TOKENS", "8192")),
         )
 
 

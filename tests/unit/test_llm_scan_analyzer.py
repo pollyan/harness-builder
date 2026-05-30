@@ -84,6 +84,15 @@ def test_deepseek_config_loads_local_dotenv_without_overriding_env(tmp_path: Pat
     assert config.model == "deepseek-test"
 
 
+def test_deepseek_config_default_max_tokens_handles_real_scan_json(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.delenv("HARNESS_BUILDER_LLM_MAX_TOKENS", raising=False)
+
+    config = DeepSeekConfig.from_env(load_dotenv=False)
+
+    assert config.max_tokens == 8192
+
+
 def test_scan_prompt_contains_strict_json_schema_example():
     messages = build_scan_messages(_bundle())
     combined = "\n".join(message["content"] for message in messages)

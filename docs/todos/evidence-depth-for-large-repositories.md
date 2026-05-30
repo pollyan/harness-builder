@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态：open
+- 状态：implemented
 - 优先级：high
 - 发现日期：2026-05-30
 - 相关命令：`harness-builder-agent init`
@@ -91,3 +91,18 @@
 
 重点是把当前 POC 的 evidence 收集，从“简单采样”升级为“可审计、可解释、分层、有覆盖度意识”的扫描层。
 
+## 实现结果
+
+- 已扩展 `EvidenceBundle`、`EvidenceFile` 和 `ScanMetadata`，支持 evidence priority、bucket、coverage、重点文件分组和覆盖度 warning。
+- Evidence collector 已从“按排序取前 N 个源码样本”升级为“全量轻量索引 + 分桶采样 + 重点 evidence 优先”。
+- 当前会识别并输出 `priority_files`、`test_files`、`api_entrypoints`、`risk_files`，并保留 build、config、CI、document、source bucket 的覆盖度统计。
+- 大仓库或高数量 source bucket 被截断时，会在 coverage warnings 中记录 skipped 数量和相关 bucket，便于后续人工确认或调试。
+- LLM scan prompt 已加入 coverage、priority evidence、test/API/risk evidence 的阅读规则，并使用 `exclude_none=True` 控制 prompt 体积。
+- Scan reconciler 已将 coverage 写入 `scan-metadata.yaml` 和 `project-inventory.json` 的 `scan_metadata`，并把 coverage warning 转成可审计的 scan warning。
+- 已补充 schema、evidence collector、LLM prompt、scan reconciler、init/e2e 相关测试。
+
+## 已验证
+
+- `.venv/bin/python -m pytest tests/unit/test_evidence_collector.py tests/unit/test_llm_scan_analyzer.py tests/unit/test_scan_reconciler.py tests/unit/test_schema_contracts.py -q`
+- `.venv/bin/python -m pytest tests/integration/test_init_on_fixture_projects.py tests/e2e/test_fixture_end_to_end.py -q`
+- `scripts/test-full.sh`
