@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 InteractionMode = Literal["interactive", "non_interactive"]
 ScanConfirmationStatus = Literal["accepted", "amended", "needs_review", "not_confirmed"]
 ContextConfirmationStatus = Literal["confirmed", "partially_confirmed", "not_provided", "not_confirmed"]
-CandidateDecisionStatus = Literal["accepted", "rejected", "kept"]
+CandidateDecisionStatus = Literal["accepted", "rejected", "kept", "edited"]
 FinalConfirmationStatus = Literal["confirmed", "cancelled", "not_confirmed"]
 
 
@@ -39,6 +39,12 @@ class FinalConfirmation(BaseModel):
     status: FinalConfirmationStatus = "not_confirmed"
 
 
+class WorkflowConfirmation(BaseModel):
+    shown_workflows: list[str] = Field(default_factory=list)
+    confirmed: bool = False
+    notes: list[str] = Field(default_factory=list)
+
+
 class InteractionDecisions(BaseModel):
     schema_version: str = "1.0"
     mode: InteractionMode
@@ -46,4 +52,5 @@ class InteractionDecisions(BaseModel):
     scan_confirmation: ScanConfirmation = Field(default_factory=ScanConfirmation)
     context_confirmation: ContextConfirmation = Field(default_factory=ContextConfirmation)
     candidate_decisions: list[CandidateDecision] = Field(default_factory=list)
+    workflow_confirmation: WorkflowConfirmation = Field(default_factory=WorkflowConfirmation)
     final_confirmation: FinalConfirmation = Field(default_factory=FinalConfirmation)

@@ -9,6 +9,7 @@ from harness_builder_agent.schemas.interaction_decision import (
     InteractionDecisions,
     RepoConfirmation,
     ScanConfirmation,
+    WorkflowConfirmation,
 )
 
 
@@ -31,6 +32,10 @@ def accepted_interactive_decisions(
     inline_contexts: list[str] | None = None,
     candidate_ids: list[str] | None = None,
     accept_candidates: bool = False,
+    scan_notes: list[str] | None = None,
+    primary_stack_override: str | None = None,
+    candidate_decisions: list[CandidateDecision] | None = None,
+    workflow_confirmation: WorkflowConfirmation | None = None,
 ) -> InteractionDecisions:
     confirmed_paths = context_paths or []
     inline_values = [item for item in (inline_contexts or []) if item.strip()]
@@ -38,20 +43,26 @@ def accepted_interactive_decisions(
         context_status = "confirmed"
     else:
         context_status = "not_provided"
-    candidate_decisions = [
+    decisions = candidate_decisions or [
         CandidateDecision(candidate_id=candidate_id, decision="accepted" if accept_candidates else "kept")
         for candidate_id in (candidate_ids or [])
     ]
+    scan_status = "amended" if (scan_notes or primary_stack_override) else "accepted"
     return InteractionDecisions(
         mode="interactive",
         repo=RepoConfirmation(path=repo_path, confirmed=True),
-        scan_confirmation=ScanConfirmation(status="accepted"),
+        scan_confirmation=ScanConfirmation(
+            status=scan_status,
+            primary_stack_override=primary_stack_override,
+            notes=scan_notes or [],
+        ),
         context_confirmation=ContextConfirmation(
             status=context_status,
             confirmed_paths=confirmed_paths,
             inline_contexts=inline_values,
         ),
-        candidate_decisions=candidate_decisions,
+        candidate_decisions=decisions,
+        workflow_confirmation=workflow_confirmation or WorkflowConfirmation(),
         final_confirmation=FinalConfirmation(status="confirmed"),
     )
 
@@ -70,6 +81,9 @@ def apply_candidate_decisions(report: dict, decisions: InteractionDecisions) -> 
         elif decision.decision == "rejected":
             candidate["status"] = "rejected"
             candidate["human_confirmation_required"] = False
+        elif decision.decision == "edited":
+            candidate["status"] = "candidate"
+            candidate["human_confirmation_required"] = True
         else:
             candidate["status"] = "candidate"
             candidate["human_confirmation_required"] = True
@@ -82,15 +96,25 @@ def interaction_decisions_markdown(decisions: InteractionDecisions) -> str:
         f"- `{item.candidate_id}`: {item.decision} {item.notes}".rstrip()
         for item in decisions.candidate_decisions
     ] or ["- 无逐项 candidate 决策。"]
+    scan_lines = decisions.scan_confirmation.notes or ["无"]
+    workflow_lines = decisions.workflow_confirmation.notes or ["无"]
     return (
         "# Interaction Decisions\n\n"
         f"- mode: {decisions.mode}\n"
         f"- repo_confirmed: {decisions.repo.confirmed}\n"
         f"- scan: {decisions.scan_confirmation.status}\n"
+        f"- primary_stack_override: {decisions.scan_confirmation.primary_stack_override or '无'}\n"
         f"- context: {decisions.context_confirmation.status}\n"
+        f"- workflow_confirmed: {decisions.workflow_confirmation.confirmed}\n"
+        f"- shown_workflows: {', '.join(decisions.workflow_confirmation.shown_workflows) or '无'}\n"
         f"- final: {decisions.final_confirmation.status}\n\n"
+        "## Scan Supplements\n\n"
+        + "\n".join(f"- {item}" for item in scan_lines)
+        + "\n\n"
         "## Inline Context\n\n"
         + "\n".join(f"- {item}" for item in context_lines)
+        + "\n\n## Workflow Notes\n\n"
+        + "\n".join(f"- {item}" for item in workflow_lines)
         + "\n\n## Candidate Decisions\n\n"
         + "\n".join(candidate_lines)
         + "\n"

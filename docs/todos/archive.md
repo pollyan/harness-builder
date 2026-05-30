@@ -15,6 +15,7 @@
 | [测试覆盖深度与 Acceptance 策略增强](testing-coverage-and-acceptance-strategy.md) | 当前 todo | implemented | fast/full/acceptance 脚本、hooks 策略、schema/writer/benchmark/run task/init/e2e/acceptance 覆盖增强 |
 | [Benchmark 质量评分细化](benchmark-quality-scoring.md) | 当前 todo | implemented | `quality_status`、`quality_scores`、`quality_summary`、degraded/failed 质量评分测试 |
 | [Asset Writer 拆分重构](asset-writer-refactor.md) | 当前 todo | implemented | `asset_writers/` 分层 writer、`write_initial_assets` 编排入口、独立 writer 单元测试 |
+| [面向用户的 guided init 交互体验增强](guided-init-human-centered-cli.md) | 当前 todo | implemented | 中文解释式 guided `init`、开放补充和 stack 修正、逐项 Guide/Sensor 决策、Workflow 展示、summary/back/confirm 交互 |
 
 ## 归档规则
 

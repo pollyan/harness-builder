@@ -34,8 +34,8 @@ def _fake_scan(repo: Path, expected_stack: str):
             "primary_stack": "java-spring",
             "stacks": ["java", "maven", "spring-boot"],
             "modules": [{"name": "app", "path": ".", "kind": "backend"}],
-            "architecture_signals": [],
-            "risk_areas": [],
+            "architecture_signals": ["Controller 层应保持轻量，业务逻辑进入 Service。"],
+            "risk_areas": [{"path": "src/main/resources/application.yml", "reason": "配置变更会影响运行环境。"}],
             "command_candidates": [
                 {"id": "unit_test", "command": "mvn test", "type": "test", "gate": "hard", "source": "pom.xml", "confidence": "high"}
             ],
@@ -50,8 +50,8 @@ def _fake_scan(repo: Path, expected_stack: str):
             "primary_stack": "dotnet-aspnet",
             "stacks": ["dotnet", "aspnet-core"],
             "modules": [{"name": "MiniApi", "path": "src", "kind": "backend"}],
-            "architecture_signals": [],
-            "risk_areas": [],
+            "architecture_signals": ["Controller 和 service 边界需要维护。"],
+            "risk_areas": [{"path": "src/appsettings.json", "reason": "配置变更需要环境确认。"}],
             "command_candidates": [
                 {
                     "id": "unit_test",
@@ -254,15 +254,165 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     result = CliRunner().invoke(
         app,
         ["init", "--repo", str(repo)],
-        input="\n\nn\nk\n\n",
+        input="\n\n\n\n\n\n\nconfirm\n",
     )
 
     assert result.exit_code == 0, result.output
-    assert "扫描结论" in result.output
-    assert "候选 Guide/Sensor" in result.output
+    assert "扫描发现" in result.output
+    assert "主要技术栈" in result.output
+    assert "团队规则" in result.output
+    assert "建议生成的规则" in result.output
+    assert "建议生成的传感器" in result.output
+    assert "推荐工作流" in result.output
+    assert "最终确认" in result.output
+    assert "primary_stack" not in result.output
     _assert_init_outputs(repo, "java-spring")
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert decisions["mode"] == "interactive"
     assert decisions["repo"]["confirmed"] is True
     assert decisions["scan_confirmation"]["status"] == "accepted"
+    assert decisions["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix"]
+    assert decisions["workflow_confirmation"]["confirmed"] is True
     assert decisions["final_confirmation"]["status"] == "confirmed"
+
+
+def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "模块 app 实际包含批处理入口，修改任务需要额外说明。\n"
+            "团队规则：Controller 只能调用 Service，配置变更必须说明回滚方式。\n"
+            "\n\n\n"
+            "bugfix 工作流适合缺陷修复。\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["scan_confirmation"]["status"] == "amended"
+    assert "批处理入口" in decisions["scan_confirmation"]["notes"][0]
+    assert "Controller 只能调用 Service" in decisions["context_confirmation"]["inline_contexts"][0]
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    assert "## 人工补充与修正" in project_context
+    assert "批处理入口" in project_context
+    assert "bugfix 工作流适合缺陷修复" in project_context
+
+
+def test_guided_init_stack_correction_updates_inventory_and_decisions(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="\nstack=node\n\n\n\n\n\nconfirm\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
+    assert inventory["primary_stack"] == "node"
+    assert inventory["stack_extensions"]["human_overrides"]["primary_stack"] == "node"
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["scan_confirmation"]["status"] == "amended"
+    assert decisions["scan_confirmation"]["primary_stack_override"] == "node"
+
+
+def test_guided_init_structured_scan_corrections_update_modules_commands_and_risks(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "module=frontend|frontend|frontend; command=frontend_test|npm test|test|hard|frontend/package.json|high; risk=frontend/package.json|前端依赖需要单独确认\n"
+            "\n\n\n\n"
+            "\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
+    assert {"name": "frontend", "path": "frontend", "kind": "frontend"} in inventory["modules"]
+    assert {"path": "frontend/package.json", "reason": "前端依赖需要单独确认"} in inventory["stack_extensions"]["risk_areas"]
+    assert inventory["stack_extensions"]["human_overrides"]["modules"][0]["path"] == "frontend"
+    assert inventory["stack_extensions"]["human_overrides"]["risk_areas"][0]["path"] == "frontend/package.json"
+    catalog = yaml.safe_load((repo / ".ai" / "command-catalog.yaml").read_text(encoding="utf-8"))
+    assert any(command["id"] == "frontend_test" and command["command"] == "npm test" for command in catalog["commands"])
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    assert "frontend" in project_context
+    assert "npm test" in project_context
+
+
+def test_guided_init_reviews_candidates_one_by_one(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n\n\n"
+            "a\n"
+            "r\n"
+            "e\n测试命令需要先确认 CI 稳定性。\n"
+            "\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "llm-guide-architecture-001" in result.output
+    assert "llm-guide-risk-001" in result.output
+    assert "llm-sensor-command-001" in result.output
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    by_id = {item["candidate_id"]: item for item in decisions["candidate_decisions"]}
+    assert by_id["llm-guide-architecture-001"]["decision"] == "accepted"
+    assert by_id["llm-guide-risk-001"]["decision"] == "rejected"
+    assert by_id["llm-sensor-command-001"]["decision"] == "edited"
+    candidate_report = yaml.safe_load((repo / ".ai" / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
+    candidate_by_id = {item["id"]: item for item in candidate_report["candidates"]}
+    assert candidate_by_id["llm-guide-architecture-001"]["status"] == "confirmed"
+    assert candidate_by_id["llm-guide-risk-001"]["status"] == "rejected"
+    assert candidate_by_id["llm-sensor-command-001"]["decision_notes"] == "测试命令需要先确认 CI 稳定性。"
+
+
+def test_guided_init_final_summary_can_go_back_to_team_rules(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n\n"
+            "初始规则需要修改。\n"
+            "\n\n\n"
+            "\n"
+            "back\n"
+            "rules\n"
+            "最终团队规则：配置变更必须说明影响环境。\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "返回修改" in result.output
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["context_confirmation"]["inline_contexts"] == ["最终团队规则：配置变更必须说明影响环境。"]
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    assert "最终团队规则" in project_context
+    assert "初始规则需要修改" not in project_context

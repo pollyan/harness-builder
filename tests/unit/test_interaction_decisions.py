@@ -10,6 +10,7 @@ from harness_builder_agent.schemas.interaction_decision import (
     InteractionDecisions,
     RepoConfirmation,
     ScanConfirmation,
+    WorkflowConfirmation,
 )
 from harness_builder_agent.tools.interaction_decisions import (
     apply_candidate_decisions,
@@ -29,8 +30,14 @@ def test_interaction_decisions_schema_accepts_interactive_confirmation():
             inline_contexts=["所有 Controller 只能调用 Service"],
         ),
         candidate_decisions=[
-            CandidateDecision(candidate_id="llm-guide-risk-001", decision="accepted", notes="团队认可")
+            CandidateDecision(candidate_id="llm-guide-risk-001", decision="accepted", notes="团队认可"),
+            CandidateDecision(candidate_id="llm-sensor-command-001", decision="edited", notes="先保持候选，后续确认稳定性"),
         ],
+        workflow_confirmation=WorkflowConfirmation(
+            shown_workflows=["lightweight", "bugfix"],
+            confirmed=True,
+            notes=["轻量任务和缺陷修复两个工作流符合当前团队习惯"],
+        ),
         final_confirmation=FinalConfirmation(status="confirmed"),
     )
 
@@ -40,6 +47,9 @@ def test_interaction_decisions_schema_accepts_interactive_confirmation():
     assert payload["mode"] == "interactive"
     assert payload["repo"]["confirmed"] is True
     assert payload["candidate_decisions"][0]["decision"] == "accepted"
+    assert payload["candidate_decisions"][1]["decision"] == "edited"
+    assert payload["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix"]
+    assert payload["workflow_confirmation"]["confirmed"] is True
 
 
 def test_interaction_decisions_schema_rejects_invalid_candidate_decision():
@@ -74,6 +84,7 @@ def test_apply_candidate_decisions_updates_statuses_and_reasons():
         candidate_decisions=[
             CandidateDecision(candidate_id="llm-guide-risk-001", decision="accepted", notes="认可"),
             CandidateDecision(candidate_id="llm-sensor-command-001", decision="rejected", notes="命令不稳定"),
+            CandidateDecision(candidate_id="llm-guide-keep-001", decision="edited", notes="保持候选，但说明适用范围"),
         ],
     )
 
@@ -86,6 +97,7 @@ def test_apply_candidate_decisions_updates_statuses_and_reasons():
     assert by_id["llm-sensor-command-001"]["status"] == "rejected"
     assert by_id["llm-sensor-command-001"]["decision_notes"] == "命令不稳定"
     assert by_id["llm-guide-keep-001"]["status"] == "candidate"
+    assert by_id["llm-guide-keep-001"]["decision_notes"] == "保持候选，但说明适用范围"
 
 
 def test_interaction_decisions_markdown_summarizes_decisions():
@@ -94,6 +106,11 @@ def test_interaction_decisions_markdown_summarizes_decisions():
         repo=RepoConfirmation(path="/repo", confirmed=True),
         scan_confirmation=ScanConfirmation(status="accepted"),
         context_confirmation=ContextConfirmation(status="confirmed", inline_contexts=["团队测试策略"]),
+        workflow_confirmation=WorkflowConfirmation(
+            shown_workflows=["lightweight", "bugfix"],
+            confirmed=True,
+            notes=["缺陷修复需要先定位原因"],
+        ),
         final_confirmation=FinalConfirmation(status="confirmed"),
     )
 
@@ -103,3 +120,5 @@ def test_interaction_decisions_markdown_summarizes_decisions():
     assert "mode: interactive" in markdown
     assert "scan: accepted" in markdown
     assert "团队测试策略" in markdown
+    assert "workflow_confirmed: True" in markdown
+    assert "缺陷修复需要先定位原因" in markdown

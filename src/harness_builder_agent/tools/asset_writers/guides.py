@@ -68,6 +68,8 @@ def _guide(
         + "当前覆盖整个仓库，正式生效前需要维护者审查。\n\n"
         + "## 团队上下文\n\n"
         + f"{_team_context_section(context_inputs, interaction_decisions)}\n\n"
+        + "## 人工补充与修正\n\n"
+        + f"{_human_override_section(inventory, interaction_decisions)}\n\n"
         + "## 当前项目事实\n\n"
         + f"- 主技术栈：`{inventory.primary_stack}`。\n"
         + f"- 技术栈线索：{', '.join(inventory.stacks) if inventory.stacks else '未知'}。\n"
@@ -93,6 +95,29 @@ def _team_context_section(context_inputs: dict[str, Any] | None, interaction_dec
         for item in interaction_decisions.context_confirmation.inline_contexts:
             lines.append(f"- {item}")
     return "\n".join(lines) or "- 暂未提供团队上下文。"
+
+
+def _human_override_section(inventory: ProjectInventory, interaction_decisions: InteractionDecisions | None) -> str:
+    lines: list[str] = []
+    overrides = inventory.stack_extensions.get("human_overrides", {})
+    if isinstance(overrides, dict):
+        for note in overrides.get("scan_notes", []) or []:
+            lines.append(f"- 扫描修正：{note}")
+        if overrides.get("primary_stack"):
+            lines.append(f"- 主要技术栈人工修正为：`{overrides['primary_stack']}`。")
+    if interaction_decisions:
+        for note in interaction_decisions.scan_confirmation.notes:
+            if f"- 扫描修正：{note}" not in lines:
+                lines.append(f"- 扫描修正：{note}")
+        if interaction_decisions.workflow_confirmation.shown_workflows:
+            lines.append(
+                "- 已向用户展示推荐工作流："
+                + ", ".join(f"`{item}`" for item in interaction_decisions.workflow_confirmation.shown_workflows)
+                + "。"
+            )
+        for note in interaction_decisions.workflow_confirmation.notes:
+            lines.append(f"- Workflow 补充：{note}")
+    return "\n".join(lines) or "- 暂无人工修正。"
 
 
 def _task_template(kind: str) -> str:
