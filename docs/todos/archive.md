@@ -16,6 +16,7 @@
 | [Benchmark 质量评分细化](benchmark-quality-scoring.md) | 当前 todo | implemented | `quality_status`、`quality_scores`、`quality_summary`、degraded/failed 质量评分测试 |
 | [Asset Writer 拆分重构](asset-writer-refactor.md) | 当前 todo | implemented | `asset_writers/` 分层 writer、`write_initial_assets` 编排入口、独立 writer 单元测试 |
 | [删除 run 命令并收缩 Runtime 职责边界](remove-run-command-runtime-boundary.md) | 当前 todo | implemented | 删除 `run` CLI/runtime 模拟；benchmark 改为静态 Harness 资产验证；runtime 可观测性契约转移到 Workflow Skill / 未来 AI Coding Runtime |
+| [旧 scanner v2 实现审查与迁移评估](scanner-v2-review-and-migration.md) | 当前 todo | implemented | 审查旧 scanner v2 并迁移 LLM claim validation 到当前 `scan_reconciler`，产出 `scan_validation` 和 validation warnings |
 
 ## 归档规则
 

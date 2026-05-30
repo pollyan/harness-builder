@@ -30,7 +30,7 @@
 **Files:**
 - Modify: `tests/unit/test_scan_reconciler.py`
 
-- [ ] **Step 1: Add tests for scanner-v2-inspired validation**
+- [x] **Step 1: Add tests for scanner-v2-inspired validation**
 
 Append these tests to `tests/unit/test_scan_reconciler.py`:
 
@@ -60,7 +60,7 @@ def test_reconcile_warns_when_secondary_stack_claim_lacks_evidence():
     assert inventory.stack_extensions["scan_warnings"] == [warning.model_dump(mode="json") for warning in metadata.warnings]
 ```
 
-- [ ] **Step 2: Add JavaScript false-positive coverage**
+- [x] **Step 2: Add JavaScript false-positive coverage**
 
 Append this test to `tests/unit/test_scan_reconciler.py`:
 
@@ -90,7 +90,7 @@ def test_reconcile_does_not_treat_javascript_evidence_as_java_support():
     assert any("java-spring" in warning.evidence for warning in metadata.warnings)
 ```
 
-- [ ] **Step 3: Add primary Java hard-veto coverage**
+- [x] **Step 3: Add primary Java hard-veto coverage**
 
 Append this test to `tests/unit/test_scan_reconciler.py`:
 
@@ -110,7 +110,7 @@ def test_reconcile_vetoes_impossible_java_claim():
         reconcile_scan(evidence, proposal)
 ```
 
-- [ ] **Step 4: Run the focused unit tests and confirm failure**
+- [x] **Step 4: Run the focused unit tests and confirm failure**
 
 Run:
 
@@ -125,7 +125,7 @@ Expected: at least one failure because `scan_validation` and `llm_stack_claim_wi
 **Files:**
 - Modify: `src/harness_builder_agent/tools/scan_reconciler.py`
 
-- [ ] **Step 1: Add stack claim validation helpers**
+- [x] **Step 1: Add stack claim validation helpers**
 
 Add helpers that:
 
@@ -174,7 +174,7 @@ STACK_ALIASES = {
 }
 ```
 
-- [ ] **Step 2: Wire validation into `reconcile_scan`**
+- [x] **Step 2: Wire validation into `reconcile_scan`**
 
 Inside `reconcile_scan`, after `_coverage_warnings(evidence)`:
 
@@ -189,11 +189,11 @@ Then add this field inside `stack_extensions`:
 "scan_validation": scan_validation,
 ```
 
-- [ ] **Step 3: Preserve explicit failure for impossible primary claims**
+- [x] **Step 3: Preserve explicit failure for impossible primary claims**
 
 Keep `_veto_impossible_stack()` before warnings are created. Ensure `java-spring` and `dotnet-aspnet` primary claims still raise `ScanConflictError` when required evidence is absent.
 
-- [ ] **Step 4: Run focused unit tests and confirm pass**
+- [x] **Step 4: Run focused unit tests and confirm pass**
 
 Run:
 
@@ -210,7 +210,7 @@ Expected: all `test_scan_reconciler.py` tests pass.
 - Modify: `docs/todos/README.md`
 - Modify: `docs/todos/archive.md`
 
-- [ ] **Step 1: Mark scanner v2 todo implemented**
+- [x] **Step 1: Mark scanner v2 todo implemented**
 
 Update the status block in `docs/todos/scanner-v2-review-and-migration.md`:
 
@@ -233,11 +233,11 @@ Add a completion section:
 - 测试：`tests/unit/test_scan_reconciler.py`
 ```
 
-- [ ] **Step 2: Move the item out of open todos**
+- [x] **Step 2: Move the item out of open todos**
 
 Remove the scanner v2 row from `docs/todos/README.md`.
 
-- [ ] **Step 3: Add archive row**
+- [x] **Step 3: Add archive row**
 
 Add this row to `docs/todos/archive.md`:
 
@@ -250,7 +250,7 @@ Add this row to `docs/todos/archive.md`:
 **Files:**
 - Verify all modified source, tests, and docs.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -260,7 +260,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 2: Run default non-acceptance regression**
+- [x] **Step 2: Run default non-acceptance regression**
 
 Run:
 
@@ -270,7 +270,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 3: Run required fast regression before commit**
+- [x] **Step 3: Run required fast regression before commit**
 
 Run:
 
@@ -280,7 +280,7 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 4: Commit scanner validation migration**
+- [x] **Step 4: Commit scanner validation migration**
 
 Run:
 

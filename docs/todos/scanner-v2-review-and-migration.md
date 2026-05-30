@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态：open
+- 状态：implemented
 - 优先级：high
 - 发现日期：2026-05-31
 - 相关命令：`harness-builder-agent init`
@@ -109,3 +109,14 @@ Git 历史里曾经存在一套更深的 scanner v2 实现，位于旧包名 `ha
 - 做完整语义索引或向量数据库。
 
 重点是先审查旧实现的合理性，再把真正有价值的扫描能力迁移到当前代码架构中。
+
+## 完成说明
+
+已完成审查并迁移第一轮能力：旧 scanner v2 的 LLM claim validation 思路已落入当前 `scan_reconciler`，以 `ScanMetadata.warnings` 和 `ProjectInventory.stack_extensions["scan_validation"]` 记录 LLM stack claims 与 deterministic evidence 的支持/冲突关系。
+
+相关落点：
+
+- 审查设计：`docs/superpowers/specs/2026-05-31-scanner-v2-review-validation-design.md`
+- 实施计划：`docs/superpowers/plans/2026-05-31-scanner-v2-validation-migration.md`
+- 代码：`src/harness_builder_agent/tools/scan_reconciler.py`
+- 测试：`tests/unit/test_scan_reconciler.py`
