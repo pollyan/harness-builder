@@ -8,3 +8,9 @@ __pycache__/
 .DS_Store
 .benchmarks/
 *.egg-info/
+/tmp/
+outputs/
+repos/
+
+# Private local context files - never commit
+private/

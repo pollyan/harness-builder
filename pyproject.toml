@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "harness-builder-agent"
+name = "harness-builder"
 version = "0.1.0"
-description = "POC agent for generating AI Coding Harness assets from legacy codebases."
+description = "Harness Builder Scanner and Agent POC"
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.13",
@@ -15,11 +15,20 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=9.0"]
+dev = ["pytest>=9.0"]
 
 [project.scripts]
 harness-builder-agent = "harness_builder_agent.cli:main"
 
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = ["harness_builder_agent*", "harness_builder*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+harness_builder_agent = ["templates/skills/*/SKILL.md"]
+
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 addopts = "-p no:cacheprovider"
 testpaths = ["tests"]
