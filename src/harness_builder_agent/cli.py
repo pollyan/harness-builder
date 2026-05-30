@@ -9,9 +9,8 @@ from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.interactive_init import run_non_interactive_init
 from harness_builder_agent.tools.run_task import run_task
-from harness_builder_agent.tools.scan_repo import scan_repository
-from harness_builder_agent.tools.write_assets import write_initial_assets
 
 app = typer.Typer(help="Generate and exercise project-level AI Coding Harness assets.")
 
@@ -20,23 +19,21 @@ app = typer.Typer(help="Generate and exercise project-level AI Coding Harness as
 def init_command(
     repo: Optional[Path] = typer.Option(None, "--repo", file_okay=False, dir_okay=True),
     context: Optional[list[Path]] = typer.Option(None, "--context", exists=True, file_okay=True, dir_okay=False),
+    non_interactive: bool = typer.Option(
+        False,
+        "--non-interactive",
+        help="Run init without prompts for CI, scripts, and acceptance.",
+    ),
 ) -> None:
     """Scan a repository and generate initial .ai harness assets."""
     target_repo = (repo or Path.cwd()).resolve()
     if not target_repo.exists() or not target_repo.is_dir():
         raise typer.BadParameter(f"Repository path must be an existing directory: {target_repo}")
+    if not non_interactive:
+        raise typer.BadParameter("`init` now defaults to guided interactive mode. Non-TTY automation must pass --non-interactive.")
     trace = GenerationTrace.start(target_repo, "init")
     try:
-        trace.event("scan", "started", "Repository scan started.")
-        inventory, commands = scan_repository(target_repo)
-        trace.event(
-            "scan",
-            "completed",
-            "Repository scan completed.",
-            {"primary_stack": inventory.primary_stack, "stacks": inventory.stacks, "command_count": len(commands.commands)},
-        )
-        output_dir = write_initial_assets(target_repo, inventory, commands, trace=trace, context_paths=context or [])
-        trace.finish("completed", {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)})
+        output_dir = run_non_interactive_init(target_repo, context or [], trace)
     except Exception as exc:
         trace.event("init", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})

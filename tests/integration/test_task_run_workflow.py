@@ -93,10 +93,10 @@ def _skipped_sensor(_repo, command):
 def _prepared_repo(tmp_path: Path, fixture_name: str, primary_stack: str, monkeypatch) -> Path:
     repo = tmp_path / fixture_name
     shutil.copytree(FIXTURES / fixture_name, repo)
-    monkeypatch.setattr("harness_builder_agent.cli.scan_repository", lambda repo_path: _fake_scan(repo_path, primary_stack))
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, primary_stack))
     monkeypatch.setattr("harness_builder_agent.tools.run_task.run_sensor", _passed_sensor)
     runner = CliRunner()
-    init_result = runner.invoke(app, ["init", "--repo", str(repo)])
+    init_result = runner.invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
     assert init_result.exit_code == 0, init_result.output
     return repo
 

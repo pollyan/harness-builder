@@ -78,10 +78,10 @@ def test_fixture_cli_end_to_end_for_java_and_dotnet(tmp_path: Path, monkeypatch)
     for fixture_name, profile, task in cases:
         repo = tmp_path / fixture_name
         shutil.copytree(FIXTURES / fixture_name, repo)
-        monkeypatch.setattr("harness_builder_agent.cli.scan_repository", lambda repo_path, stack=profile: _fake_scan(repo_path, stack))
+        monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path, stack=profile: _fake_scan(repo_path, stack))
         monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path, stack=profile: _fake_scan(repo_path, stack))
 
-        init_result = runner.invoke(app, ["init", "--repo", str(repo)])
+        init_result = runner.invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
         assert init_result.exit_code == 0, init_result.output
 
         run_result = runner.invoke(app, ["run", "--repo", str(repo), task])

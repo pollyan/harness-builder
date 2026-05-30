@@ -33,7 +33,7 @@ def _assert_real_repo(repo_name: str, profile: str, task: str, expected_workflow
     report_path = repo / ".ai" / "benchmark-report.yaml"
     report_path.unlink(missing_ok=True)
 
-    init_result = _run_cli("init", "--repo", str(repo))
+    init_result = _run_cli("init", "--repo", str(repo), "--non-interactive")
     assert init_result.returncode == 0, init_result.stderr + init_result.stdout
 
     run_result = _run_cli("run", "--repo", str(repo), task)

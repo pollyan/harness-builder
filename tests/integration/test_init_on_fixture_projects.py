@@ -178,8 +178,8 @@ def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     context = tmp_path / "team-rules.md"
     context.write_text("团队规则：Controller 只能调用 Service。", encoding="utf-8")
-    monkeypatch.setattr("harness_builder_agent.cli.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
-    result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--context", str(context)])
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--context", str(context), "--non-interactive"])
 
     assert result.exit_code == 0, result.output
     _assert_init_outputs(repo, "java-spring", expected_context_text="团队规则")
@@ -189,8 +189,8 @@ def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
 
 def test_init_generates_ai_assets_for_dotnet_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-dotnet-webapi")
-    monkeypatch.setattr("harness_builder_agent.cli.scan_repository", lambda repo_path: _fake_scan(repo_path, "dotnet-aspnet"))
-    result = CliRunner().invoke(app, ["init", "--repo", str(repo)])
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "dotnet-aspnet"))
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
 
     assert result.exit_code == 0, result.output
     _assert_init_outputs(repo, "dotnet-aspnet")
@@ -201,9 +201,34 @@ def test_init_generates_ai_assets_for_dotnet_fixture(tmp_path: Path, monkeypatch
 def test_init_defaults_to_current_working_directory(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.chdir(repo)
-    monkeypatch.setattr("harness_builder_agent.cli.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
 
-    result = CliRunner().invoke(app, ["init"])
+    result = CliRunner().invoke(app, ["init", "--non-interactive"])
 
     assert result.exit_code == 0, result.output
     _assert_init_outputs(repo, "java-spring")
+
+
+def test_init_non_tty_requires_explicit_non_interactive(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    shutil.rmtree(repo / ".ai")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="")
+
+    assert result.exit_code != 0
+    assert "--non-interactive" in result.output
+    assert not (repo / ".ai" / "project-inventory.json").exists()
+
+
+def test_init_non_interactive_generates_existing_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+
+    assert result.exit_code == 0, result.output
+    _assert_init_outputs(repo, "java-spring")
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["mode"] == "non_interactive"
+    assert decisions["final_confirmation"]["status"] == "not_confirmed"
