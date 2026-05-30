@@ -24,6 +24,8 @@ REQUIRED_FILES = [
     "project-inventory.json",
     "command-catalog.yaml",
     "harness-config.yaml",
+    "scan-metadata.yaml",
+    "llm-scan-proposal.json",
     "weapon-library-selection.yaml",
     "scan-report.md",
     "maturity-report.md",
@@ -132,6 +134,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
         _weapon_library_selection_check(ai, inventory),
+        _hard_gate_sensors_check(ai),
     ]
 
 
@@ -212,6 +215,23 @@ def _weapon_library_selection_check(ai: Path, inventory: ProjectInventory) -> di
         "selected_stacks": selection.selected_stacks,
         "guide_weapon_count": len(selection.guide_weapon_ids),
         "sensor_weapon_count": len(selection.sensor_weapon_ids),
+    }
+
+
+def _hard_gate_sensors_check(ai: Path) -> dict[str, Any]:
+    report_path = ai / "task-runs" / "demo-task-001" / "sensor-report.yaml"
+    if not report_path.exists():
+        return {"id": "content:hard-gate-sensors-passed", "passed": False, "error": "missing sensor-report.yaml"}
+    try:
+        sensor_report = SensorReport.model_validate(yaml.safe_load(report_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover
+        return {"id": "content:hard-gate-sensors-passed", "passed": False, "error": str(exc)}
+
+    failing = [result for result in sensor_report.sensor_results if result.status != "passed"]
+    return {
+        "id": "content:hard-gate-sensors-passed",
+        "passed": not failing,
+        "failed_or_skipped": [result.model_dump(mode="json") for result in failing],
     }
 
 
