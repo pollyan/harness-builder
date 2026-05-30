@@ -1,1 +1,0 @@
-"""Harness Builder Scanner Skill."""

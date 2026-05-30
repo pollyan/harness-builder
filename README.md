@@ -1,9 +1,6 @@
 # Harness Builder
 
-Harness Builder 是一个面向既有代码库的 AI Coding Harness POC。当前仓库里保留两条能力线：
-
-- `harness_builder.scanner`：Scanner v2，用 LLM 分析和确定性脚本证据建立代码库现状基线。
-- `harness-builder-agent`：CLI Agent，生成项目级 `.ai/` Harness、Workflow Skills、Guides、Sensors、成熟度评估和改进候选。
+Harness Builder 是一个面向既有代码库的 AI Coding Harness POC。当前仓库提供 `harness-builder-agent` CLI，用来生成项目级 `.ai/` Harness、Workflow Skills、Guides、Sensors、成熟度评估和改进候选。
 
 当前仍是 POC，不是生产级产品。
 
@@ -43,6 +40,7 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
   project-inventory.json
   command-catalog.yaml
   harness-config.yaml
+  weapon-library-selection.yaml
   guides/
   sensors/
   skills/
@@ -90,34 +88,6 @@ git clone --depth 1 https://github.com/dotnet-architecture/eShopOnWeb.git .bench
 .venv/bin/harness-builder-agent assess --repo .benchmarks/eShopOnWeb
 .venv/bin/harness-builder-agent improve --repo .benchmarks/eShopOnWeb
 .venv/bin/harness-builder-agent benchmark --repo .benchmarks/eShopOnWeb --profile dotnet-aspnet
-```
-
-## Scanner v2
-
-Scanner v2 入口：
-
-```bash
-python3 -m harness_builder.scanner.cli \
-  --repo /path/to/target-repo \
-  --out /path/to/output/.harness
-```
-
-离线模式：
-
-```bash
-python3 -m harness_builder.scanner.cli \
-  --repo /path/to/target-repo \
-  --out /path/to/output/.harness \
-  --no-llm
-```
-
-Scanner v2 输出：
-
-```text
-.harness/
-  project-inventory.json
-  command-catalog.yaml
-  scanner-report.md
 ```
 
 ## 测试

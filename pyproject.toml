@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "harness-builder"
 version = "0.1.0"
-description = "Harness Builder Scanner and Agent POC"
+description = "Harness Builder Agent POC"
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.13",
@@ -22,7 +22,7 @@ harness-builder-agent = "harness_builder_agent.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src", "."]
-include = ["harness_builder_agent*", "harness_builder*"]
+include = ["harness_builder_agent*"]
 exclude = ["tests*"]
 
 [tool.setuptools.package-data]
