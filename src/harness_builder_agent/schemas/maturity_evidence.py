@@ -35,6 +35,11 @@ class ObservabilityEvidence(BaseModel):
 class ExperienceEvidence(BaseModel):
     has_pending_improvements: bool = False
     pending_improvement_count: int = 0
+    has_experience_index: bool = False
+    asset_candidate_count: int = 0
+    maturity_review_count: int = 0
+    runtime_task_run_count: int = 0
+    experience_file_count: int = 0
 
 
 class BenchmarkEvidence(BaseModel):

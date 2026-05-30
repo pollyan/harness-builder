@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
+from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.maturity_evidence import (
     BenchmarkEvidence,
@@ -29,6 +30,7 @@ MATURITY_INPUTS = [
     ".ai/sensors/",
     ".ai/skills/",
     ".ai/runs/",
+    ".ai/experience/experience-index.yaml",
     ".ai/experience/pending-improvements.md",
     ".ai/benchmark-report.yaml",
 ]
@@ -134,6 +136,20 @@ def _observability(ai: Path) -> ObservabilityEvidence:
 
 
 def _experience(ai: Path) -> ExperienceEvidence:
+    index_path = ai / "experience" / "experience-index.yaml"
+    if index_path.exists():
+        index = ExperienceIndex.model_validate(yaml.safe_load(index_path.read_text(encoding="utf-8")))
+        experience_file_count = sum(1 for exists in index.experience_files.values() if exists)
+        return ExperienceEvidence(
+            has_pending_improvements=index.pending_improvement_count > 0,
+            pending_improvement_count=index.pending_improvement_count,
+            has_experience_index=True,
+            asset_candidate_count=index.asset_candidate_count,
+            maturity_review_count=index.maturity_review_count,
+            runtime_task_run_count=index.runtime_task_run_count,
+            experience_file_count=experience_file_count,
+        )
+
     pending = ai / "experience" / "pending-improvements.md"
     if not pending.exists():
         return ExperienceEvidence()

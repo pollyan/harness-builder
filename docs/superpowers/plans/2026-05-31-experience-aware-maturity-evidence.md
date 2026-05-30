@@ -21,7 +21,7 @@
 
 ## Task 1: Schema Contract
 
-- [ ] **Step 1: Write failing schema assertion**
+- [x] **Step 1: Write failing schema assertion**
 
 In `tests/unit/test_schema_contracts.py`, update `test_maturity_evidence_pack_records_harness_inputs_for_review` so the `experience` payload includes:
 
@@ -45,7 +45,7 @@ assert pack.experience.asset_candidate_count == 1
 assert pack.experience.experience_file_count == 6
 ```
 
-- [ ] **Step 2: Run schema test and confirm failure**
+- [x] **Step 2: Run schema test and confirm failure**
 
 Run:
 
@@ -55,7 +55,7 @@ Run:
 
 Expected: fail because `ExperienceEvidence` does not expose the new fields.
 
-- [ ] **Step 3: Extend schema**
+- [x] **Step 3: Extend schema**
 
 In `src/harness_builder_agent/schemas/maturity_evidence.py`, change `ExperienceEvidence` to:
 
@@ -70,13 +70,13 @@ class ExperienceEvidence(BaseModel):
     experience_file_count: int = 0
 ```
 
-- [ ] **Step 4: Run schema test and confirm pass**
+- [x] **Step 4: Run schema test and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 2: Index-backed Collection
 
-- [ ] **Step 1: Write failing collector tests**
+- [x] **Step 1: Write failing collector tests**
 
 Create `tests/unit/test_maturity_evidence.py` with helpers that write minimal required schema files and two tests:
 
@@ -166,7 +166,7 @@ def test_collect_maturity_evidence_keeps_pending_only_legacy_path(tmp_path: Path
     assert pack.experience.asset_candidate_count == 0
 ```
 
-- [ ] **Step 2: Run collector tests and confirm failure**
+- [x] **Step 2: Run collector tests and confirm failure**
 
 Run:
 
@@ -176,7 +176,7 @@ Run:
 
 Expected: fail because the collector ignores `experience-index.yaml`.
 
-- [ ] **Step 3: Implement index-backed collection**
+- [x] **Step 3: Implement index-backed collection**
 
 In `src/harness_builder_agent/tools/maturity_evidence.py`:
 
@@ -207,17 +207,17 @@ def _experience(ai: Path) -> ExperienceEvidence:
     return ExperienceEvidence(has_pending_improvements=count > 0, pending_improvement_count=count)
 ```
 
-- [ ] **Step 4: Run collector tests and confirm pass**
+- [x] **Step 4: Run collector tests and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 3: Docs, Verification, Commit
 
-- [ ] **Step 1: Update engineering doc**
+- [x] **Step 1: Update engineering doc**
 
 In `docs/engineering/init-workflow.md`, update the `maturity-evidence.yaml` paragraph to state that Experience evidence consumes `experience-index.yaml` when present and retains a legacy pending-only path when absent.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run:
 
@@ -227,7 +227,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 3: Run fast regression**
+- [x] **Step 3: Run fast regression**
 
 Run:
 
@@ -237,9 +237,17 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 4: Self-Harness Improvement Gate**
+- [x] **Step 4: Self-Harness Improvement Gate**
 
 Record whether this milestone needs benchmark, fixture, acceptance, docs/todos, or engineering-rule updates. Expected: schema and collector tests cover the contract; benchmark is indirectly covered through existing maturity-evidence schema validation.
+
+Gate conclusion:
+
+- Schema coverage was updated for the expanded `ExperienceEvidence` contract.
+- Collector tests cover both index-backed and legacy pending-only paths.
+- `docs/engineering/init-workflow.md` now records how maturity evidence consumes Experience Index.
+- No new benchmark check is needed in this milestone because existing benchmark schema validation already validates `.ai/maturity-evidence.yaml`; this milestone changes the contents of that schema contract and is covered by focused schema/collector tests plus fast regression.
+- No `docs/todos` entry is needed; the next candidate gap remains semantic Experience summarization or Workflow Toolkit evolution.
 
 - [ ] **Step 5: Commit**
 

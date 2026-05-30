@@ -368,7 +368,15 @@ def test_maturity_evidence_pack_records_harness_inputs_for_review():
                 "has_runtime_task_runs": False,
                 "latest_generation_status": "completed",
             },
-            "experience": {"has_pending_improvements": True, "pending_improvement_count": 2},
+            "experience": {
+                "has_pending_improvements": True,
+                "pending_improvement_count": 2,
+                "has_experience_index": True,
+                "asset_candidate_count": 1,
+                "maturity_review_count": 1,
+                "runtime_task_run_count": 0,
+                "experience_file_count": 6,
+            },
             "benchmark": {"has_report": True, "status": "passed"},
             "maturity_inputs": [".ai/project-inventory.json", ".ai/command-catalog.yaml"],
             "warnings": ["runtime task-runs absent"],
@@ -378,6 +386,9 @@ def test_maturity_evidence_pack_records_harness_inputs_for_review():
     assert pack.schema_version == "1.0"
     assert pack.command_summary.hard_gate_count == 1
     assert pack.observability.has_runtime_task_runs is False
+    assert pack.experience.has_experience_index is True
+    assert pack.experience.asset_candidate_count == 1
+    assert pack.experience.experience_file_count == 6
 
 
 def test_improvement_candidate_report_requires_reviewable_candidates():
