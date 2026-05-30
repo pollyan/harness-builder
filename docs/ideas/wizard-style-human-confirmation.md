@@ -1,6 +1,12 @@
 # 向导式 Harness 生成与人机确认机制
 
-状态：idea
+状态：implemented
+
+落地记录：
+
+- Spec：`docs/superpowers/specs/2026-05-30-wizard-human-confirmation-design.md`
+- Plan：`docs/superpowers/plans/2026-05-30-wizard-human-confirmation-plan.md`
+- 产物：`init --context`、`.ai/context-inputs.yaml`、`.ai/questionnaire.yaml`、`.ai/human-input-needed.md`
 
 来源：JiuwenSwarm Auto-Harness 调研 / 产品设计讨论 / 2026-05-30
 
@@ -70,4 +76,3 @@ reason: "pom.xml 存在，但 README 中未发现统一测试说明"
 ## 触发执行的信号
 
 当我们开始增强现有 CLI 交互、上下文输入、低置信度识别、候选资产管理或增量更新策略时，再把这个 idea 提升为 spec 或 implementation plan。
-

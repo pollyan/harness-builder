@@ -1,6 +1,12 @@
 # 可观测的开发工作流运行过程
 
-状态：idea
+状态：implemented
+
+落地记录：
+
+- Spec：`docs/superpowers/specs/2026-05-30-observable-runtime-workflow-design.md`
+- Plan：`docs/superpowers/plans/2026-05-30-observable-runtime-workflow-plan.md`
+- 产物：`.ai/task-runs/<task_id>/workflow-events.jsonl`、`used-guides.yaml`、`runtime-summary.yaml`
 
 来源：JiuwenSwarm Auto-Harness 调研 / 2026-05-30
 
@@ -33,4 +39,3 @@
 ## 触发执行的信号
 
 当 InfoCode 侧有明确的 Harness 加载和执行接口，或者我们开始做真实任务级 E2E 验收时，再把这个 idea 提升为 spec 或 implementation plan。
-

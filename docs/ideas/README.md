@@ -6,7 +6,7 @@
 
 | Idea | 状态 | 来源 | 说明 |
 |---|---|---|---|
-| [可观测的 Harness 生成过程](observable-harness-generation.md) | idea | JiuwenSwarm Auto-Harness 调研 | 追溯生成过程和规则来源 |
-| [可观测的开发工作流运行过程](observable-harness-runtime-workflow.md) | idea | JiuwenSwarm Auto-Harness 调研 | 追踪 Harness 在真实开发任务中的使用效果 |
-| [向导式 Harness 生成与人机确认机制](wizard-style-human-confirmation.md) | idea | JiuwenSwarm Auto-Harness 调研 / 产品设计讨论 | 通过低置信度提问、组织规范输入和候选资产确认增强生成质量 |
-| [武器库底线与模型增强机制](weapon-library-floor-and-llm-enhancement.md) | idea | 产品设计讨论 | 确保武器库提供稳定底线，同时允许大模型补充合理的上限建议 |
+| [可观测的 Harness 生成过程](observable-harness-generation.md) | implemented | JiuwenSwarm Auto-Harness 调研 | 已落地 `.ai/runs/<run_id>` generation trace |
+| [可观测的开发工作流运行过程](observable-harness-runtime-workflow.md) | implemented | JiuwenSwarm Auto-Harness 调研 | 已落地 task-level runtime workflow trace |
+| [向导式 Harness 生成与人机确认机制](wizard-style-human-confirmation.md) | implemented | JiuwenSwarm Auto-Harness 调研 / 产品设计讨论 | 已落地 `init --context`、questionnaire 和 human-input assets |
+| [武器库底线与模型增强机制](weapon-library-floor-and-llm-enhancement.md) | implemented | 产品设计讨论 | 已落地内置武器库底线和 LLM enhancement candidate 通道 |

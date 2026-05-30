@@ -1,6 +1,12 @@
 # 可观测的 Harness 生成过程
 
-状态：idea
+状态：implemented
+
+落地记录：
+
+- Spec：`docs/superpowers/specs/2026-05-30-observable-harness-generation-design.md`
+- Plan：`docs/superpowers/plans/2026-05-30-observable-harness-generation-plan.md`
+- 产物：`.ai/runs/<run_id>/events.jsonl`、`trace.yaml`、`decision-log.md`、`artifacts.yaml`
 
 来源：JiuwenSwarm Auto-Harness 调研 / 2026-05-30
 
@@ -34,4 +40,3 @@
 ## 触发执行的信号
 
 当我们开始增强生成质量、benchmark、真实仓库 E2E、InfoCode 集成时，再把这个 idea 提升为 spec 或 implementation plan。
-

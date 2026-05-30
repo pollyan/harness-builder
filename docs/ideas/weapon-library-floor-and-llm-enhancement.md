@@ -1,6 +1,12 @@
 # 武器库底线与模型增强机制
 
-状态：idea
+状态：implemented
+
+落地记录：
+
+- Spec：`docs/superpowers/specs/2026-05-30-weapon-library-llm-enhancement-design.md`
+- Plan：`docs/superpowers/plans/2026-05-30-weapon-library-llm-enhancement-plan.md`
+- 产物：`.ai/review/llm-enhancement-candidates.md`、`.ai/review/candidate-guides.md`、`.ai/review/candidate-sensors.md`、`.ai/experience/weapon-library-candidates.yaml`
 
 来源：产品设计讨论 / 2026-05-30
 
@@ -63,4 +69,3 @@ scan codebase
 ## 触发执行的信号
 
 当我们开始检查现有武器库使用方式、增强 Guide/Sensor 生成质量、设计 candidate 资产机制，或者评估模型补充建议如何进入 Harness 时，再把这个 idea 提升为 spec 或 implementation plan。
-
