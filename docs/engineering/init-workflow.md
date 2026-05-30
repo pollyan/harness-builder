@@ -172,6 +172,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 缺字段时测试应失败。
 - schema 变更必须同步测试。
 
+`maturity-score.yaml` 是成熟度与演进路线图的机器契约。它必须保留 `overall_level`、`dimension_scores`、`evidence`、`blocking_reasons` 和 `recommended_next_steps` 等摘要字段，同时包含结构化的 `dimensions`、`blocking_caps` 和 `next_steps`，用于记录每个成熟度维度的证据、阻断原因、下一等级要求和后续改进入口。
+
 Markdown 产物要求：
 
 - 可以使用中文自然语言。

@@ -36,7 +36,7 @@
 - Modify: `tests/unit/test_schema_contracts.py`
 - Modify: `src/harness_builder_agent/schemas/maturity_report.py`
 
-- [ ] **Step 1: Write failing schema test**
+- [x] **Step 1: Write failing schema test**
 
 Add to `tests/unit/test_schema_contracts.py`:
 
@@ -87,7 +87,7 @@ def test_maturity_report_records_structured_dimension_roadmap():
     assert report.next_steps[0].target_dimension == "guides"
 ```
 
-- [ ] **Step 2: Run schema test and confirm failure**
+- [x] **Step 2: Run schema test and confirm failure**
 
 Run:
 
@@ -97,7 +97,7 @@ Run:
 
 Expected: fail because `MaturityReport` does not have the new fields yet.
 
-- [ ] **Step 3: Implement schema models**
+- [x] **Step 3: Implement schema models**
 
 Replace `src/harness_builder_agent/schemas/maturity_report.py` with the expanded schema:
 
@@ -162,7 +162,7 @@ class MaturityReport(BaseModel):
     last_assessed_at: str | None = None
 ```
 
-- [ ] **Step 4: Run schema tests and confirm pass**
+- [x] **Step 4: Run schema tests and confirm pass**
 
 Run:
 
@@ -178,7 +178,7 @@ Expected: pass.
 - Create: `src/harness_builder_agent/tools/maturity_model.py`
 - Modify: `tests/integration/test_assess_improve_commands.py`
 
-- [ ] **Step 1: Write failing assess integration assertions**
+- [x] **Step 1: Write failing assess integration assertions**
 
 Extend `test_assess_generates_maturity_score_from_current_harness`:
 
@@ -209,7 +209,7 @@ Extend `test_assess_handles_empty_command_catalog_by_lowering_sensor_maturity`:
     assert any(step["target_dimension"] == "sensors" for step in score["next_steps"])
 ```
 
-- [ ] **Step 2: Run integration tests and confirm failure**
+- [x] **Step 2: Run integration tests and confirm failure**
 
 Run:
 
@@ -219,7 +219,7 @@ Run:
 
 Expected: fail because `dimensions`, `blocking_caps`, and `next_steps` are absent.
 
-- [ ] **Step 3: Implement `build_maturity_report`**
+- [x] **Step 3: Implement `build_maturity_report`**
 
 Create `src/harness_builder_agent/tools/maturity_model.py` with deterministic dimension construction. The implementation should:
 
@@ -230,7 +230,7 @@ Create `src/harness_builder_agent/tools/maturity_model.py` with deterministic di
 - Set `target_next_level` to the next level after `overall_level` when possible.
 - Return a `MaturityReport`.
 
-- [ ] **Step 4: Wire `assess_maturity` to builder**
+- [x] **Step 4: Wire `assess_maturity` to builder**
 
 Modify `src/harness_builder_agent/tools/assess_maturity.py`:
 
@@ -244,7 +244,7 @@ Replace inline `MaturityReport(...)` construction with:
 score = build_maturity_report(ai, inventory, commands, config, assessed_at=datetime.now(UTC).isoformat())
 ```
 
-- [ ] **Step 5: Update Markdown report writer**
+- [x] **Step 5: Update Markdown report writer**
 
 Update `_write_report` to include:
 
@@ -258,7 +258,7 @@ Update `_write_report` to include:
 ## 下一等级要求
 ```
 
-- [ ] **Step 6: Run focused integration tests and confirm pass**
+- [x] **Step 6: Run focused integration tests and confirm pass**
 
 Run:
 
@@ -274,7 +274,7 @@ Expected: pass.
 - Modify: `src/harness_builder_agent/tools/asset_writers/reports.py`
 - Modify: `tests/unit/test_asset_writer_reports.py`
 
-- [ ] **Step 1: Write failing initial writer assertions**
+- [x] **Step 1: Write failing initial writer assertions**
 
 In `tests/unit/test_asset_writer_reports.py`, extend the maturity score test:
 
@@ -286,7 +286,7 @@ In `tests/unit/test_asset_writer_reports.py`, extend the maturity score test:
     assert "next_steps" in maturity
 ```
 
-- [ ] **Step 2: Run unit test and confirm failure**
+- [x] **Step 2: Run unit test and confirm failure**
 
 Run:
 
@@ -296,7 +296,7 @@ Run:
 
 Expected: fail because initial writer still writes flat maturity score.
 
-- [ ] **Step 3: Wire asset writer to builder**
+- [x] **Step 3: Wire asset writer to builder**
 
 Modify `src/harness_builder_agent/tools/asset_writers/reports.py`:
 
@@ -318,7 +318,7 @@ return build_maturity_report(
 
 Update `_maturity_report(...)` to render the structured `MaturityReport`.
 
-- [ ] **Step 4: Run asset writer test and confirm pass**
+- [x] **Step 4: Run asset writer test and confirm pass**
 
 Run:
 
@@ -333,7 +333,7 @@ Expected: pass.
 **Files:**
 - All modified source and tests.
 
-- [ ] **Step 1: Run focused maturity tests**
+- [x] **Step 1: Run focused maturity tests**
 
 Run:
 
@@ -343,7 +343,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 2: Run default fast regression**
+- [x] **Step 2: Run default fast regression**
 
 Run:
 
@@ -353,7 +353,7 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 3: Commit implementation**
+- [x] **Step 3: Commit implementation**
 
 Run:
 

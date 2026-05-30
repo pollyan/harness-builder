@@ -84,10 +84,28 @@ def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, mo
     assert score["overall_level"].startswith("L")
     assert "workflow" in score["dimension_scores"]
     assert score["dimension_scores"]["observability"] == "L1"
+    expected_dimensions = {
+        "guides",
+        "sensors",
+        "workflow",
+        "risk_control",
+        "repair_loop",
+        "observability",
+        "experience",
+        "verification_sophistication",
+        "governance_auditability",
+    }
+    assert set(score["dimensions"]) == expected_dimensions
+    assert score["target_next_level"] == "L3"
+    assert score["dimensions"]["guides"]["evidence"]
+    assert score["dimensions"]["sensors"]["next_level_requirements"]
+    assert score["next_steps"]
     assert score["evidence"]
     assert score["blocking_reasons"]
     assert score["recommended_next_steps"]
     assert "## 证据" in report
+    assert "## 维度详情" in report
+    assert "## 下一等级要求" in report
     assert not (repo / ".ai" / "task-runs").exists()
     trace = _latest_trace(repo)
     assert trace["command"] == "assess"
@@ -132,6 +150,9 @@ def test_assess_handles_empty_command_catalog_by_lowering_sensor_maturity(tmp_pa
     assert score["schema_version"] == "1.0"
     assert score["overall_level"] == "L0"
     assert score["dimension_scores"]["sensors"] == "L0"
+    assert score["dimensions"]["sensors"]["level"] == "L0"
+    assert any(cap["id"] == "no-executable-sensors" and cap["active"] for cap in score["blocking_caps"])
+    assert any(step["target_dimension"] == "sensors" for step in score["next_steps"])
     assert "验证命令数量：0" in score["evidence"]
 
 

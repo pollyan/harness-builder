@@ -293,6 +293,58 @@ def test_maturity_report_records_scores_evidence_and_next_steps():
     assert report.dimension_scores["sensors"] == "L2"
 
 
+def test_maturity_report_records_structured_dimension_roadmap():
+    report = MaturityReport.model_validate(
+        {
+            "overall_level": "L2",
+            "target_next_level": "L3",
+            "dimension_scores": {"guides": "L2"},
+            "dimensions": {
+                "guides": {
+                    "level": "L2",
+                    "evidence": [{"source": ".ai/guides/project-context.md", "summary": "Structured project facts exist."}],
+                    "blockers": [
+                        {
+                            "id": "guides-not-risk-routed",
+                            "reason": "Guides are not loaded by risk context.",
+                            "prevents_level": "L3",
+                        }
+                    ],
+                    "next_level_requirements": ["Bind guides to workflow routing."],
+                    "confidence": "high",
+                }
+            },
+            "blocking_caps": [
+                {
+                    "id": "no-runtime-audit",
+                    "reason": "No runtime audit events were found.",
+                    "max_level": "L3",
+                    "active": True,
+                    "evidence": [".ai/task-runs absent"],
+                }
+            ],
+            "next_steps": [
+                {
+                    "id": "bind-guides-to-workflow",
+                    "target_dimension": "guides",
+                    "action": "Bind project guides to workflow routing.",
+                    "priority": "high",
+                    "expected_lift": "guides L2 -> L3",
+                }
+            ],
+            "evidence": ["summary"],
+            "blocking_reasons": ["blocker"],
+            "recommended_next_steps": ["next"],
+        }
+    )
+
+    assert report.target_next_level == "L3"
+    assert report.dimensions["guides"].evidence[0].source == ".ai/guides/project-context.md"
+    assert report.dimensions["guides"].blockers[0].prevents_level == "L3"
+    assert report.blocking_caps[0].active is True
+    assert report.next_steps[0].target_dimension == "guides"
+
+
 def test_improvement_candidate_report_requires_reviewable_candidates():
     report = ImprovementCandidateReport.model_validate(
         {

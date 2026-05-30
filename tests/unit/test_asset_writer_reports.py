@@ -48,7 +48,12 @@ def test_write_report_assets_writes_reports_scores_plan_and_records_trace(tmp_pa
     assert (ai / "maturity-score.yaml").exists()
     assert (ai / "evolution-plan.md").exists()
     assert "## 证据" in (ai / "maturity-report.md").read_text(encoding="utf-8")
-    assert yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8"))["schema_version"] == "1.0"
+    maturity = yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8"))
+    assert maturity["schema_version"] == "1.0"
+    assert "dimensions" in maturity
+    assert "guides" in maturity["dimensions"]
+    assert maturity["dimensions"]["workflow"]["next_level_requirements"]
+    assert "next_steps" in maturity
 
     artifacts = yaml.safe_load((ai / "runs" / "20260530-120000-init" / "artifacts.yaml").read_text(encoding="utf-8"))
     assert {"path": ".ai/scan-report.md", "kind": "report"} in artifacts["artifacts"]
