@@ -24,6 +24,7 @@ def _sources() -> dict[str, str]:
     return {
         ".ai/experience/pending-improvements.md": "- missing sensor coverage",
         ".ai/review/maturity-review.yaml": "summary: revise sensor candidate",
+        ".ai/review/workflow-routing-recommendation.yaml": "recommended_workflow: bugfix",
     }
 
 
@@ -105,3 +106,4 @@ def test_build_experience_summary_messages_includes_review_only_boundary():
     content = messages[-1]["content"]
     assert "Return one JSON object only" in content
     assert "Do not modify formal Guides" in content
+    assert "workflow-routing-recommendation.yaml" in content

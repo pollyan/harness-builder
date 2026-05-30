@@ -405,9 +405,32 @@ def test_summarize_experience_writes_review_only_summary(tmp_path: Path, monkeyp
     improve_result = runner.invoke(app, ["improve", "--repo", str(repo)])
     assert improve_result.exit_code == 0, improve_result.output
     formal_guide_before = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    (repo / ".ai" / "review" / "workflow-routing-recommendation.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "task_id": "task-1",
+                "task_brief": "Fix a regression.",
+                "recommended_workflow": "bugfix",
+                "matched_rule_ids": ["bugfix-intent"],
+                "risk_level": "medium",
+                "confidence": "high",
+                "rationale": "Bugfix task.",
+                "required_guides": [".ai/guides/project-context.md"],
+                "required_sensors": [".ai/sensors/verification.md"],
+                "human_confirmation_required": False,
+                "review_status": "pending_harness_maintainer_review",
+                "evidence_sources": [".ai/harness-config.yaml"],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
 
     def fake_summary(index, sources):
         assert ".ai/experience/pending-improvements.md" in sources
+        assert ".ai/review/workflow-routing-recommendation.yaml" in sources
         return ExperienceSummaryReport(
             summary="Sensor coverage is the main experience signal.",
             findings=[

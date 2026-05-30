@@ -20,6 +20,7 @@ SOURCE_PATHS = [
     ".ai/experience/deprecated-experience.md",
     ".ai/review/maturity-review.yaml",
     ".ai/review/asset-candidates.yaml",
+    ".ai/review/workflow-routing-recommendation.yaml",
 ]
 
 
