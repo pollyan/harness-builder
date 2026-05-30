@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+import re
 from pathlib import Path
 from unittest import mock
 
@@ -11,6 +12,9 @@ from harness_builder_agent.schemas.scan import EvidenceBundle
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
 from harness_builder_agent.tools.llm_scan_analyzer import analyze_evidence_with_llm, build_scan_messages, parse_llm_scan_response
+
+SCAN_PROMPT_ASSET = Path("src/harness_builder_agent/prompts/llm_first_scan_v2.md")
+LLM_SCAN_ANALYZER_SOURCE = Path("src/harness_builder_agent/tools/llm_scan_analyzer.py")
 
 
 def _bundle() -> EvidenceBundle:
@@ -93,6 +97,59 @@ def test_deepseek_config_default_max_tokens_handles_real_scan_json(monkeypatch: 
     assert config.max_tokens == 8192
 
 
+def test_scan_prompt_asset_exists_and_preserves_machine_contract():
+    assert SCAN_PROMPT_ASSET.exists()
+
+    prompt = SCAN_PROMPT_ASSET.read_text(encoding="utf-8")
+
+    assert len(re.findall(r"[\u4e00-\u9fff]", prompt)) > 100
+    for required in [
+        "primary_stack",
+        "java-spring",
+        "dotnet-aspnet",
+        "node",
+        "unknown",
+        "command_candidates",
+        "build",
+        "test",
+        "lint",
+        "typecheck",
+        "hard",
+        "soft",
+        "low",
+        "medium",
+        "high",
+    ]:
+        assert required in prompt
+
+
+def test_build_scan_messages_uses_scan_prompt_asset():
+    asset_prompt = SCAN_PROMPT_ASSET.read_text(encoding="utf-8").strip()
+
+    messages = build_scan_messages(_bundle())
+    user_message = next(message["content"] for message in messages if message["role"] == "user")
+    analyzer_source = LLM_SCAN_ANALYZER_SOURCE.read_text(encoding="utf-8")
+
+    assert "## User Message" in asset_prompt
+    assert "机器契约字段" in user_message
+    assert user_message.index("机器契约字段") < user_message.index("Evidence JSON:")
+    assert "Stack decision rules:" not in analyzer_source
+    assert "Example JSON shape:" not in analyzer_source
+
+
+def test_scan_prompt_asset_provides_chinese_system_message():
+    asset_prompt = SCAN_PROMPT_ASSET.read_text(encoding="utf-8")
+
+    messages = build_scan_messages(_bundle())
+    system_message = next(message["content"] for message in messages if message["role"] == "system")
+    analyzer_source = LLM_SCAN_ANALYZER_SOURCE.read_text(encoding="utf-8")
+
+    assert "## System Message" in asset_prompt
+    assert "Harness Builder 的扫描分析器" in system_message
+    assert "证据不足" in system_message
+    assert "You are the scan analyzer" not in analyzer_source
+
+
 def test_scan_prompt_contains_strict_json_schema_example():
     messages = build_scan_messages(_bundle())
     combined = "\n".join(message["content"] for message in messages)
@@ -100,15 +157,15 @@ def test_scan_prompt_contains_strict_json_schema_example():
     assert "json" in combined.lower()
     assert '"primary_stack": "java-spring"' in combined
     assert '"gate": "hard"' in combined
-    assert "Allowed primary_stack values" in combined
-    assert "confidence must be one of" in combined
+    assert "primary_stack" in combined
+    assert "confidence" in combined
 
 
 def test_scan_prompt_contains_stack_decision_rules():
     messages = build_scan_messages(_bundle())
     combined = "\n".join(message["content"] for message in messages)
 
-    assert "Stack decision rules" in combined
+    assert "栈判断" in combined
     assert "spring-boot-starter" in combined
     assert "DemoController" in combined
     assert "ASP.NET Core" in combined
@@ -142,7 +199,7 @@ def test_scan_prompt_explains_coverage_and_priority_evidence():
     assert "priority_files" in combined
     assert "test_files" in combined
     assert "api_entrypoints" in combined
-    assert "Do not conclude there are no tests only because a standard tests directory is missing" in combined
+    assert "不要因为缺少标准 tests 目录就断定没有测试" in combined
 
 
 def test_scan_prompt_omits_null_evidence_fields():

@@ -26,7 +26,7 @@ include = ["harness_builder_agent*"]
 exclude = ["tests*"]
 
 [tool.setuptools.package-data]
-harness_builder_agent = ["templates/skills/*/SKILL.md"]
+harness_builder_agent = ["templates/skills/*/SKILL.md", "prompts/*.md"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]

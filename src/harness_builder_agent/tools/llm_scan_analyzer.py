@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable
+from importlib import resources
 
 from pydantic import ValidationError
 
@@ -11,6 +12,7 @@ from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
 
 SCAN_PROMPT_VERSION = "llm-first-scan-v2"
+SCAN_PROMPT_RESOURCE = ("prompts", "llm_first_scan_v2.md")
 
 
 def analyze_evidence_with_llm(
@@ -26,87 +28,37 @@ def analyze_evidence_with_llm(
 
 
 def build_scan_messages(evidence: EvidenceBundle) -> list[dict[str, str]]:
-    schema_contract = """
-Return one JSON object only. Do not include markdown commentary.
-
-Allowed primary_stack values: java-spring, dotnet-aspnet, node, unknown.
-Use canonical lowercase stack labels in stacks, such as java, maven, spring-boot,
-dotnet, aspnet-core, node, npm, typescript. Do not use display labels like
-"Spring Boot" for primary_stack.
-
-Field contract:
-- primary_stack: one allowed canonical value.
-- stacks: array of canonical lowercase strings.
-- modules: array of objects with name, path, kind.
-- architecture_signals: array of strings grounded in evidence.
-- risk_areas: array of objects with path and reason.
-- command_candidates: array of objects with id, command, type, gate, source, confidence.
-- command_candidates.type must be one of build, test, lint, typecheck, other.
-- command_candidates.gate must be one of hard or soft. gate is quality strictness, not command category.
-- command_candidates.confidence must be one of low, medium, high.
-- confidence must be one of low, medium, high. Never use numeric confidence.
-- configs and ci_files must be arrays of objects.
-- needs_human_confirmation must be boolean.
-- reasoning_summary must be a short evidence-based string.
-
-Stack decision rules:
-- Choose java-spring when evidence contains Spring Boot or Spring Framework signals such as
-  spring-boot-starter dependencies, org.springframework imports, @SpringBootApplication,
-  @RestController, @Controller, or a DemoController under a Java/Maven/Gradle project.
-- Choose dotnet-aspnet when evidence contains ASP.NET Core signals such as Microsoft.NET.Sdk.Web,
-  Program.cs minimal API setup, controllers, MapGet/MapPost endpoints, .sln, or .csproj web SDK.
-- Choose node when evidence contains package.json plus Node application/runtime signals.
-- Choose unknown only when stack evidence is genuinely insufficient or conflicting.
-
-Evidence coverage rules:
-- Review coverage, priority_files, test_files, api_entrypoints, and risk_files before deciding confidence.
-- Prefer critical/high priority evidence over ordinary source samples.
-- Do not conclude there are no tests only because a standard tests directory is missing. Inspect test_files and command evidence.
-- If coverage warnings show skipped source buckets or missing key buckets, lower confidence or set needs_human_confirmation=true.
-- Mention important coverage uncertainty briefly in reasoning_summary.
-
-Example JSON shape:
-{
-  "schema_version": "1.0",
-  "primary_stack": "java-spring",
-  "stacks": ["java", "maven", "spring-boot"],
-  "modules": [{"name": "app", "path": ".", "kind": "backend"}],
-  "architecture_signals": ["Spring MVC controller evidence in src/main/java"],
-  "risk_areas": [{"path": "pom.xml", "reason": "No explicit CI file was found"}],
-  "command_candidates": [
-    {
-      "id": "unit_test",
-      "command": "mvn test",
-      "type": "test",
-      "gate": "hard",
-      "source": "pom.xml",
-      "confidence": "high"
-    }
-  ],
-  "configs": [{"path": "pom.xml", "kind": "maven"}],
-  "ci_files": [],
-  "confidence": "high",
-  "needs_human_confirmation": false,
-  "reasoning_summary": "Maven and Spring evidence were found in pom.xml and source files."
-}
-""".strip()
+    system_prompt, user_prompt = _load_scan_prompt()
     return [
         {
             "role": "system",
-            "content": (
-                "You are the scan analyzer for Harness Builder. "
-                "You convert repository evidence into a strict machine-readable scan proposal. "
-                "If evidence is weak, use unknown/low confidence instead of inventing facts."
-            ),
+            "content": system_prompt,
         },
         {
             "role": "user",
             "content": (
-                f"{schema_contract}\n\n"
+                f"{user_prompt}\n\n"
                 f"Evidence JSON:\n{evidence.model_dump_json(exclude_none=True)}"
             ),
         },
     ]
+
+
+def _load_scan_prompt() -> tuple[str, str]:
+    prompt = (
+        resources.files("harness_builder_agent")
+        .joinpath(*SCAN_PROMPT_RESOURCE)
+        .read_text(encoding="utf-8")
+        .strip()
+    )
+    system_marker = "## System Message"
+    user_marker = "## User Message"
+    if system_marker not in prompt or user_marker not in prompt:
+        raise ValueError("Scan prompt asset must contain System Message and User Message sections")
+    system_text, user_text = prompt.split(user_marker, 1)
+    system_text = system_text.replace(system_marker, "", 1).strip()
+    user_text = user_text.strip()
+    return system_text, user_text
 
 
 def parse_llm_scan_response(content: str) -> LLMScanProposal:
