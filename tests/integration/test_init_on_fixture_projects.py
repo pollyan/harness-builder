@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -14,12 +15,17 @@ from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _copy_fixture(tmp_path: Path, name: str) -> Path:
     target = tmp_path / name
     shutil.copytree(FIXTURES / name, target)
     return target
+
+
+def _strip_ansi(text: str) -> str:
+    return ANSI_RE.sub("", text)
 
 
 def _fake_scan(repo: Path, expected_stack: str):
@@ -223,7 +229,7 @@ def test_init_non_tty_requires_explicit_non_interactive(tmp_path: Path, monkeypa
     result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="")
 
     assert result.exit_code != 0
-    assert "--non-interactive" in result.output
+    assert "non-interactive" in _strip_ansi(result.output)
     assert not (repo / ".ai" / "project-inventory.json").exists()
 
 
