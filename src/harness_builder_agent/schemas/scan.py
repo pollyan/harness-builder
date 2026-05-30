@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 from harness_builder_agent.schemas.common import Confidence, Gate
 
+PrimaryStack = Literal["java-spring", "dotnet-aspnet", "node", "unknown"]
+
 
 class EvidenceFile(BaseModel):
     path: str
@@ -41,7 +43,7 @@ class LLMCommandCandidate(BaseModel):
 
 class LLMScanProposal(BaseModel):
     schema_version: str = "1.0"
-    primary_stack: str
+    primary_stack: PrimaryStack
     stacks: list[str] = Field(default_factory=list)
     modules: list[dict[str, Any]] = Field(default_factory=list)
     architecture_signals: list[str] = Field(default_factory=list)

@@ -104,6 +104,8 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:hard-gate-sensors-passed" in check_ids
     assert "schema:harness-map" in check_ids
     assert "schema:sensor-report" in check_ids
+    assert "schema:scan-metadata" in check_ids
+    assert "schema:llm-scan-proposal" in check_ids
     assert "schema:weapon-library-selection" in check_ids
     assert "schema:benchmark-report" in check_ids
     assert "schema:maturity-score" in check_ids

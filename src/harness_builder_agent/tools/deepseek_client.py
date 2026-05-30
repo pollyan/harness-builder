@@ -15,6 +15,7 @@ def call_deepseek(messages: list[dict[str, str]], config: DeepSeekConfig | None 
         "temperature": cfg.temperature,
         "max_tokens": cfg.max_tokens,
         "stream": False,
+        "response_format": {"type": "json_object"},
     }
     request = urllib.request.Request(
         f"{cfg.base_url}/chat/completions",

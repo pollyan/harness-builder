@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import time
@@ -9,7 +10,8 @@ from typing import Any
 from harness_builder_agent.schemas.command_catalog import CommandDefinition
 
 
-def run_sensor(repo: Path, command: CommandDefinition, timeout_seconds: int = 3) -> dict[str, Any]:
+def run_sensor(repo: Path, command: CommandDefinition, timeout_seconds: int | None = None) -> dict[str, Any]:
+    timeout = timeout_seconds if timeout_seconds is not None else int(os.getenv("HARNESS_BUILDER_SENSOR_TIMEOUT_SECONDS", "60"))
     executable = command.command.split()[0]
     started_at = time.time()
     if shutil.which(executable) is None:
@@ -30,7 +32,7 @@ def run_sensor(repo: Path, command: CommandDefinition, timeout_seconds: int = 3)
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=timeout_seconds,
+            timeout=timeout,
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
@@ -40,7 +42,7 @@ def run_sensor(repo: Path, command: CommandDefinition, timeout_seconds: int = 3)
             "status": "failed",
             "exit_code": None,
             "duration_seconds": round(time.time() - started_at, 3),
-            "summary": f"Sensor timed out after {timeout_seconds} seconds.",
+            "summary": f"Sensor timed out after {timeout} seconds.",
             "stdout_tail": (exc.stdout or "")[-2000:],
             "stderr_tail": (exc.stderr or "")[-2000:],
         }

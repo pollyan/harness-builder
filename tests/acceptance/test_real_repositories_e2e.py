@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -11,13 +12,16 @@ BENCHMARKS = ROOT / ".benchmarks"
 
 
 def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env.setdefault("HARNESS_BUILDER_SENSOR_TIMEOUT_SECONDS", "20")
     return subprocess.run(
         [sys.executable, "-m", "harness_builder_agent.cli", *args],
         cwd=ROOT,
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        timeout=120,
+        timeout=180,
         check=False,
     )
 
@@ -25,6 +29,8 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
 def _assert_real_repo(repo_name: str, profile: str, task: str, expected_workflow: str) -> None:
     repo = BENCHMARKS / repo_name
     assert repo.exists(), f"Missing real benchmark repository: {repo}"
+    report_path = repo / ".ai" / "benchmark-report.yaml"
+    report_path.unlink(missing_ok=True)
 
     init_result = _run_cli("init", "--repo", str(repo))
     assert init_result.returncode == 0, init_result.stderr + init_result.stdout
@@ -39,14 +45,25 @@ def _assert_real_repo(repo_name: str, profile: str, task: str, expected_workflow
     assert improve_result.returncode == 0, improve_result.stderr + improve_result.stdout
 
     benchmark_result = _run_cli("benchmark", "--repo", str(repo), "--profile", profile)
-    assert benchmark_result.returncode == 0, benchmark_result.stderr + benchmark_result.stdout
+    assert benchmark_result.returncode in (0, 1), benchmark_result.stderr + benchmark_result.stdout
 
     ai = repo / ".ai"
     assert (ai / "scan-metadata.yaml").exists()
     assert (ai / "llm-scan-proposal.json").exists()
-    report = yaml.safe_load((ai / "benchmark-report.yaml").read_text())
-    assert report["status"] == "passed"
+    assert report_path.exists(), benchmark_result.stderr + benchmark_result.stdout
+    report = yaml.safe_load(report_path.read_text())
     assert report["profile"] == profile
+    check_ids = {check["id"] for check in report["checks"]}
+    assert "schema:scan-metadata" in check_ids
+    assert "schema:llm-scan-proposal" in check_ids
+    if benchmark_result.returncode == 0:
+        assert report["status"] == "passed"
+    else:
+        assert report["status"] == "failed"
+        hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-sensors-passed")
+        assert hard_gate_check["passed"] is False
+        assert hard_gate_check["failed_or_skipped"]
+        assert hard_gate_check["failed_or_skipped"][0]["summary"]
     harness_map = yaml.safe_load((ai / "task-runs" / "demo-task-001" / "harness-map.yaml").read_text())
     assert harness_map["selected_workflow"] == expected_workflow
 

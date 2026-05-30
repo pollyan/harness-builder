@@ -13,6 +13,7 @@ from harness_builder_agent.schemas.improvement_candidate import ImprovementCandi
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.sensor_report import SensorReport
+from harness_builder_agent.schemas.scan import LLMScanProposal, ScanMetadata
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
@@ -93,6 +94,18 @@ def _schema_checks(ai: Path) -> list[dict[str, Any]]:
         checks.append({"id": "schema:harness-config", "passed": True})
     except Exception as exc:  # pragma: no cover
         checks.append({"id": "schema:harness-config", "passed": False, "error": str(exc)})
+
+    try:
+        ScanMetadata.model_validate(yaml.safe_load((ai / "scan-metadata.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:scan-metadata", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:scan-metadata", "passed": False, "error": str(exc)})
+
+    try:
+        LLMScanProposal.model_validate_json((ai / "llm-scan-proposal.json").read_text(encoding="utf-8"))
+        checks.append({"id": "schema:llm-scan-proposal", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:llm-scan-proposal", "passed": False, "error": str(exc)})
 
     try:
         WeaponLibrarySelection.model_validate(yaml.safe_load((ai / "weapon-library-selection.yaml").read_text(encoding="utf-8")))
