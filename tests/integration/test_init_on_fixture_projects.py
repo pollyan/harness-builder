@@ -65,7 +65,7 @@ def _fake_scan(repo: Path, expected_stack: str):
     return scan_repository(repo, llm_caller=lambda _messages: json.dumps(response))
 
 
-def _assert_init_outputs(repo: Path, expected_stack: str) -> None:
+def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text: str | None = None) -> None:
     ai = repo / ".ai"
     assert (ai / "project-inventory.json").exists()
     assert (ai / "command-catalog.yaml").exists()
@@ -77,6 +77,9 @@ def _assert_init_outputs(repo: Path, expected_stack: str) -> None:
     assert (ai / "maturity-report.md").exists()
     assert (ai / "maturity-score.yaml").exists()
     assert (ai / "evolution-plan.md").exists()
+    assert (ai / "context-inputs.yaml").exists()
+    assert (ai / "questionnaire.yaml").exists()
+    assert (ai / "human-input-needed.md").exists()
     assert (ai / "guides" / "project-context.md").exists()
     assert (ai / "guides" / "coding-rules.md").exists()
     assert (ai / "guides" / "architecture.md").exists()
@@ -130,6 +133,16 @@ def _assert_init_outputs(repo: Path, expected_stack: str) -> None:
     assert "轻量级开发工作流" in lightweight_skill
     assert "缺陷修复工作流" in bugfix_skill
 
+    questionnaire = yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8"))
+    ids = {item["interaction_id"] for item in questionnaire["questions"]}
+    assert "confirm:team-context" in ids
+    assert "confirm:guide-candidates" in ids
+    assert "confirm:sensor-gates" in ids
+    human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8")
+    assert "# Human Input Needed" in human_input
+    if expected_context_text:
+        assert expected_context_text in human_input
+
     runs = sorted((ai / "runs").iterdir())
     assert runs
     latest = runs[-1]
@@ -150,11 +163,13 @@ def _assert_init_outputs(repo: Path, expected_stack: str) -> None:
 
 def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    context = tmp_path / "team-rules.md"
+    context.write_text("团队规则：Controller 只能调用 Service。", encoding="utf-8")
     monkeypatch.setattr("harness_builder_agent.cli.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
-    result = CliRunner().invoke(app, ["init", "--repo", str(repo)])
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--context", str(context)])
 
     assert result.exit_code == 0, result.output
-    _assert_init_outputs(repo, "java-spring")
+    _assert_init_outputs(repo, "java-spring", expected_context_text="团队规则")
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text())
     assert inventory["primary_stack"] == "java-spring"
 

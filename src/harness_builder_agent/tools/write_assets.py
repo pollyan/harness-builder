@@ -12,6 +12,7 @@ from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.human_confirmation import build_questionnaire, human_input_markdown, read_context_inputs
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 
 
@@ -28,10 +29,19 @@ def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
     _write_text(path, yaml.safe_dump(payload, sort_keys=False, allow_unicode=True))
 
 
-def write_initial_assets(repo: Path, inventory: ProjectInventory, commands: CommandCatalog, trace: GenerationTrace | None = None) -> Path:
+def write_initial_assets(
+    repo: Path,
+    inventory: ProjectInventory,
+    commands: CommandCatalog,
+    trace: GenerationTrace | None = None,
+    context_paths: list[Path] | None = None,
+) -> Path:
     ai = repo / ".ai"
     config = HarnessConfig.default()
     weapon_selection = select_weapon_library(inventory, commands)
+    scan_metadata = _scan_metadata(inventory)
+    context_inputs = read_context_inputs(context_paths or [])
+    questionnaire = build_questionnaire(context_inputs, scan_metadata)
     if trace:
         trace.event(
             "weapon-selection",
@@ -52,12 +62,25 @@ def write_initial_assets(repo: Path, inventory: ProjectInventory, commands: Comm
     _record_artifact(trace, ai / "command-catalog.yaml", "command_catalog")
     _write_yaml(ai / "harness-config.yaml", config.model_dump(mode="json"))
     _record_artifact(trace, ai / "harness-config.yaml", "config")
-    _write_yaml(ai / "scan-metadata.yaml", _scan_metadata(inventory))
+    _write_yaml(ai / "scan-metadata.yaml", scan_metadata)
     _record_artifact(trace, ai / "scan-metadata.yaml", "scan_metadata")
     _write_json(ai / "llm-scan-proposal.json", _llm_scan_proposal(inventory))
     _record_artifact(trace, ai / "llm-scan-proposal.json", "llm_scan_proposal")
     _write_yaml(ai / "weapon-library-selection.yaml", weapon_selection.model_dump(mode="json"))
     _record_artifact(trace, ai / "weapon-library-selection.yaml", "weapon_library_selection")
+    _write_yaml(ai / "context-inputs.yaml", context_inputs)
+    _record_artifact(trace, ai / "context-inputs.yaml", "context_inputs")
+    _write_yaml(ai / "questionnaire.yaml", questionnaire)
+    _record_artifact(trace, ai / "questionnaire.yaml", "questionnaire")
+    _write_text(ai / "human-input-needed.md", human_input_markdown(context_inputs, questionnaire))
+    _record_artifact(trace, ai / "human-input-needed.md", "human_confirmation")
+    if trace:
+        trace.event(
+            "human-confirmation",
+            "completed",
+            "Human confirmation assets generated.",
+            {"context_count": len(context_inputs["contexts"]), "question_count": len(questionnaire["questions"])},
+        )
 
     _write_text(ai / "scan-report.md", _scan_report(inventory, commands))
     _record_artifact(trace, ai / "scan-report.md", "report")
