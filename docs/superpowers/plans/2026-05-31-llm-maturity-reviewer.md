@@ -27,7 +27,7 @@
 - Modify: `tests/unit/test_schema_contracts.py`
 - Create: `src/harness_builder_agent/schemas/maturity_review.py`
 
-- [ ] **Step 1: Write failing schema tests**
+- [x] **Step 1: Write failing schema tests**
 
 Add imports:
 
@@ -79,7 +79,7 @@ def test_maturity_review_report_rejects_invalid_decision():
         )
 ```
 
-- [ ] **Step 2: Run schema tests and confirm failure**
+- [x] **Step 2: Run schema tests and confirm failure**
 
 Run:
 
@@ -89,7 +89,7 @@ Run:
 
 Expected: fail because `maturity_review.py` does not exist.
 
-- [ ] **Step 3: Implement schema**
+- [x] **Step 3: Implement schema**
 
 Create `src/harness_builder_agent/schemas/maturity_review.py`:
 
@@ -119,7 +119,7 @@ class MaturityReviewReport(BaseModel):
     global_risks: list[str] = Field(default_factory=list)
 ```
 
-- [ ] **Step 4: Run schema tests and confirm pass**
+- [x] **Step 4: Run schema tests and confirm pass**
 
 Run:
 
@@ -135,7 +135,7 @@ Expected: pass.
 - Create: `tests/unit/test_llm_maturity_reviewer.py`
 - Create: `src/harness_builder_agent/tools/llm_maturity_reviewer.py`
 
-- [ ] **Step 1: Write failing reviewer tests**
+- [x] **Step 1: Write failing reviewer tests**
 
 Create `tests/unit/test_llm_maturity_reviewer.py` with helpers that build minimal `MaturityReport`, `MaturityEvidencePack`, and `ImprovementCandidateReport`.
 
@@ -194,7 +194,7 @@ def test_parse_maturity_review_response_rejects_invalid_json():
         parse_maturity_review_response("not json", {"candidate-1"})
 ```
 
-- [ ] **Step 2: Run reviewer tests and confirm failure**
+- [x] **Step 2: Run reviewer tests and confirm failure**
 
 Run:
 
@@ -204,7 +204,7 @@ Run:
 
 Expected: fail because module does not exist.
 
-- [ ] **Step 3: Implement reviewer module**
+- [x] **Step 3: Implement reviewer module**
 
 Create `src/harness_builder_agent/tools/llm_maturity_reviewer.py` with:
 
@@ -229,7 +229,7 @@ Add `parse_maturity_review_response(content, candidate_ids)`:
 - validate `MaturityReviewReport`;
 - reject any `candidate_review.candidate_id` not in `candidate_ids`.
 
-- [ ] **Step 4: Run reviewer tests and confirm pass**
+- [x] **Step 4: Run reviewer tests and confirm pass**
 
 Run:
 
@@ -246,7 +246,7 @@ Expected: pass.
 - Modify: `src/harness_builder_agent/cli.py`
 - Modify: `tests/integration/test_assess_improve_commands.py`
 
-- [ ] **Step 1: Write failing CLI integration test**
+- [x] **Step 1: Write failing CLI integration test**
 
 Add `test_review_maturity_writes_llm_review_artifacts` to `tests/integration/test_assess_improve_commands.py`.
 
@@ -291,7 +291,7 @@ trace = _latest_trace(repo)
 assert trace["command"] == "review-maturity"
 ```
 
-- [ ] **Step 2: Run CLI test and confirm failure**
+- [x] **Step 2: Run CLI test and confirm failure**
 
 Run:
 
@@ -301,7 +301,7 @@ Run:
 
 Expected: fail because command does not exist.
 
-- [ ] **Step 3: Implement orchestration tool**
+- [x] **Step 3: Implement orchestration tool**
 
 Create `src/harness_builder_agent/tools/review_maturity.py`:
 
@@ -312,7 +312,7 @@ Create `src/harness_builder_agent/tools/review_maturity.py`:
 - write `.ai/review/maturity-review.yaml`;
 - write `.ai/review/maturity-review.md` with stable sections.
 
-- [ ] **Step 4: Add CLI command**
+- [x] **Step 4: Add CLI command**
 
 In `src/harness_builder_agent/cli.py`, add:
 
@@ -323,7 +323,7 @@ def review_maturity_command(repo: Path = typer.Option(..., "--repo", exists=True
 
 Create `GenerationTrace.start(repo, "review-maturity")`, call the orchestration tool, record both artifacts, and fail explicitly on exceptions.
 
-- [ ] **Step 5: Run CLI test and confirm pass**
+- [x] **Step 5: Run CLI test and confirm pass**
 
 Run:
 
@@ -338,7 +338,7 @@ Expected: pass.
 **Files:**
 - All modified files.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -348,7 +348,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 2: Run fast regression**
+- [x] **Step 2: Run fast regression**
 
 Run:
 
@@ -358,11 +358,11 @@ scripts/test-fast.sh
 
 Expected: pass.
 
-- [ ] **Step 3: Self-Harness Improvement Gate**
+- [x] **Step 3: Self-Harness Improvement Gate**
 
 Check whether docs or benchmark need updates. Expected result: update `docs/engineering/llm-contracts.md` to mention LLM maturity review as a structured machine-consumed LLM output. Do not add default benchmark required files yet because the command is opt-in.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 

@@ -8,6 +8,7 @@ import yaml
 from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
+from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -182,3 +183,41 @@ def test_improve_candidates_are_reviewable_and_target_ai_assets(tmp_path: Path, 
     assert candidates["candidates"]
     assert all(item["human_confirmation_required"] is True for item in candidates["candidates"])
     assert all(item["suggested_target"].startswith(".ai/") for item in candidates["candidates"])
+
+
+def test_review_maturity_writes_llm_review_artifacts(tmp_path: Path, monkeypatch):
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    runner = CliRunner()
+    assess_result = runner.invoke(app, ["assess", "--repo", str(repo)])
+    assert assess_result.exit_code == 0, assess_result.output
+    improve_result = runner.invoke(app, ["improve", "--repo", str(repo)])
+    assert improve_result.exit_code == 0, improve_result.output
+
+    def fake_review(score, evidence_pack, candidates):
+        return MaturityReviewReport(
+            summary="Candidates are aligned.",
+            reviewer_model="deepseek-test",
+            candidate_reviews=[
+                {
+                    "candidate_id": candidates.candidates[0].id,
+                    "decision": "support",
+                    "rationale": "Candidate is grounded in maturity evidence.",
+                    "suggested_acceptance_checks": ["Run benchmark."],
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                }
+            ],
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.review_maturity.review_maturity_with_llm", fake_review)
+
+    result = runner.invoke(app, ["review-maturity", "--repo", str(repo)])
+
+    assert result.exit_code == 0, result.output
+    review = yaml.safe_load((repo / ".ai" / "review" / "maturity-review.yaml").read_text(encoding="utf-8"))
+    markdown = (repo / ".ai" / "review" / "maturity-review.md").read_text(encoding="utf-8")
+    assert review["schema_version"] == "1.0"
+    assert review["candidate_reviews"][0]["decision"] == "support"
+    assert "# Maturity Review" in markdown
+    assert "## Candidate Reviews" in markdown
+    trace = _latest_trace(repo)
+    assert trace["command"] == "review-maturity"

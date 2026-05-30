@@ -10,6 +10,7 @@ from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
+from harness_builder_agent.tools.review_maturity import review_maturity
 
 app = typer.Typer(help="Generate, assess, improve, and benchmark project-level AI Coding Harness assets.")
 
@@ -97,6 +98,24 @@ def improve_command(repo: Path = typer.Option(..., "--repo", exists=True, file_o
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
     typer.echo(f"Generated improvement candidates in {output_dir}")
+
+
+@app.command("review-maturity")
+def review_maturity_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
+    """Run explicit LLM review for maturity-driven improvement candidates."""
+    trace = GenerationTrace.start(repo, "review-maturity")
+    try:
+        trace.event("maturity-review", "started", "LLM maturity review started.")
+        output_dir = review_maturity(repo)
+        trace.artifact(output_dir / "review" / "maturity-review.yaml", "maturity_review")
+        trace.artifact(output_dir / "review" / "maturity-review.md", "review")
+        trace.event("maturity-review", "completed", "LLM maturity review completed.", {"artifact_count": 2})
+        trace.finish("completed", {"artifact_count": 2})
+    except Exception as exc:
+        trace.event("maturity-review", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Generated maturity review in {output_dir / 'review'}")
 
 
 def main() -> None:

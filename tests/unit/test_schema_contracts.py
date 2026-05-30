@@ -7,6 +7,7 @@ from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.harness_map import HarnessMap
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
+from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.sensor_report import SensorReport
@@ -418,5 +419,46 @@ def test_improvement_candidate_report_rejects_unknown_candidate_type():
                         "rationale": "Bad type.",
                     }
                 ]
+            }
+        )
+
+
+def test_maturity_review_report_records_candidate_judgment():
+    report = MaturityReviewReport.model_validate(
+        {
+            "summary": "Candidates are directionally useful but need stronger acceptance checks.",
+            "reviewer_model": "deepseek-test",
+            "candidate_reviews": [
+                {
+                    "candidate_id": "maturity-next-step-guides",
+                    "decision": "revise",
+                    "rationale": "Guide update should be scoped to project-context first.",
+                    "risks": ["May overgeneralize local rules."],
+                    "suggested_acceptance_checks": ["Benchmark content:guides-quality passes."],
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                }
+            ],
+            "missing_candidates": ["Add runtime observability candidate."],
+            "global_risks": ["No runtime task-runs are available."],
+        }
+    )
+
+    assert report.schema_version == "1.0"
+    assert report.candidate_reviews[0].decision == "revise"
+    assert report.global_risks
+
+
+def test_maturity_review_report_rejects_invalid_decision():
+    with pytest.raises(ValidationError):
+        MaturityReviewReport.model_validate(
+            {
+                "summary": "bad",
+                "candidate_reviews": [
+                    {
+                        "candidate_id": "candidate-1",
+                        "decision": "approve",
+                        "rationale": "bad enum",
+                    }
+                ],
             }
         )

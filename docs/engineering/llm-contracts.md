@@ -24,6 +24,7 @@ Harness Builder 的扫描策略是 LLM-first。
 - module list。
 - risk areas。
 - architecture signals。
+- maturity review report。
 
 规则：
 
@@ -102,6 +103,7 @@ Prompt 是系统行为的一部分，应当可维护。
 - Prompt 修改必须有测试或 acceptance 验证。
 - Prompt 应明确要求 JSON object 和固定 schema。
 - Prompt 不应要求 LLM 直接输出最终文件内容。
+- LLM maturity review 只能输出结构化 review judgment，不能声称已经修改 Guides、Sensors、Workflow 或其他正式 Harness 资产。
 
 未来如果 Prompt 数量增加，应考虑拆到专门目录，例如 `src/harness_builder_agent/prompts/`。
 
@@ -116,6 +118,7 @@ LLM schema 应表达稳定业务契约。
 - 不要为了临时 prompt 方便加入含义模糊的字段。
 - 对 command candidate 必须保留 command、type、gate、source、confidence。
 - 对 human confirmation 必须有明确标记，而不是藏在自然语言里。
+- 对 maturity review 必须保留 candidate_id、decision、rationale、risks、suggested_acceptance_checks 和 evidence_sources，并拒绝未知 candidate_id。
 
 ## 错误处理
 
@@ -144,4 +147,4 @@ LLM 相关测试至少覆盖：
 - LLM 声称的 stack 与 evidence 冲突时会被调和。
 - 没有 DeepSeek key 的真实 acceptance 会失败。
 - mock LLM 测试不应该掩盖真实 LLM acceptance 的要求。
-
+- maturity review mock 测试必须覆盖合法 JSON、非法 JSON、schema 错误和未知 candidate_id。
