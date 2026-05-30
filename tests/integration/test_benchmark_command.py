@@ -100,6 +100,54 @@ def _write_valid_workflow_recommendation(ai: Path) -> None:
     )
 
 
+def _write_valid_asset_candidates(ai: Path) -> None:
+    review = ai / "review"
+    review.mkdir(parents=True, exist_ok=True)
+    improvements = yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+    source_id = improvements["candidates"][0]["id"]
+    (review / "asset-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_maturity_review",
+                "candidates": [
+                    {
+                        "id": "workflow-routing-policy-review",
+                        "kind": "workflow_policy",
+                        "source_candidate_id": source_id,
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/harness-config.yaml",
+                        "title": "Review workflow routing policy",
+                        "rationale": "Workflow recommendation evidence suggests a routing policy review.",
+                        "draft_content": "workflow_routing:\n  rules:\n    - id: standard-escalation",
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                        "acceptance_checks": ["Benchmark content:workflow-routing-policy passes."],
+                        "risk_level": "medium",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    for filename, title in {
+        "asset-candidate-guides.md": "Asset Candidate Guides",
+        "asset-candidate-sensors.md": "Asset Candidate Sensors",
+        "asset-candidate-workflows.md": "Asset Candidate Workflows",
+    }.items():
+        (review / filename).write_text(
+            f"# {title}\n\n"
+            "## Review workflow routing policy\n\n"
+            "### Rationale\n\nReview rationale.\n\n"
+            "### Draft Content\n\nDraft only.\n\n"
+            "### Evidence Sources\n\n- .ai/maturity-evidence.yaml\n\n"
+            "### Acceptance Checks\n\n- Benchmark content:workflow-routing-policy passes.\n",
+            encoding="utf-8",
+        )
+
+
 def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: str = "mini-spring-boot", profile: str = "java-spring") -> Path:
     repo = tmp_path / fixture_name
     shutil.copytree(FIXTURES / fixture_name, repo)
@@ -136,6 +184,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-routing-policy" in check_ids
     assert "content:maturity-routing-evidence" in check_ids
     assert "content:workflow-recommendation-review" in check_ids
+    assert "content:asset-candidate-review" in check_ids
     assert "content:guides-quality" in check_ids
     assert "content:stack-specific-guides" in check_ids
     assert "content:sensors-quality" in check_ids
@@ -322,6 +371,80 @@ def test_benchmark_records_absent_workflow_recommendation_as_optional(tmp_path: 
     recommendation = next(check for check in checks if check["id"] == "content:workflow-recommendation-review")
     assert recommendation["passed"] is True
     assert recommendation["present"] is False
+
+
+def test_benchmark_records_absent_asset_candidates_as_optional(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
+    assert asset_candidates["passed"] is True
+    assert asset_candidates["present"] is False
+
+
+def test_benchmark_accepts_valid_asset_candidate_review_artifacts(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
+    assert asset_candidates["passed"] is True
+    assert asset_candidates["present"] is True
+    assert asset_candidates["candidate_count"] == 1
+
+
+def test_benchmark_fails_asset_candidate_with_unknown_source_candidate(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    path = ai / "review" / "asset-candidates.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidates"][0]["source_candidate_id"] = "missing-candidate"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
+    assert asset_candidates["passed"] is False
+    assert "unknown_source_candidate_id" in asset_candidates["errors"]
+
+
+def test_benchmark_fails_asset_candidate_with_outside_ai_evidence(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    path = ai / "review" / "asset-candidates.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidates"][0]["evidence_sources"] = ["README.md"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
+    assert asset_candidates["passed"] is False
+    assert "evidence_source_outside_ai" in asset_candidates["errors"]
+
+
+def test_benchmark_fails_asset_candidate_when_markdown_sections_are_missing(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    (ai / "review" / "asset-candidate-workflows.md").write_text("# Asset Candidate Workflows\n", encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
+    assert asset_candidates["passed"] is False
+    assert "missing_markdown_sections" in asset_candidates["errors"]
 
 
 def test_benchmark_accepts_valid_workflow_recommendation_review_artifacts(tmp_path: Path, monkeypatch):

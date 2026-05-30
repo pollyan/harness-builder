@@ -6,6 +6,7 @@ from typing import Any
 
 import yaml
 
+from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
@@ -285,6 +286,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _workflow_routing_policy_check(ai),
         _maturity_routing_evidence_check(ai),
         _workflow_recommendation_review_check(ai),
+        _asset_candidate_review_check(ai),
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
@@ -456,6 +458,58 @@ def _workflow_recommendation_review_check(ai: Path) -> dict[str, Any]:
         "recommended_workflow": report.recommended_workflow,
         "matched_rule_count": len(report.matched_rule_ids),
         "errors": errors,
+    }
+
+
+def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "review" / "asset-candidates.yaml"
+    markdown_paths = [
+        ai / "review" / "asset-candidate-guides.md",
+        ai / "review" / "asset-candidate-sensors.md",
+        ai / "review" / "asset-candidate-workflows.md",
+    ]
+    present_paths = [path for path in [yaml_path, *markdown_paths] if path.exists()]
+    if not present_paths:
+        return {"id": "content:asset-candidate-review", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or len(present_paths) != 4:
+        errors.append("incomplete_asset_candidate_artifact_set")
+
+    try:
+        report = AssetCandidateReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+        improvements = ImprovementCandidateReport.model_validate(
+            yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+        )
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:asset-candidate-review", "passed": False, "present": True, "errors": [str(exc)]}
+
+    known_candidate_ids = {candidate.id for candidate in improvements.candidates}
+    for candidate in report.candidates:
+        if (
+            candidate.source_candidate_id
+            and candidate.source_review_decision != "missing"
+            and candidate.source_candidate_id not in known_candidate_ids
+        ):
+            errors.append("unknown_source_candidate_id")
+        if not candidate.suggested_path.startswith(".ai/"):
+            errors.append("suggested_path_outside_ai")
+        if any(not source.startswith(".ai/") for source in candidate.evidence_sources):
+            errors.append("evidence_source_outside_ai")
+
+    required_sections = ["### Rationale", "### Draft Content", "### Evidence Sources", "### Acceptance Checks"]
+    for path in markdown_paths:
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        if any(section not in text for section in required_sections):
+            errors.append("missing_markdown_sections")
+            break
+
+    return {
+        "id": "content:asset-candidate-review",
+        "passed": not errors,
+        "present": True,
+        "candidate_count": len(report.candidates),
+        "errors": sorted(set(errors)),
     }
 
 
