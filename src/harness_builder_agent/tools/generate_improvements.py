@@ -39,6 +39,8 @@ def _candidates(score: MaturityReport, evidence_pack: MaturityEvidencePack) -> l
     for warning in evidence_pack.warnings:
         if "task-runs" in warning:
             _append_unique(candidates, seen, _runtime_evidence_candidate(warning, evidence_pack))
+    if evidence_pack.experience.workflow_recommendation_count > 0:
+        _append_unique(candidates, seen, _workflow_recommendation_review_candidate(evidence_pack))
     return candidates
 
 
@@ -102,6 +104,32 @@ def _runtime_evidence_candidate(warning: str, evidence_pack: MaturityEvidencePac
         target_dimension="observability",
         source_blocking_cap="runtime-audit-not-owned-by-builder",
         acceptance_checks=_acceptance_checks("observability"),
+        evidence_sources=_evidence_sources(evidence_pack),
+    )
+
+
+def _workflow_recommendation_review_candidate(evidence_pack: MaturityEvidencePack) -> ImprovementCandidate:
+    count = evidence_pack.experience.workflow_recommendation_count
+    return ImprovementCandidate(
+        id="experience-workflow-recommendation-review",
+        candidate_type="workflow_policy_update",
+        suggested_target=".ai/harness-config.yaml",
+        rationale=(
+            "Workflow recommendation review evidence exists; inspect whether routing policy should be adjusted "
+            "or whether current rules already cover the recommendation."
+        ),
+        evidence=[
+            f"Workflow recommendation reviews: {count}.",
+            "Recommendation artifacts are review-only and must not be treated as applied routing changes.",
+        ],
+        confidence="medium",
+        priority="medium",
+        target_dimension="workflow",
+        acceptance_checks=[
+            "Candidate remains pending review before formal workflow assets are changed.",
+            "Benchmark content:workflow-recommendation-review passes when recommendation artifacts are present.",
+            "Benchmark content:workflow-routing-policy passes after any reviewed routing policy change.",
+        ],
         evidence_sources=_evidence_sources(evidence_pack),
     )
 

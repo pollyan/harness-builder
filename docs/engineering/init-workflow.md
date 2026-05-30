@@ -117,6 +117,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 成熟度评分中的 Experience 维度应优先消费 `.ai/experience/experience-index.yaml` 的结构化计数，包括 workflow recommendation review 计数；旧版本 Harness 缺少 index 时才使用 pending improvement 文件存在性作为兼容判断。
 
+`improve` 应把非零 workflow recommendation review 计数转成待审核的 `workflow_policy_update` 候选，指向 `.ai/harness-config.yaml`；不得直接修改正式 routing policy。
+
 必须生成的语义上下文产物：
 
 - `.ai/scan-report.md`
