@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
+
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
+from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.maturity_report import (
     MaturityBlocker,
@@ -213,6 +216,39 @@ def _observability_dimension(ai: Path | None) -> MaturityDimensionReport:
 
 
 def _experience_dimension(ai: Path | None) -> MaturityDimensionReport:
+    if ai is not None and (ai / "experience" / "experience-index.yaml").exists():
+        index = ExperienceIndex.model_validate(yaml.safe_load((ai / "experience" / "experience-index.yaml").read_text(encoding="utf-8")))
+        signal_count = (
+            index.pending_improvement_count
+            + index.asset_candidate_count
+            + index.maturity_review_count
+            + index.workflow_recommendation_count
+            + index.runtime_task_run_count
+        )
+        evidence = [
+            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Pending improvements: {index.pending_improvement_count}."),
+            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Asset candidates: {index.asset_candidate_count}."),
+            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Maturity reviews: {index.maturity_review_count}."),
+            MaturityEvidence(
+                source=".ai/experience/experience-index.yaml",
+                summary=f"Workflow recommendation reviews: {index.workflow_recommendation_count}.",
+            ),
+            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Runtime task runs: {index.runtime_task_run_count}."),
+        ]
+        return MaturityDimensionReport(
+            level="L2" if signal_count else "L1",
+            evidence=evidence,
+            blockers=[
+                MaturityBlocker(
+                    id="experience-not-runtime-derived",
+                    reason="Experience candidates are not yet derived from real task outcomes and review feedback.",
+                    prevents_level="L3",
+                )
+            ],
+            next_level_requirements=["Extract experience candidates from Runtime artifacts and review feedback."],
+            confidence="medium",
+        )
+
     has_pending = ai is None or (ai / "experience" / "pending-improvements.md").exists()
     return MaturityDimensionReport(
         level="L1" if has_pending else "L0",

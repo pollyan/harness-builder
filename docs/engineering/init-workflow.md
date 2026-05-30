@@ -115,6 +115,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 其中 `.ai/experience/experience-index.yaml` 是 Experience 资产的机器消费索引，必须记录已存在的 Experience Markdown、pending improvement 数量、asset candidate 数量、maturity review 数量、可选 `.ai/review/workflow-routing-recommendation.yaml` 数量和可选 Runtime task-run 数量。它由 Builder 在初始化、`improve`、候选资产生成和 Experience Summary 后刷新；Builder 只统计 `.ai/task-runs` 的宿主 Runtime 过程数据，不主动生成该目录。
 
+成熟度评分中的 Experience 维度应优先消费 `.ai/experience/experience-index.yaml` 的结构化计数，包括 workflow recommendation review 计数；旧版本 Harness 缺少 index 时才使用 pending improvement 文件存在性作为兼容判断。
+
 必须生成的语义上下文产物：
 
 - `.ai/scan-report.md`
@@ -226,7 +228,7 @@ Skill 产物要求：
 - `--context` 和交互输入能进入 generated guides。
 - `.ai/interaction-decisions.yaml` 能通过 schema 校验并进入 trace artifact。
 - `.ai/maturity-evidence.yaml` 能通过 schema 校验，包含成熟度输入来源、workflow routing rule 明细，并进入 trace artifact。
-- `.ai/experience/experience-index.yaml` 能通过 schema 校验，包含 Experience Markdown 存在性、pending improvement、asset candidate、maturity review 和 Runtime task-run 统计。
+- `.ai/experience/experience-index.yaml` 能通过 schema 校验，包含 Experience Markdown 存在性、pending improvement、asset candidate、maturity review、workflow recommendation review 和 Runtime task-run 统计。
 - Experience Markdown 初始化只创建缺失文件，不能覆盖已有客户编辑。
 - 生成 JSON/YAML 能通过 schema 校验。
 - guide/sensor 包含 stack-specific 内容。
