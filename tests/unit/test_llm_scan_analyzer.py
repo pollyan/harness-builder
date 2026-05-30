@@ -161,6 +161,15 @@ def test_scan_prompt_contains_strict_json_schema_example():
     assert "confidence" in combined
 
 
+def test_scan_prompt_shows_file_reference_objects_not_string_lists():
+    messages = build_scan_messages(_bundle())
+    combined = "\n".join(message["content"] for message in messages)
+
+    assert '"configs": [{"path": "pom.xml", "kind": "maven"}]' in combined
+    assert '"ci_files": [{"path": ".github/workflows/ci.yml", "kind": "github-actions"}]' in combined
+    assert "不要把 configs 或 ci_files 写成字符串数组" in combined
+
+
 def test_scan_prompt_contains_stack_decision_rules():
     messages = build_scan_messages(_bundle())
     combined = "\n".join(message["content"] for message in messages)

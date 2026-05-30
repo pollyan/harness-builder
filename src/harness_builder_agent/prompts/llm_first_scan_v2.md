@@ -20,7 +20,7 @@
 - command_candidates.gate: 只能是 hard 或 soft。gate 表示质量门禁严格程度，不是命令类别。
 - command_candidates.confidence: 只能是 low、medium、high。
 - confidence: 只能是 low、medium、high。不要使用数字置信度。
-- configs 和 ci_files: 必须是对象数组。
+- configs 和 ci_files: 必须是对象数组，每个元素至少包含 path 和 kind。不要把 configs 或 ci_files 写成字符串数组，例如不要写成 ["pom.xml"] 或 [".github/workflows/ci.yml"]。
 - needs_human_confirmation: 必须是 boolean。
 - reasoning_summary: 简短说明判断依据，必须引用 evidence 中的重要事实或不确定性。
 
@@ -59,7 +59,7 @@ Evidence 覆盖与优先级规则：
     }
   ],
   "configs": [{"path": "pom.xml", "kind": "maven"}],
-  "ci_files": [],
+  "ci_files": [{"path": ".github/workflows/ci.yml", "kind": "github-actions"}],
   "confidence": "high",
   "needs_human_confirmation": false,
   "reasoning_summary": "Maven and Spring evidence were found in pom.xml and source files."
