@@ -75,6 +75,9 @@ def _assert_real_repo(repo_name: str, profile: str, task: str, expected_workflow
     assert "benchmark" in trace["stages"]
     harness_map = yaml.safe_load((ai / "task-runs" / "demo-task-001" / "harness-map.yaml").read_text())
     assert harness_map["selected_workflow"] == expected_workflow
+    runtime_summary = yaml.safe_load((ai / "task-runs" / "demo-task-001" / "runtime-summary.yaml").read_text())
+    assert runtime_summary["selected_workflow"] == expected_workflow
+    assert runtime_summary["used_guide_count"] > 0
 
 
 def test_real_repositories_init_run_and_benchmark_end_to_end():
