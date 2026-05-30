@@ -18,11 +18,7 @@
 
 | Todo | 状态 | 优先级 | 说明 |
 | --- | --- | --- | --- |
-| [全局交互式 CLI 与强引导式 Harness 生成](interactive-guided-cli.md) | open | high | 将 `init` 从命令式工具升级为阶段性确认、信息收集、候选项审查和人工修正的强引导式 CLI Agent |
-| [大仓库 Evidence 扫描深度增强](evidence-depth-for-large-repositories.md) | open | high | 当前 evidence collector 适合 POC，但大仓库场景可能遗漏关键模块、测试、配置和风险证据 |
-| [测试覆盖深度与 Acceptance 策略增强](testing-coverage-and-acceptance-strategy.md) | open | high | 默认测试只有 38 个，关键模块的失败路径、边界条件和 acceptance 运行策略需要系统补强 |
-| [Benchmark 质量评分细化](benchmark-quality-scoring.md) | open | medium-high | 当前 benchmark 偏结构验收，需要补充 guide/sensor/command/evidence 的质量评分和扣分原因 |
-| [Asset Writer 拆分重构](asset-writer-refactor.md) | open | medium | `write_assets.py` 职责过重，后续需要按产物类型拆分并补单元测试 |
+| 暂无 | - | - | 当前已知 todo 均已完成第一版实现，并归档到 [archive.md](archive.md)。 |
 
 ## 管理规则
 
