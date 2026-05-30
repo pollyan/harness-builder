@@ -12,7 +12,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[test]"
 ```
 
-真实 DeepSeek smoke test 可使用本地 `.env`，不要提交：
+真实 DeepSeek 扫描验收使用本地 `.env`，不要提交：
 
 ```bash
 DEEPSEEK_API_KEY=你的 DeepSeek API Key
@@ -40,6 +40,8 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
   project-inventory.json
   command-catalog.yaml
   harness-config.yaml
+  scan-metadata.yaml
+  llm-scan-proposal.json
   weapon-library-selection.yaml
   guides/
   sensors/
@@ -62,7 +64,7 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
   experience-candidates.md
 ```
 
-`assess` 更新成熟度评估，`improve` 生成待确认改进候选，`benchmark` 会检查文件存在、schema 和内容质量。
+`assess` 更新成熟度评估，`improve` 生成待确认改进候选，`benchmark` 会检查文件存在、schema、内容质量和 hard gate Sensor 结果。
 
 ## 真实开源仓库验证
 
@@ -95,8 +97,8 @@ git clone --depth 1 https://github.com/dotnet-architecture/eShopOnWeb.git .bench
 ```bash
 .venv/bin/python -m pytest -q
 .venv/bin/python -m pytest tests/e2e -q
-.venv/bin/python -m pytest tests/e2e/test_real_repositories_e2e.py -q
-.venv/bin/python -m pytest tests/e2e/test_real_llm_smoke.py -q
+.venv/bin/python -m pytest tests/acceptance/test_real_llm_scan.py -q
+.venv/bin/python -m pytest tests/acceptance/test_real_repositories_e2e.py -q
 ```
 
-如果 `.env` 中存在 `DEEPSEEK_API_KEY`，真实 DeepSeek smoke test 会实际请求 DeepSeek；没有 key 时会跳过该 smoke test。
+默认测试不运行 `tests/acceptance`，用于 CI 的 mock LLM 验证。显式运行 acceptance 时会实际请求 DeepSeek；没有 `DEEPSEEK_API_KEY` 会失败，不会跳过。

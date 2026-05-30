@@ -31,4 +31,4 @@ harness_builder_agent = ["templates/skills/*/SKILL.md"]
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 addopts = "-p no:cacheprovider"
-testpaths = ["tests"]
+testpaths = ["tests/unit", "tests/integration", "tests/e2e"]
