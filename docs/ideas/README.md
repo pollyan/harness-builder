@@ -9,3 +9,4 @@
 | [可观测的 Harness 生成过程](observable-harness-generation.md) | idea | JiuwenSwarm Auto-Harness 调研 | 追溯生成过程和规则来源 |
 | [可观测的开发工作流运行过程](observable-harness-runtime-workflow.md) | idea | JiuwenSwarm Auto-Harness 调研 | 追踪 Harness 在真实开发任务中的使用效果 |
 | [向导式 Harness 生成与人机确认机制](wizard-style-human-confirmation.md) | idea | JiuwenSwarm Auto-Harness 调研 / 产品设计讨论 | 通过低置信度提问、组织规范输入和候选资产确认增强生成质量 |
+| [武器库底线与模型增强机制](weapon-library-floor-and-llm-enhancement.md) | idea | 产品设计讨论 | 确保武器库提供稳定底线，同时允许大模型补充合理的上限建议 |
