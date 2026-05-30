@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -11,6 +10,7 @@ from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
+from harness_builder_agent.tools.asset_writers.core import llm_scan_proposal, scan_metadata, write_core_assets
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.human_confirmation import build_questionnaire, human_input_markdown, read_context_inputs
 from harness_builder_agent.tools.llm_enhancement_candidates import (
@@ -27,10 +27,6 @@ def _write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    _write_text(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
-
-
 def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
     _write_text(path, yaml.safe_dump(payload, sort_keys=False, allow_unicode=True))
 
@@ -45,9 +41,10 @@ def write_initial_assets(
     ai = repo / ".ai"
     config = HarnessConfig.default()
     weapon_selection = select_weapon_library(inventory, commands)
-    scan_metadata = _scan_metadata(inventory)
+    scan_metadata_payload = scan_metadata(inventory)
+    llm_scan_proposal_payload = llm_scan_proposal(inventory)
     context_inputs = read_context_inputs(context_paths or [])
-    questionnaire = build_questionnaire(context_inputs, scan_metadata)
+    questionnaire = build_questionnaire(context_inputs, scan_metadata_payload)
     enhancement_candidates = build_llm_enhancement_candidates(inventory, commands)
     if trace:
         trace.event(
@@ -63,18 +60,16 @@ def write_initial_assets(
         )
         trace.event("asset-write", "started", "Initial harness asset writing started.")
 
-    _write_json(ai / "project-inventory.json", inventory.model_dump(mode="json"))
-    _record_artifact(trace, ai / "project-inventory.json", "inventory")
-    _write_yaml(ai / "command-catalog.yaml", commands.model_dump(mode="json"))
-    _record_artifact(trace, ai / "command-catalog.yaml", "command_catalog")
-    _write_yaml(ai / "harness-config.yaml", config.model_dump(mode="json"))
-    _record_artifact(trace, ai / "harness-config.yaml", "config")
-    _write_yaml(ai / "scan-metadata.yaml", scan_metadata)
-    _record_artifact(trace, ai / "scan-metadata.yaml", "scan_metadata")
-    _write_json(ai / "llm-scan-proposal.json", _llm_scan_proposal(inventory))
-    _record_artifact(trace, ai / "llm-scan-proposal.json", "llm_scan_proposal")
-    _write_yaml(ai / "weapon-library-selection.yaml", weapon_selection.model_dump(mode="json"))
-    _record_artifact(trace, ai / "weapon-library-selection.yaml", "weapon_library_selection")
+    write_core_assets(
+        ai,
+        inventory,
+        commands,
+        config,
+        scan_metadata_payload,
+        llm_scan_proposal_payload,
+        weapon_selection,
+        trace=trace,
+    )
     _write_yaml(ai / "context-inputs.yaml", context_inputs)
     _record_artifact(trace, ai / "context-inputs.yaml", "context_inputs")
     _write_yaml(ai / "questionnaire.yaml", questionnaire)
@@ -160,39 +155,6 @@ def _scan_report(inventory: ProjectInventory, commands: CommandCatalog) -> str:
         "## Command Candidates\n\n"
         f"{command_lines}\n"
     )
-
-
-def _scan_metadata(inventory: ProjectInventory) -> dict[str, Any]:
-    metadata = inventory.stack_extensions.get("scan_metadata")
-    if isinstance(metadata, dict):
-        return metadata
-    return {
-        "schema_version": "1.0",
-        "llm_status": "unknown",
-        "prompt_version": "unknown",
-        "evidence_file_count": inventory.stack_extensions.get("detected_file_count", 0),
-        "warnings": [],
-    }
-
-
-def _llm_scan_proposal(inventory: ProjectInventory) -> dict[str, Any]:
-    proposal = inventory.stack_extensions.get("llm_scan_proposal")
-    if isinstance(proposal, dict):
-        return proposal
-    return {
-        "schema_version": "1.0",
-        "primary_stack": inventory.primary_stack,
-        "stacks": inventory.stacks,
-        "modules": inventory.modules,
-        "architecture_signals": [],
-        "risk_areas": [],
-        "command_candidates": [],
-        "configs": inventory.configs,
-        "ci_files": inventory.ci_files,
-        "confidence": "low",
-        "needs_human_confirmation": True,
-        "reasoning_summary": "Legacy scan metadata was not available.",
-    }
 
 
 def _maturity_report(inventory: ProjectInventory, commands: CommandCatalog, weapon_selection: WeaponLibrarySelection) -> str:
