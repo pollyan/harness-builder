@@ -197,15 +197,17 @@ CI 不应默认运行真实 DeepSeek acceptance，原因：
 - 耗时和网络稳定性不可控。
 - 真实开源仓库 fixture 不应作为默认 CI 必备依赖。
 
-但本地验收和重要发布前应运行 acceptance。
+但 Codex 本地提交前、目标模式完成前和重要发布前应运行 acceptance。
 
-本地 Git hooks 使用快速回归：
+本地 Git hooks 作为兜底保护：
 
 - `pre-commit`：运行 `scripts/test-fast.sh`。
 - `pre-push`：运行 `scripts/test-fast.sh`。
 - `post-commit`：提醒 push 后运行 `scripts/check-ci.sh`。
 
-涉及真实 LLM、扫描验收、发布前或目标模式完成前，应运行 `scripts/test-full.sh`。如果缺少 `DEEPSEEK_API_KEY`、真实 benchmark 仓库、网络或 API 可用性，acceptance 必须失败并暴露原因，不能跳过。
+Codex 侧的强制规则不依赖 Git hook：创建 commit 前必须主动运行 `scripts/test-full.sh`；push 完成后必须主动运行 `scripts/check-ci.sh` 查看 GitHub Actions 结果。Git hook 只保留快速回归兜底，避免真实网络验收把普通 `git commit` 卡死。Git 没有标准 `post-push` hook，因此远端 CI 状态检查由 Codex 工作流规则保证。
+
+如果缺少 `DEEPSEEK_API_KEY`、真实 benchmark 仓库、网络或 API 可用性，acceptance 必须失败并暴露原因，不能跳过。
 
 ## 测试命名和维护
 

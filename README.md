@@ -110,7 +110,7 @@ scripts/test-acceptance.sh
 scripts/test-full.sh
 ```
 
-`scripts/test-fast.sh` 运行默认回归测试，不包含 `tests/acceptance`，适合本地提交前和 CI 默认验证。
+`scripts/test-fast.sh` 运行快速回归测试，不包含 `tests/acceptance`，适合本地 Git hook、CI 默认验证和开发过程中的快速反馈。
 
 `scripts/test-acceptance.sh` 会实际请求 DeepSeek，并运行真实开源仓库验收；没有 `DEEPSEEK_API_KEY` 或缺少 `.benchmarks/` 真实仓库会失败，不会跳过。
 
@@ -126,7 +126,9 @@ scripts/install-git-hooks.sh
 
 安装后：
 
-- `pre-commit` 会在提交前运行 `scripts/test-fast.sh`。
+- `pre-commit` 会在提交前运行 `scripts/test-fast.sh`，作为快速兜底。
 - `post-commit` 会提醒推送后运行 `scripts/check-ci.sh` 查看 GitHub Actions。
 - `pre-push` 会在推送前再次运行 `scripts/test-fast.sh`。
 - 推送完成后，运行 `scripts/check-ci.sh` 查看当前分支最新 GitHub Actions 结果。
+
+Codex 侧的规则写在 [AGENTS.md](/Users/anhui/Documents/myProgram/harness-builder/AGENTS.md)：创建 commit 前必须主动运行 `scripts/test-full.sh`，push 完成后必须主动运行 `scripts/check-ci.sh`。本地 Git hooks 只是快速防漏网的保护层，不承载真实 DeepSeek 验收。
