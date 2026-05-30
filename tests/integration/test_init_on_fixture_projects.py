@@ -232,3 +232,25 @@ def test_init_non_interactive_generates_existing_assets(tmp_path: Path, monkeypa
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert decisions["mode"] == "non_interactive"
     assert decisions["final_confirmation"]["status"] == "not_confirmed"
+
+
+def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="\n\nn\nk\n\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "扫描结论" in result.output
+    assert "候选 Guide/Sensor" in result.output
+    _assert_init_outputs(repo, "java-spring")
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["mode"] == "interactive"
+    assert decisions["repo"]["confirmed"] is True
+    assert decisions["scan_confirmation"]["status"] == "accepted"
+    assert decisions["final_confirmation"]["status"] == "confirmed"

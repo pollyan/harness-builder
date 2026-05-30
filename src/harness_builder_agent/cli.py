@@ -9,7 +9,7 @@ from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
-from harness_builder_agent.tools.interactive_init import run_non_interactive_init
+from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
 from harness_builder_agent.tools.run_task import run_task
 
 app = typer.Typer(help="Generate and exercise project-level AI Coding Harness assets.")
@@ -29,11 +29,14 @@ def init_command(
     target_repo = (repo or Path.cwd()).resolve()
     if not target_repo.exists() or not target_repo.is_dir():
         raise typer.BadParameter(f"Repository path must be an existing directory: {target_repo}")
-    if not non_interactive:
-        raise typer.BadParameter("`init` now defaults to guided interactive mode. Non-TTY automation must pass --non-interactive.")
+    if not non_interactive and not _stdin_is_tty():
+        raise typer.BadParameter("`init` defaults to guided interactive mode. Non-TTY automation must pass --non-interactive.")
     trace = GenerationTrace.start(target_repo, "init")
     try:
-        output_dir = run_non_interactive_init(target_repo, context or [], trace)
+        if non_interactive:
+            output_dir = run_non_interactive_init(target_repo, context or [], trace)
+        else:
+            output_dir = run_guided_init(target_repo, context or [], trace)
     except Exception as exc:
         trace.event("init", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})
@@ -108,6 +111,10 @@ def improve_command(repo: Path = typer.Option(..., "--repo", exists=True, file_o
 
 def main() -> None:
     app()
+
+
+def _stdin_is_tty() -> bool:
+    return typer.get_text_stream("stdin").isatty()
 
 
 if __name__ == "__main__":
