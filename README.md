@@ -105,13 +105,16 @@ git clone --depth 1 https://github.com/dotnet-architecture/eShopOnWeb.git .bench
 ## 测试
 
 ```bash
-.venv/bin/python -m pytest -q
-.venv/bin/python -m pytest tests/e2e -q
-.venv/bin/python -m pytest tests/acceptance/test_real_llm_scan.py -q
-.venv/bin/python -m pytest tests/acceptance/test_real_repositories_e2e.py -q
+scripts/test-fast.sh
+scripts/test-acceptance.sh
+scripts/test-full.sh
 ```
 
-默认测试不运行 `tests/acceptance`，用于 CI 的 mock LLM 验证。显式运行 acceptance 时会实际请求 DeepSeek；没有 `DEEPSEEK_API_KEY` 会失败，不会跳过。
+`scripts/test-fast.sh` 运行默认回归测试，不包含 `tests/acceptance`，适合本地提交前和 CI 默认验证。
+
+`scripts/test-acceptance.sh` 会实际请求 DeepSeek，并运行真实开源仓库验收；没有 `DEEPSEEK_API_KEY` 或缺少 `.benchmarks/` 真实仓库会失败，不会跳过。
+
+`scripts/test-full.sh` 先运行 fast，再运行 acceptance，适合发布前、目标模式完成前或扫描/LLM/真实仓库验收相关改动后执行。
 
 ## 本地提交保护
 
@@ -123,7 +126,7 @@ scripts/install-git-hooks.sh
 
 安装后：
 
-- `pre-commit` 会在提交前运行 `.venv/bin/python -m pytest -q`。
+- `pre-commit` 会在提交前运行 `scripts/test-fast.sh`。
 - `post-commit` 会提醒推送后运行 `scripts/check-ci.sh` 查看 GitHub Actions。
-- `pre-push` 会在推送前再次运行 `.venv/bin/python -m pytest -q`。
+- `pre-push` 会在推送前再次运行 `scripts/test-fast.sh`。
 - 推送完成后，运行 `scripts/check-ci.sh` 查看当前分支最新 GitHub Actions 结果。

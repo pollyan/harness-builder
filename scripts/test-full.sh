@@ -3,5 +3,6 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-echo "Running regression tests before commit..."
 scripts/test-fast.sh
+scripts/test-acceptance.sh
+

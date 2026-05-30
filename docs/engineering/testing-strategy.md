@@ -24,16 +24,22 @@ Harness Builder 的测试不仅要证明代码能跑，还要证明生成的 Har
 | Acceptance | `tests/acceptance/` | 真实 DeepSeek、真实开源仓库验收 | 否 |
 | Benchmark | `harness-builder-agent benchmark` | 对生成 Harness 做质量验收 | 间接覆盖 |
 
-默认测试命令：
+快速回归命令：
 
 ```bash
-.venv/bin/python -m pytest -q
+scripts/test-fast.sh
 ```
 
 真实 acceptance 需要显式运行：
 
 ```bash
-.venv/bin/python -m pytest tests/acceptance -q
+scripts/test-acceptance.sh
+```
+
+完整本地验收：
+
+```bash
+scripts/test-full.sh
 ```
 
 ## Unit 测试职责
@@ -179,7 +185,7 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 
 ## CI 策略
 
-当前 CI 应运行默认 pytest：
+当前 CI 应运行快速回归：
 
 ```bash
 python -m pytest -q
@@ -193,6 +199,14 @@ CI 不应默认运行真实 DeepSeek acceptance，原因：
 
 但本地验收和重要发布前应运行 acceptance。
 
+本地 Git hooks 使用快速回归：
+
+- `pre-commit`：运行 `scripts/test-fast.sh`。
+- `pre-push`：运行 `scripts/test-fast.sh`。
+- `post-commit`：提醒 push 后运行 `scripts/check-ci.sh`。
+
+涉及真实 LLM、扫描验收、发布前或目标模式完成前，应运行 `scripts/test-full.sh`。如果缺少 `DEEPSEEK_API_KEY`、真实 benchmark 仓库、网络或 API 可用性，acceptance 必须失败并暴露原因，不能跳过。
+
 ## 测试命名和维护
 
 规则：
@@ -201,4 +215,3 @@ CI 不应默认运行真实 DeepSeek acceptance，原因：
 - fixture 应尽量小，但要保留真实技术栈特征。
 - 不再使用的旧扫描器、旧逻辑和旧测试应删除，避免误导。
 - 测试失败信息应能定位缺失字段、缺失章节或错误引用。
-
