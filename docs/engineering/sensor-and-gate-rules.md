@@ -84,6 +84,7 @@ Benchmark 应检查：
 - generation trace 存在且包含阶段和 artifact。
 - weapon library selection 与生成 guide/sensor 内容一致。
 - hard gate command 有 source、confidence、type 和 gate 证据。
+- 显式 LLM review 命令生成的可选 review artifacts 在存在时必须被校验。它们不是 baseline required files，但 schema 错误、YAML/Markdown 缺少配对、跨文件引用无效或丢失 review-only 状态时，benchmark 应失败。
 
 Benchmark 不应：
 

@@ -64,6 +64,42 @@ def _latest_trace(repo: Path) -> dict:
     return yaml.safe_load((runs[-1] / "trace.yaml").read_text(encoding="utf-8"))
 
 
+def _write_valid_workflow_recommendation(ai: Path) -> None:
+    review = ai / "review"
+    review.mkdir(parents=True, exist_ok=True)
+    (review / "workflow-routing-recommendation.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "task_id": "task-1",
+                "task_brief": "Fix a regression in login validation.",
+                "recommended_workflow": "bugfix",
+                "matched_rule_ids": ["bugfix-intent"],
+                "risk_level": "medium",
+                "confidence": "high",
+                "rationale": "The task is a defect repair and should use the bugfix workflow.",
+                "required_guides": [".ai/guides/project-context.md"],
+                "required_sensors": [".ai/sensors/verification.md"],
+                "human_confirmation_required": False,
+                "review_status": "pending_harness_maintainer_review",
+                "evidence_sources": [".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (review / "workflow-routing-recommendation.md").write_text(
+        "# Workflow Routing Recommendation\n\n"
+        "## Task\n\nFix a regression in login validation.\n\n"
+        "## Recommended Workflow\n\nbugfix\n\n"
+        "## Matched Routing Rules\n\n- bugfix-intent\n\n"
+        "## Required Harness Assets\n\n- .ai/guides/project-context.md\n\n"
+        "## Review Boundary\n\npending_harness_maintainer_review\n",
+        encoding="utf-8",
+    )
+
+
 def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: str = "mini-spring-boot", profile: str = "java-spring") -> Path:
     repo = tmp_path / fixture_name
     shutil.copytree(FIXTURES / fixture_name, repo)
@@ -99,6 +135,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-skill-config-reference" in check_ids
     assert "content:workflow-routing-policy" in check_ids
     assert "content:maturity-routing-evidence" in check_ids
+    assert "content:workflow-recommendation-review" in check_ids
     assert "content:guides-quality" in check_ids
     assert "content:stack-specific-guides" in check_ids
     assert "content:sensors-quality" in check_ids
@@ -273,3 +310,77 @@ def test_benchmark_content_checks_fail_when_maturity_routing_evidence_is_missing
     routing_evidence = next(check for check in checks if check["id"] == "content:maturity-routing-evidence")
     assert routing_evidence["passed"] is False
     assert "missing_routing_evidence_detail" in routing_evidence["errors"]
+
+
+def test_benchmark_records_absent_workflow_recommendation_as_optional(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    recommendation = next(check for check in checks if check["id"] == "content:workflow-recommendation-review")
+    assert recommendation["passed"] is True
+    assert recommendation["present"] is False
+
+
+def test_benchmark_accepts_valid_workflow_recommendation_review_artifacts(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_workflow_recommendation(ai)
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    recommendation = next(check for check in checks if check["id"] == "content:workflow-recommendation-review")
+    assert recommendation["passed"] is True
+    assert recommendation["present"] is True
+    assert recommendation["recommended_workflow"] == "bugfix"
+
+
+def test_benchmark_fails_when_workflow_recommendation_references_unknown_workflow(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_workflow_recommendation(ai)
+    path = ai / "review" / "workflow-routing-recommendation.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["recommended_workflow"] = "release"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    recommendation = next(check for check in checks if check["id"] == "content:workflow-recommendation-review")
+    assert recommendation["passed"] is False
+    assert "unknown_recommended_workflow" in recommendation["errors"]
+
+
+def test_benchmark_fails_when_workflow_recommendation_references_unknown_rule(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_workflow_recommendation(ai)
+    path = ai / "review" / "workflow-routing-recommendation.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["matched_rule_ids"] = ["missing-rule"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    recommendation = next(check for check in checks if check["id"] == "content:workflow-recommendation-review")
+    assert recommendation["passed"] is False
+    assert "unknown_matched_rule_ids" in recommendation["errors"]
+
+
+def test_benchmark_fails_when_workflow_recommendation_markdown_sections_are_missing(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_workflow_recommendation(ai)
+    (ai / "review" / "workflow-routing-recommendation.md").write_text("# Workflow Routing Recommendation\n", encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    recommendation = next(check for check in checks if check["id"] == "content:workflow-recommendation-review")
+    assert recommendation["passed"] is False
+    assert "missing_markdown_sections" in recommendation["errors"]
