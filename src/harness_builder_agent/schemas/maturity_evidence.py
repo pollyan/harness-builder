@@ -18,12 +18,24 @@ class CommandEvidenceSummary(BaseModel):
     command_ids: list[str] = Field(default_factory=list)
 
 
+class WorkflowRoutingRuleEvidence(BaseModel):
+    id: str
+    selected_workflow: Literal["lightweight", "bugfix", "standard"]
+    task_type_hints: list[str] = Field(default_factory=list)
+    triggers: list[str] = Field(default_factory=list)
+    required_guides: list[str] = Field(default_factory=list)
+    required_sensors: list[str] = Field(default_factory=list)
+    human_confirmation_required: bool = False
+    rationale: str = ""
+
+
 class HarnessAssetEvidence(BaseModel):
     guide_count: int = 0
     sensor_count: int = 0
     workflow_skill_count: int = 0
     workflow_routing_rule_count: int = 0
     has_standard_escalation_rule: bool = False
+    workflow_routing_rules: list[WorkflowRoutingRuleEvidence] = Field(default_factory=list)
     has_harness_config: bool = False
     has_weapon_library_selection: bool = False
 

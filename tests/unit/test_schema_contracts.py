@@ -392,6 +392,18 @@ def test_maturity_evidence_pack_records_harness_inputs_for_review():
                 "workflow_skill_count": 2,
                 "has_harness_config": True,
                 "has_weapon_library_selection": True,
+                "workflow_routing_rules": [
+                    {
+                        "id": "standard-escalation",
+                        "selected_workflow": "standard",
+                        "task_type_hints": ["feature"],
+                        "triggers": ["high_risk_module", "security_or_permission"],
+                        "required_guides": [".ai/guides/architecture.md"],
+                        "required_sensors": [".ai/sensors/verification.md"],
+                        "human_confirmation_required": True,
+                        "rationale": "Escalate risky work.",
+                    }
+                ],
             },
             "observability": {
                 "generation_run_count": 1,
@@ -423,6 +435,8 @@ def test_maturity_evidence_pack_records_harness_inputs_for_review():
     assert pack.experience.experience_file_count == 6
     assert pack.experience.has_experience_summary is True
     assert pack.experience.experience_summary_finding_count == 1
+    assert pack.harness_assets.workflow_routing_rules[0].id == "standard-escalation"
+    assert "security_or_permission" in pack.harness_assets.workflow_routing_rules[0].triggers
 
 
 def test_improvement_candidate_report_requires_reviewable_candidates():

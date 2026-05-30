@@ -25,7 +25,7 @@
 
 ## Task 1: Schema and Collection
 
-- [ ] **Step 1: Write failing schema assertions**
+- [x] **Step 1: Write failing schema assertions**
 
 In `tests/unit/test_schema_contracts.py`, update `test_maturity_evidence_pack_records_harness_inputs_for_review` so `harness_assets` includes:
 
@@ -51,7 +51,7 @@ assert pack.harness_assets.workflow_routing_rules[0].id == "standard-escalation"
 assert "security_or_permission" in pack.harness_assets.workflow_routing_rules[0].triggers
 ```
 
-- [ ] **Step 2: Write failing collector assertions**
+- [x] **Step 2: Write failing collector assertions**
 
 In `tests/unit/test_maturity_evidence.py`, assert:
 
@@ -62,7 +62,7 @@ assert "cross_module_design" in standard_rule.triggers
 assert standard_rule.human_confirmation_required is True
 ```
 
-- [ ] **Step 3: Run targeted tests and confirm failure**
+- [x] **Step 3: Run targeted tests and confirm failure**
 
 Run:
 
@@ -72,7 +72,7 @@ Run:
 
 Expected: fail because `WorkflowRoutingRuleEvidence` and `workflow_routing_rules` do not exist.
 
-- [ ] **Step 4: Add schema and collector implementation**
+- [x] **Step 4: Add schema and collector implementation**
 
 In `schemas/maturity_evidence.py`, add:
 
@@ -92,13 +92,13 @@ Add `workflow_routing_rules: list[WorkflowRoutingRuleEvidence] = Field(default_f
 
 In `tools/maturity_evidence.py`, map each `config.workflow_routing.rules` item into `WorkflowRoutingRuleEvidence`.
 
-- [ ] **Step 5: Run targeted tests and confirm pass**
+- [x] **Step 5: Run targeted tests and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 2: LLM Prompt Visibility and Integration Evidence
 
-- [ ] **Step 1: Write failing LLM prompt assertion**
+- [x] **Step 1: Write failing LLM prompt assertion**
 
 In `tests/unit/test_llm_maturity_reviewer.py`, update the fixture evidence pack to include routing details and assert the prompt content contains:
 
@@ -107,7 +107,7 @@ assert "standard-escalation" in user_message
 assert "security_or_permission" in user_message
 ```
 
-- [ ] **Step 2: Write failing integration assertion**
+- [x] **Step 2: Write failing integration assertion**
 
 In `tests/integration/test_assess_improve_commands.py`, assert generated `maturity-evidence.yaml` has the standard routing rule and trigger:
 
@@ -117,7 +117,7 @@ standard_rule = next(rule for rule in rules if rule["id"] == "standard-escalatio
 assert "security_or_permission" in standard_rule["triggers"]
 ```
 
-- [ ] **Step 3: Run targeted tests and confirm failure**
+- [x] **Step 3: Run targeted tests and confirm failure**
 
 Run:
 
@@ -127,19 +127,19 @@ Run:
 
 Expected: fail until collector emits detailed rules.
 
-- [ ] **Step 4: Confirm pass after Task 1 implementation**
+- [x] **Step 4: Confirm pass after Task 1 implementation**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 3: Benchmark Consistency Check
 
-- [ ] **Step 1: Write failing benchmark assertions**
+- [x] **Step 1: Write failing benchmark assertions**
 
 In `tests/integration/test_benchmark_command.py`, assert generated report includes `content:maturity-routing-evidence`.
 
 Add a test that removes `workflow_routing_rules` from `maturity-evidence.yaml` after a passing benchmark repo is prepared and then calls `_content_checks`; the new check must fail with `missing_routing_evidence_detail`.
 
-- [ ] **Step 2: Run benchmark tests and confirm failure**
+- [x] **Step 2: Run benchmark tests and confirm failure**
 
 Run:
 
@@ -149,7 +149,7 @@ Run:
 
 Expected: fail until benchmark checks detailed maturity routing evidence.
 
-- [ ] **Step 3: Add benchmark check**
+- [x] **Step 3: Add benchmark check**
 
 In `benchmark.py`, add `_maturity_routing_evidence_check(ai)` to `_content_checks`.
 
@@ -160,17 +160,17 @@ The check should:
 - require `standard-escalation` with `security_or_permission`;
 - fail with `missing_routing_evidence_detail` when detail is absent.
 
-- [ ] **Step 4: Run benchmark tests and confirm pass**
+- [x] **Step 4: Run benchmark tests and confirm pass**
 
 Run the same pytest command. Expected: pass.
 
 ## Task 4: Docs, Verification, Commit
 
-- [ ] **Step 1: Update engineering docs**
+- [x] **Step 1: Update engineering docs**
 
 Update `docs/engineering/init-workflow.md` to state that `maturity-evidence.yaml` includes detailed workflow routing evidence for LLM review and benchmark consistency checks.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run:
 
@@ -178,7 +178,7 @@ Run:
 .venv/bin/python -m pytest tests/unit/test_schema_contracts.py tests/unit/test_maturity_evidence.py tests/unit/test_llm_maturity_reviewer.py tests/integration/test_assess_improve_commands.py tests/integration/test_benchmark_command.py -q
 ```
 
-- [ ] **Step 3: Run fast regression**
+- [x] **Step 3: Run fast regression**
 
 Run:
 
@@ -186,13 +186,22 @@ Run:
 scripts/test-fast.sh
 ```
 
-- [ ] **Step 4: Self-Harness Improvement Gate**
+- [x] **Step 4: Self-Harness Improvement Gate**
 
 Record the result in this plan. Expected:
 
 - Schema, collector, LLM prompt visibility, integration, benchmark, and docs cover detailed routing evidence.
 - No `.ai/task-runs` generation is introduced.
 - Next candidate gap: LLM-assisted routing recommendation or routing-aware asset candidate drafts.
+
+Result:
+
+- Focused regression: `50 passed`.
+- Fast regression: `125 passed`.
+- Detailed routing evidence is covered by schema, collector, LLM prompt visibility, integration, benchmark consistency, and engineering docs.
+- Benchmark now checks `content:maturity-routing-evidence` and fails when routing evidence detail is missing or out of sync with `harness-config.yaml`.
+- Runtime boundary remains intact: no `.ai/task-runs` generation was introduced.
+- Next candidate gap: LLM-assisted routing recommendation or routing-aware asset candidate drafts that use this richer evidence.
 
 - [ ] **Step 5: Commit**
 

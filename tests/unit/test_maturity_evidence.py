@@ -86,6 +86,10 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
     assert pack.experience.experience_summary_finding_count == 1
     assert pack.harness_assets.workflow_routing_rule_count == 3
     assert pack.harness_assets.has_standard_escalation_rule is True
+    standard_rule = next(rule for rule in pack.harness_assets.workflow_routing_rules if rule.id == "standard-escalation")
+    assert standard_rule.selected_workflow == "standard"
+    assert "cross_module_design" in standard_rule.triggers
+    assert standard_rule.human_confirmation_required is True
 
 
 def test_collect_maturity_evidence_keeps_pending_only_legacy_path(tmp_path: Path):

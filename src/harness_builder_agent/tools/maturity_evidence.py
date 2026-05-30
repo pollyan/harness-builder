@@ -15,6 +15,7 @@ from harness_builder_agent.schemas.maturity_evidence import (
     InventoryEvidenceSummary,
     MaturityEvidencePack,
     ObservabilityEvidence,
+    WorkflowRoutingRuleEvidence,
 )
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
@@ -114,12 +115,26 @@ def _harness_assets(ai: Path, config: HarnessConfig, weapon_selection: WeaponLib
     has_standard_escalation_rule = any(
         rule.selected_workflow == "standard" and "high_risk_module" in rule.triggers for rule in routing_rules
     )
+    routing_rule_evidence = [
+        WorkflowRoutingRuleEvidence(
+            id=rule.id,
+            selected_workflow=rule.selected_workflow,
+            task_type_hints=rule.task_type_hints,
+            triggers=rule.triggers,
+            required_guides=rule.required_guides,
+            required_sensors=rule.required_sensors,
+            human_confirmation_required=rule.human_confirmation_required,
+            rationale=rule.rationale,
+        )
+        for rule in routing_rules
+    ]
     return HarnessAssetEvidence(
         guide_count=guide_count,
         sensor_count=sensor_count,
         workflow_skill_count=workflow_skill_count,
         workflow_routing_rule_count=len(routing_rules),
         has_standard_escalation_rule=has_standard_escalation_rule,
+        workflow_routing_rules=routing_rule_evidence,
         has_harness_config=(ai / "harness-config.yaml").exists() or bool(config.workflows),
         has_weapon_library_selection=(ai / "weapon-library-selection.yaml").exists() or weapon_selection is not None,
     )

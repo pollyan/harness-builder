@@ -6,7 +6,7 @@ import pytest
 
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidate, ImprovementCandidateReport
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
-from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
+from harness_builder_agent.schemas.maturity_evidence import HarnessAssetEvidence, MaturityEvidencePack, WorkflowRoutingRuleEvidence
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.tools.llm_maturity_reviewer import (
     build_maturity_review_messages,
@@ -30,6 +30,22 @@ def _evidence_pack() -> MaturityEvidencePack:
     return MaturityEvidencePack(
         repo_name="demo",
         primary_stack="java-spring",
+        harness_assets=HarnessAssetEvidence(
+            workflow_routing_rule_count=1,
+            has_standard_escalation_rule=True,
+            workflow_routing_rules=[
+                WorkflowRoutingRuleEvidence(
+                    id="standard-escalation",
+                    selected_workflow="standard",
+                    task_type_hints=["feature"],
+                    triggers=["high_risk_module", "security_or_permission"],
+                    required_guides=[".ai/guides/architecture.md"],
+                    required_sensors=[".ai/sensors/verification.md"],
+                    human_confirmation_required=True,
+                    rationale="Escalate risky work.",
+                )
+            ],
+        ),
         maturity_inputs=[".ai/project-inventory.json", ".ai/command-catalog.yaml"],
         warnings=["runtime task-runs absent"],
     )
@@ -123,6 +139,8 @@ def test_build_maturity_review_messages_includes_experience_summary_when_present
     content = messages[-1]["content"]
     assert '"experience_summary"' in content
     assert "sensor-coverage-gap" in content
+    assert "standard-escalation" in content
+    assert "security_or_permission" in content
     assert "review-only Experience Summary findings" in content
 
 

@@ -98,6 +98,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-skills" in check_ids
     assert "content:workflow-skill-config-reference" in check_ids
     assert "content:workflow-routing-policy" in check_ids
+    assert "content:maturity-routing-evidence" in check_ids
     assert "content:guides-quality" in check_ids
     assert "content:stack-specific-guides" in check_ids
     assert "content:sensors-quality" in check_ids
@@ -256,3 +257,19 @@ def test_benchmark_content_checks_fail_when_standard_routing_rule_is_missing(tmp
     routing_policy = next(check for check in checks if check["id"] == "content:workflow-routing-policy")
     assert routing_policy["passed"] is False
     assert "missing_standard_escalation" in routing_policy["errors"]
+
+
+def test_benchmark_content_checks_fail_when_maturity_routing_evidence_is_missing(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    evidence_path = ai / "maturity-evidence.yaml"
+    evidence = yaml.safe_load(evidence_path.read_text(encoding="utf-8"))
+    evidence["harness_assets"]["workflow_routing_rules"] = []
+    evidence_path.write_text(yaml.safe_dump(evidence, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    routing_evidence = next(check for check in checks if check["id"] == "content:maturity-routing-evidence")
+    assert routing_evidence["passed"] is False
+    assert "missing_routing_evidence_detail" in routing_evidence["errors"]

@@ -113,6 +113,10 @@ def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, mo
     assert evidence_pack["harness_assets"]["workflow_skill_count"] == 3
     assert evidence_pack["harness_assets"]["workflow_routing_rule_count"] == 3
     assert evidence_pack["harness_assets"]["has_standard_escalation_rule"] is True
+    routing_rules = evidence_pack["harness_assets"]["workflow_routing_rules"]
+    standard_rule = next(rule for rule in routing_rules if rule["id"] == "standard-escalation")
+    assert standard_rule["selected_workflow"] == "standard"
+    assert "security_or_permission" in standard_rule["triggers"]
     assert evidence_pack["observability"]["generation_run_count"] >= 1
     assert "## 证据" in report
     assert "## 维度详情" in report

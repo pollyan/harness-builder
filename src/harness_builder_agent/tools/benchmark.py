@@ -282,6 +282,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _workflow_skills_check(ai),
         _workflow_skill_config_reference_check(ai),
         _workflow_routing_policy_check(ai),
+        _maturity_routing_evidence_check(ai),
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
@@ -369,6 +370,40 @@ def _workflow_routing_policy_check(ai: Path) -> dict[str, Any]:
         "id": "content:workflow-routing-policy",
         "passed": not errors,
         "rule_count": len(rules),
+        "errors": errors,
+    }
+
+
+def _maturity_routing_evidence_check(ai: Path) -> dict[str, Any]:
+    config_path = ai / "harness-config.yaml"
+    evidence_path = ai / "maturity-evidence.yaml"
+    if not config_path.exists() or not evidence_path.exists():
+        return {"id": "content:maturity-routing-evidence", "passed": False, "errors": ["missing_config_or_evidence"]}
+    try:
+        config = HarnessConfig.model_validate(yaml.safe_load(config_path.read_text(encoding="utf-8")))
+        evidence = MaturityEvidencePack.model_validate(yaml.safe_load(evidence_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover
+        return {"id": "content:maturity-routing-evidence", "passed": False, "errors": [str(exc)]}
+
+    errors: list[str] = []
+    config_rule_ids = {rule.id for rule in config.workflow_routing.rules}
+    evidence_rules = evidence.harness_assets.workflow_routing_rules
+    evidence_rule_ids = {rule.id for rule in evidence_rules}
+    if not evidence_rules:
+        errors.append("missing_routing_evidence_detail")
+    if config_rule_ids != evidence_rule_ids:
+        errors.append("routing_evidence_out_of_sync")
+
+    standard_rules = [rule for rule in evidence_rules if rule.id == "standard-escalation" and rule.selected_workflow == "standard"]
+    if not standard_rules:
+        errors.append("missing_standard_escalation_evidence")
+    elif "security_or_permission" not in standard_rules[0].triggers:
+        errors.append("incomplete_standard_escalation_evidence")
+
+    return {
+        "id": "content:maturity-routing-evidence",
+        "passed": not errors,
+        "rule_count": len(evidence_rules),
         "errors": errors,
     }
 
