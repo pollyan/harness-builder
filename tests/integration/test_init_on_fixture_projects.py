@@ -1145,6 +1145,9 @@ def test_guided_init_restates_user_supplements_before_write_and_persists_them(tm
     assert "影响团队上下文 Guide 与 human-input-needed" in final_summary
     assert "影响 Workflow 说明与后续人工确认记录" in final_summary
     completion_summary = result.output[result.output.index("== 初始化完成 ==") :]
+    completion_next_steps = completion_summary[completion_summary.index("建议下一步：") : completion_summary.index("\n\nBenchmark 健康度：")]
+    assert "1. 先运行 `harness-builder-agent benchmark --repo" in completion_next_steps
+    assert "2. 处理 `.ai/human-input-needed.md#处理方式` 中的待确认问题" in completion_next_steps
     assert "本次吸收的用户补充" in completion_summary
     assert "批处理入口" in completion_summary
     assert "Controller 只能调用 Service" in completion_summary

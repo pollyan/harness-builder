@@ -93,7 +93,7 @@ def render_init_completion_message(ai: Path) -> str:
         yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8"))
     )
     evidence_or_gaps = _completion_evidence_gap_lines(score)
-    next_steps = _numbered_lines(score.recommended_next_steps[:3])
+    next_steps = _completion_next_action_lines(ai, score)
     return (
         "== 初始化完成 ==\n"
         f"- 输出目录：{ai}\n"
@@ -128,6 +128,31 @@ def _numbered_lines(items: list[str]) -> str:
     if not items:
         return "1. 暂无明确事项。"
     return "\n".join(f"{index}. {item}" for index, item in enumerate(items, start=1))
+
+
+def _completion_next_action_lines(ai: Path, score: MaturityReport) -> str:
+    actions: list[str] = []
+    report_path = ai / "benchmark-report.yaml"
+    if report_path.exists():
+        report = BenchmarkReport.model_validate(yaml.safe_load(report_path.read_text(encoding="utf-8")))
+        failed_checks = sum(1 for check in report.checks if not check.passed)
+        if failed_checks:
+            actions.append(f"先查看 `.ai/benchmark-report.yaml` 并处理 {failed_checks} 个 failed check，再重新运行 benchmark。")
+    else:
+        actions.append(f"先运行 `harness-builder-agent benchmark --repo {ai.parent}`，确认第一版 Harness 质量门禁。")
+
+    questionnaire_path = ai / "questionnaire.yaml"
+    if questionnaire_path.exists():
+        questionnaire = Questionnaire.model_validate(yaml.safe_load(questionnaire_path.read_text(encoding="utf-8")))
+        if questionnaire.questions:
+            actions.append("处理 `.ai/human-input-needed.md#处理方式` 中的待确认问题，保留 `confirm:*` ID 作为审计入口。")
+
+    for item in score.recommended_next_steps:
+        if item not in actions:
+            actions.append(item)
+        if len(actions) >= 3:
+            break
+    return _numbered_lines(actions[:3])
 
 
 def _completion_evidence_gap_lines(score: MaturityReport) -> str:

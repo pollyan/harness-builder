@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Init Completion 优先下一步
+
+- North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
+- init North Star 旅程阶段：首次初始化、写入后的交付摘要。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo。本轮重新读取事实源后，候选包括 completion 优先下一步、completion summary 视觉紧凑化、existing Harness 维护入口模块拆分。当前 completion message 已展示 Benchmark 健康度和待确认入口，但 `建议下一步` 只来自 maturity report，用户仍要在多个区块之间自行合成“先跑 benchmark / 处理 failed checks / 处理 human-input”的顺序。
+- 用户故事：作为 Harness Maintainer，当我完成首次 guided `init` 后，我可以在终端 `== 初始化完成 ==` 的 `建议下一步` 中直接看到按优先级排序的下一步动作：先运行 benchmark 或查看失败报告，再处理待人工确认，最后参考成熟度建议，从而不用在多个区块之间自己推断行动顺序。
+- 当前代码 gap：`render_init_completion_message()` 直接用 `score.recommended_next_steps[:3]` 渲染 `建议下一步`；benchmark not_run / failed 和 questionnaire pending 只在后面的独立区块中显示，没有进入优先动作列表。
+- 关键决策 / 取舍：新增 `_completion_next_action_lines()`，只读 `BenchmarkReport` 和 `Questionnaire` schema；最多输出 3 条，benchmark / failed checks 和 human-input 基础治理动作优先，maturity recommended next steps 作为后续补充；不修改 `init-summary.md` 长期 Markdown 章节。
+- Assumptions / risks：首次 init 后最稳妥的第一步是运行 benchmark 或修复 failed checks；如果 maturity recommended step 语义相近，可能仍有轻微重复，本轮通过简单去重控制完全相同文本。
+- 边界情况 / 失败模式：缺少 benchmark report 时建议运行 benchmark；benchmark failed 时建议查看 report；questionnaire 有问题时建议 human-input 处理入口；不执行 benchmark、不修改正式资产、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动 explorer 做只读调研，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮只补“完成摘要 -> 下一步行动顺序”的首次 init 交付闭环，不把整体摘要压缩或 existing Harness 模块拆分混入。
+- 可执行验收标准及验证方式：unit 覆盖 benchmark not_run、benchmark failed 和 questionnaire pending 的优先动作；integration 覆盖 guided init completion transcript；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：`render_init_completion_message()` 改用 `_completion_next_action_lines()`；README 与 `docs/engineering/init-workflow.md` 同步 completion 下一步优先级契约；本轮 spec / plan 已写入。
+- 验证结果：targeted unit 2 passed；`tests/unit/test_init_summary.py` 8 passed；targeted guided init integration 1 passed；`git diff --check` passed；`scripts/test-fast.sh` 414 passed。
+- Self-Harness Gate：长期文档已同步；不新增 todo。下一轮候选 gap：completion summary 视觉紧凑化、existing Harness 维护入口模块拆分，或 push 前 full regression / 远端同步外部前置。
+
 ## 2026-06-01 Existing Harness 维护入口分组标题中文化
 
 - North Star 模块：CLI Experience、Maturity-driven Init、审查接管。

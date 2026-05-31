@@ -185,6 +185,10 @@ def test_init_completion_message_is_cli_first_delivery_summary(tmp_path: Path):
     assert "本终端摘要是本次 init 的主要交付说明" in message
     assert ".ai/init-summary.md" in message
     assert ".ai/sensors/verification.md" in message
+    next_steps = message[message.index("建议下一步：") : message.index("\n\nBenchmark 健康度：")]
+    assert "1. 先运行 `harness-builder-agent benchmark --repo" in next_steps
+    assert "2. 处理 `.ai/human-input-needed.md#处理方式` 中的待确认问题" in next_steps
+    assert "3. 运行 benchmark 验证第一版 Harness。" in next_steps
 
 
 def test_init_completion_message_reports_no_user_supplements(tmp_path: Path):
@@ -214,6 +218,37 @@ def test_init_completion_message_reports_missing_interaction_decisions(tmp_path:
     assert "本次吸收的用户补充" in message
     assert "interaction_decisions=missing" in message
     assert ".ai/interaction-decisions.yaml" in message
+
+
+def test_init_completion_message_prioritizes_failed_benchmark_report(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    (ai / "maturity-score.yaml").write_text(yaml.safe_dump(_score().model_dump(mode="json")), encoding="utf-8")
+    (ai / "benchmark-report.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "repo_name": "demo",
+                "profile": "java-spring",
+                "status": "failed",
+                "quality_status": "failed",
+                "checks": [
+                    {"id": "content:hard-gate-command-evidence", "passed": False},
+                    {"id": "schema:project-inventory", "passed": True},
+                ],
+                "quality_scores": {},
+            },
+            allow_unicode=True,
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    message = render_init_completion_message(ai)
+
+    next_steps = message[message.index("建议下一步：") : message.index("\n\nBenchmark 健康度：")]
+    assert "1. 先查看 `.ai/benchmark-report.yaml` 并处理 1 个 failed check，再重新运行 benchmark。" in next_steps
+    assert "2. 运行 benchmark 验证第一版 Harness。" in next_steps
 
 
 def test_init_summary_links_pending_confirmations_to_action_entry(tmp_path: Path):
