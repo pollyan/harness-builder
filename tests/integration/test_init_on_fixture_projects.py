@@ -1271,6 +1271,20 @@ def test_guided_init_final_summary_back_to_scan_replaces_previous_corrections(tm
     )
 
     assert result.exit_code == 0, result.output
+    assert "扫描补充替换结果" in result.output
+    replacement_preview = result.output[
+        result.output.index("扫描补充替换结果") : result.output.index("\n当前 Harness 成熟度初评", result.output.index("扫描补充替换结果"))
+    ]
+    assert "上一版补充" in replacement_preview
+    assert "legacy" in replacement_preview
+    assert "legacy_test" in replacement_preview
+    assert "旧风险" in replacement_preview
+    assert "当前生效补充" in replacement_preview
+    assert "final" in replacement_preview
+    assert "final_test" in replacement_preview
+    assert "最终风险" in replacement_preview
+    assert "最终写入只会使用当前生效补充" in replacement_preview
+    assert "上一版补充不会进入 project inventory、command catalog、Guides、Sensors 或 init summary" in replacement_preview
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
     assert {"name": "final", "path": "final", "kind": "backend"} in inventory["modules"]
     assert {"name": "legacy", "path": "legacy", "kind": "backend"} not in inventory["modules"]

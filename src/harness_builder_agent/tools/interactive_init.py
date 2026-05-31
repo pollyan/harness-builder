@@ -157,6 +157,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             inventory, commands = _scan_state_with_overrides(base_inventory, base_commands, scan_overrides)
             if _has_scan_overrides(scan_overrides):
                 _show_scan_supplement_immediate_summary(scan_overrides)
+                _show_scan_supplement_replacement_summary(previous_scan_overrides, scan_overrides)
             elif _has_scan_overrides(previous_scan_overrides):
                 _show_scan_supplement_cleared_summary()
             weapon_selection = select_weapon_library(inventory, commands)
@@ -1989,6 +1990,22 @@ def _show_scan_supplement_cleared_summary() -> None:
     typer.echo("- 已移除上一版扫描补充；后续预览和正式资产将按扫描基线、团队规则和候选决策继续。")
 
 
+def _show_scan_supplement_replacement_summary(
+    previous_scan_overrides: GuidedScanOverrides,
+    current_scan_overrides: GuidedScanOverrides,
+) -> None:
+    if not _has_scan_overrides(previous_scan_overrides) or not _has_scan_overrides(current_scan_overrides):
+        return
+    previous_summary = _scan_override_brief(previous_scan_overrides)
+    current_summary = _scan_override_brief(current_scan_overrides)
+    if not previous_summary or not current_summary:
+        return
+    typer.echo("\n扫描补充替换结果")
+    typer.echo(f"- 上一版补充：{previous_summary}")
+    typer.echo(f"- 当前生效补充：{current_summary}")
+    typer.echo("- 最终写入只会使用当前生效补充；上一版补充不会进入 project inventory、command catalog、Guides、Sensors 或 init summary。")
+
+
 def _scan_override_brief(scan_overrides: GuidedScanOverrides) -> str:
     parts: list[str] = []
     if scan_overrides.primary_stack:
@@ -1998,7 +2015,7 @@ def _scan_override_brief(scan_overrides: GuidedScanOverrides) -> str:
     if scan_overrides.commands:
         parts.append("commands=" + ", ".join(item.id for item in scan_overrides.commands[:3]))
     if scan_overrides.risk_areas:
-        parts.append("risks=" + ", ".join(item["path"] for item in scan_overrides.risk_areas[:3]))
+        parts.append("risks=" + ", ".join(f"{item['path']}({item['reason']})" for item in scan_overrides.risk_areas[:3]))
     if scan_overrides.notes:
         parts.append("notes=" + "；".join(scan_overrides.notes[:2]))
     return "；".join(parts)

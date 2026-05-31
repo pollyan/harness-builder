@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init Scan 返回修改差异预览
+
+- North Star 模块：CLI Experience、Deep Scan Evidence、资产生成与审核接管。
+- init North Star 旅程阶段：扫描理解对齐、用户补充吸收、最终确认返回修改、写入前 Harness 设计预览。
+- Gap Analysis 摘要：当前 open todo 为空，迁移工作包已经归档。上一轮 Gate 候选包括 Workflow note review-only routing candidate、scan correction diff preview 和 push 前 full regression。本轮核验发现 `workflow_policy` candidate 必须有结构化 `WorkflowPolicyPatch`，不应从自由文本 Workflow note 推断 routing patch；scan 返回修改已经有替换 / 清空语义和资产断言，但缺少稳定的 old/current 差异预览。因此本轮选择 scan 返回修改差异预览。
+- 用户故事：作为 Harness Maintainer，当我在最终确认阶段返回 `scan` 并用新模块、验证命令或风险区域替换上一版扫描补充时，我可以在 CLI 中看到稳定的“上一版补充 / 当前生效补充”差异预览，并确认最终写入只会使用当前补充，从而不用在长输出里手动比对旧输入是否仍然生效。
+- 当前代码 gap：`_show_scan_back_revision_notice()` 只在重新输入前展示上一版摘要；新输入后只显示新补充理解，没有明确 old/current 替换结果。
+- 关键决策 / 取舍：新增 `_show_scan_supplement_replacement_summary()`，复用 `_scan_override_brief()`；只有上一版和当前版都非空时输出替换结果；清空路径保持 `扫描补充已清空`；不修改 schema、LLM、writer、benchmark 或正式资产语义。
+- Assumptions / risks：返回 scan 重新输入表达替换而非累计；简短摘要可能截断长输入，完整新补充仍在紧邻的 `扫描补充理解` 区块展示。
+- 边界情况 / 失败模式：直接回车清空上一版补充时不输出替换结果；本轮不执行 Runtime、不创建 `.ai/task-runs`、不默认运行 benchmark。
+- Sub agent 使用情况：本轮范围集中在单个 CLI 纠错路径，未拆出独立并行子任务；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮补齐 `back -> scan` 的最后一段用户可见纠错信任链路：提示替换 / 清空、展示 old/current 差异、最终资产只保留当前补充。
+- 可执行验收标准及验证方式：integration 测试覆盖替换路径输出 `扫描补充替换结果`、上一版 legacy 和当前 final 摘要、最终写入只使用当前生效补充；清空路径继续输出 `扫描补充已清空`；既有资产断言证明旧补充不进入 project inventory、command catalog、Guides、Sensors 或 init summary。
+- 完成内容：guided init 在 `back -> scan` 新补充非空时输出替换结果；risk 摘要包含 path 和 reason；`docs/engineering/init-workflow.md` 固化规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标替换 / 清空 integration 测试通过；完整 guided init 和 fast regression 见本轮提交前验证。
+- Self-Harness Gate：README 当前不需要细化该纠错提示；`docs/todos/` 暂不新增。下一轮候选 gap：Workflow note review-only routing candidate 的安全设计、push 前 full regression / 远端同步前置条件，或继续审视用户补充如何更深影响成熟度推荐。
+
 ## 2026-06-01 团队规则结构化影响契约
 
 - North Star 模块：CLI Experience、Maturity & Evolution、Experience & Self-Improve、资产生成与审核接管。
