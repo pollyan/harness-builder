@@ -104,7 +104,8 @@ Prompt 是系统行为的一部分，应当可维护。
 当前规则：
 
 - 机器消费型 LLM Prompt 内容必须集中在 `src/harness_builder_agent/prompts/`，避免散落在多个 `tools/llm_*.py`、writer 或 CLI 里。
-- Prompt asset 必须使用 `## System Message` 和 `## User Message` 章节，并通过共享 loader 加载。
+- Prompt asset 必须使用 `## System Message` 和 `## User Message` 章节，并通过 `prompts.registry` 统一登记版本、文件名、输入标题和消息构造。
+- `tools/llm_*.py` 不能直接维护 prompt 文件名或调用 prompt loader；它们只负责 payload 拼装、LLM 调用、响应解析和 schema 校验。
 - Python 模块负责向 Prompt 注入结构化 JSON payload，Prompt 文件不直接承载动态数据拼接逻辑。
 - Prompt 修改必须有测试或 acceptance 验证。
 - Prompt 应明确要求 JSON object 和固定 schema。
@@ -113,6 +114,7 @@ Prompt 是系统行为的一部分，应当可维护。
 - LLM maturity review 只能输出结构化 review judgment，不能声称已经修改 Guides、Sensors、Workflow 或其他正式 Harness 资产。
 - LLM maturity review 遇到 `experience-workflow-recommendation-review` 改进候选时，应消费 `.ai/review/workflow-routing-recommendation.yaml` 作为 review-only workflow recommendation evidence，并与 `maturity_evidence.harness_assets.workflow_routing_rules` 对照后给出 `support`、`revise` 或 `defer`；review 不能声称推荐已执行、已应用或已写入正式 Harness 资产。
 - LLM asset candidate generation 只能输出结构化 draft candidates，必须保持 `pending_harness_maintainer_review`，不能声称已应用到正式 Harness 资产。
+- LLM asset candidate generation 生成 `workflow_policy` candidate 时，必须输出机器可校验的 `workflow_policy_patch`；`draft_content` 只能作为人类说明，不能作为自动 patch 来源。
 - LLM experience summary 只能输出结构化 Experience findings，必须保持 `pending_harness_maintainer_review`，不能声称已经沉淀为正式 Guides、Sensors、Workflow 或风险策略。
 - LLM workflow recommendation 只能输出结构化 workflow recommendation report，必须保持 `pending_harness_maintainer_review`，不能声称已经执行 Workflow、生成 Harness Map、创建 `.ai/task-runs` 或修改正式 Harness 资产。
 - LLM maturity review 和 asset candidate generation 的 prompt 在 `.ai/experience/experience-summary.yaml` 存在时应注入可选 `experience_summary` 上下文；缺失时显式传入 `null`，不能自动运行 summarizer 或伪造摘要。

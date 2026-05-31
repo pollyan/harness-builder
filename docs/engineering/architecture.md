@@ -10,7 +10,7 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - `assess`：生成或更新成熟度评估。
 - `improve`：生成待确认的改进候选。
 - `self-improve`：串联 maturity assessment、deterministic improvement candidates、LLM maturity review 和 review-only asset candidates，生成自改进审查包；不应用正式 Harness 变更，不执行 Runtime。
-- `review-candidate`：记录 Harness Maintainer 对 review-only asset candidate 的显式治理决策；仅在 `applied` 且候选是 Guide / Sensor Markdown 时追加正式 `.ai/**/*.md` 资产。
+- `review-candidate`：记录 Harness Maintainer 对 review-only asset candidate 的显式治理决策；`applied` 可追加 Guide / Sensor Markdown，或按结构化 `workflow_policy_patch` 更新 `.ai/harness-config.yaml` routing rule。
 - `benchmark`：对完整链路产物做结构、内容和质量门禁检查。
 - `recommend-workflow`：基于任务 brief、`workflow_routing` 和成熟度证据生成 review-only workflow 推荐，并刷新 Experience / Maturity 派生证据；不执行 Runtime。
 
@@ -79,16 +79,17 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - `harness-config.yaml` 必须包含可被宿主 Runtime 消费的 workflow definitions 和 `workflow_routing` 策略；Builder 只生成策略契约，不执行任务路由。
 - `recommend-workflow` 只能输出 `.ai/review/workflow-routing-recommendation.*` 审查产物，并刷新 `.ai/experience/experience-index.yaml`、`.ai/maturity-score.yaml` 和 `.ai/maturity-evidence.yaml` 等派生证据；正式任务执行、Harness Map、`.ai/task-runs` 和正式 routing policy 应用仍由宿主 Runtime / 后续审核流程承担。
 - `self-improve` 只能输出 `.ai/review/self-improve-package.*` 以及被其串联命令生成的 review-only 改进产物；正式 Guide、Sensor、Workflow Skill 和 routing policy 仍需后续审核流程应用。
-- `review-candidate` 是候选治理层的显式应用入口。它必须把治理决策写入 `.ai/review/candidate-governance.*`，保持原始 LLM candidate report 为 review-only；`applied` 不得支持 workflow policy 自动 patch，直到有结构化 patch schema 和更强验收。
+- `review-candidate` 是候选治理层的显式应用入口。它必须把治理决策写入 `.ai/review/candidate-governance.*`，保持原始 LLM candidate report 为 review-only；`workflow_policy` 的 `applied` 只能消费结构化 `WorkflowPolicyPatch`，不得从自由文本 `draft_content` 推断 YAML patch。
 - 如果 writer 文件持续膨胀，应优先按产物类型拆分，而不是继续堆在单文件中。
 
 ### Prompt 资产层
 
-机器消费型 LLM prompt 是系统行为契约，统一放在 `src/harness_builder_agent/prompts/`。业务模块通过共享 loader 读取 `## System Message` 和 `## User Message`，再由 Python 代码注入结构化 evidence / payload。
+机器消费型 LLM prompt 是系统行为契约，统一放在 `src/harness_builder_agent/prompts/`。Prompt 文件、版本、输入标题和消息构造入口由 `prompts.registry` 集中登记；业务模块只选择已注册 prompt，并注入结构化 evidence / payload。
 
 规则：
 
 - 不在 `tools/llm_*.py` 中内联大段 prompt contract。
+- 不在 `tools/llm_*.py` 中维护 prompt 文件名或直接调用 prompt loader；新增机器消费型 prompt 必须先进入 registry。
 - Prompt asset 必须有测试覆盖，至少验证可加载、关键 schema 字段和 review-only 边界。
 - Prompt asset 只描述系统/用户指令和输出契约；Pydantic schema、payload 拼装、解析和错误处理仍属于 Python 代码。
 - 修改 prompt 时必须同步考虑真实 DeepSeek acceptance 或 targeted acceptance。

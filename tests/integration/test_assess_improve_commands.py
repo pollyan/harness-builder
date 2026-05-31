@@ -11,6 +11,7 @@ from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
+from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
@@ -409,6 +410,93 @@ def test_review_candidate_applies_reviewed_guide_candidate_with_trace(tmp_path: 
     artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
     assert {"path": ".ai/review/candidate-governance.yaml", "kind": "candidate_governance"} in artifacts["artifacts"]
     assert {"path": ".ai/experience/experience-index.yaml", "kind": "experience_index"} in artifacts["artifacts"]
+
+
+def test_review_candidate_applies_workflow_policy_candidate_with_trace(tmp_path: Path, monkeypatch):
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    review_dir = repo / ".ai" / "review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    (review_dir / "asset-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_maturity_review",
+                "candidates": [
+                    {
+                        "id": "workflow-standard-domain-policy",
+                        "kind": "workflow_policy",
+                        "source_candidate_id": None,
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/harness-config.yaml",
+                        "title": "Escalate domain policy changes",
+                        "rationale": "Domain policy changes should use the standard workflow.",
+                        "draft_content": "Structured workflow policy patch.",
+                        "workflow_policy_patch": {
+                            "schema_version": "1.0",
+                            "operation": "upsert_routing_rule",
+                            "target": "workflow_routing.rules",
+                            "rule": {
+                                "id": "standard-escalation",
+                                "selected_workflow": "standard",
+                                "rationale": "Escalate high-risk and domain policy changes to the standard workflow.",
+                                "task_type_hints": ["feature", "policy"],
+                                "triggers": [
+                                    "unclear_impact_scope",
+                                    "high_risk_module",
+                                    "cross_module_design",
+                                    "security_or_permission",
+                                    "insufficient_sensor_coverage",
+                                    "domain_policy_change",
+                                ],
+                                "required_guides": [".ai/guides/project-context.md", ".ai/guides/architecture.md"],
+                                "required_sensors": [".ai/sensors/verification.md"],
+                                "human_confirmation_required": True,
+                            },
+                        },
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                        "acceptance_checks": ["Benchmark content:workflow-routing-policy passes."],
+                        "risk_level": "medium",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "review-candidate",
+            "--repo",
+            str(repo),
+            "--candidate-id",
+            "workflow-standard-domain-policy",
+            "--decision",
+            "applied",
+            "--rationale",
+            "Maintainer accepted the routing policy patch.",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    config = HarnessConfig.model_validate(yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8")))
+    standard = next(rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation")
+    evidence = yaml.safe_load((repo / ".ai" / "maturity-evidence.yaml").read_text(encoding="utf-8"))
+    evidence_rule = next(rule for rule in evidence["harness_assets"]["workflow_routing_rules"] if rule["id"] == "standard-escalation")
+    governance = CandidateGovernanceLog.model_validate(
+        yaml.safe_load((review_dir / "candidate-governance.yaml").read_text(encoding="utf-8"))
+    )
+    assert "domain_policy_change" in standard.triggers
+    assert "domain_policy_change" in evidence_rule["triggers"]
+    assert governance.decisions[0].applied_paths == [".ai/harness-config.yaml"]
+    trace = _latest_trace(repo)
+    assert trace["command"] == "review-candidate"
+    artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
+    assert {"path": ".ai/maturity-evidence.yaml", "kind": "maturity_evidence"} in artifacts["artifacts"]
+    assert {"path": ".ai/maturity-score.yaml", "kind": "maturity_score"} in artifacts["artifacts"]
 
 
 def test_self_improve_writes_review_only_package(tmp_path: Path, monkeypatch):

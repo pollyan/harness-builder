@@ -10,10 +10,9 @@ from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
-from harness_builder_agent.prompts.loader import load_prompt_sections
+from harness_builder_agent.prompts.registry import LLM_EXPERIENCE_SUMMARY_V1, build_machine_prompt_messages
 
-EXPERIENCE_SUMMARY_PROMPT_VERSION = "llm-experience-summary-v1"
-EXPERIENCE_SUMMARY_PROMPT_RESOURCE = "llm_experience_summary_v1.md"
+EXPERIENCE_SUMMARY_PROMPT_VERSION = LLM_EXPERIENCE_SUMMARY_V1.version
 
 
 def summarize_experience_with_llm(
@@ -30,22 +29,12 @@ def summarize_experience_with_llm(
 
 
 def build_experience_summary_messages(index: ExperienceIndex, sources: dict[str, str]) -> list[dict[str, str]]:
-    system_prompt, user_prompt = load_prompt_sections(EXPERIENCE_SUMMARY_PROMPT_RESOURCE)
     payload = {
         "prompt_version": EXPERIENCE_SUMMARY_PROMPT_VERSION,
         "experience_index": index.model_dump(mode="json"),
         "sources": sources,
     }
-    return [
-        {
-            "role": "system",
-            "content": system_prompt,
-        },
-        {
-            "role": "user",
-            "content": f"{user_prompt}\n\nExperience input JSON:\n{json.dumps(payload, ensure_ascii=False)}",
-        },
-    ]
+    return build_machine_prompt_messages(LLM_EXPERIENCE_SUMMARY_V1.key, payload)
 
 
 def parse_experience_summary_response(content: str, evidence_sources: set[str]) -> ExperienceSummaryReport:

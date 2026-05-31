@@ -8,7 +8,9 @@ import yaml
 
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateDraft, AssetCandidateReport
 from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceDecision, CandidateGovernanceLog
+from harness_builder_agent.schemas.harness_config import HarnessConfig, WorkflowRoutingRule
 from harness_builder_agent.tools.asset_writers.shared import write_text, write_yaml
+from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.experience_index import write_experience_index
 
 CandidateDecision = Literal["accepted", "deferred", "rejected", "applied"]
@@ -41,7 +43,10 @@ def review_candidate(
     applied_paths: list[str] = []
     if decision == "applied":
         _ensure_not_already_applied(log, candidate_id)
-        _apply_markdown_candidate(candidate, target_path)
+        if candidate.kind == "workflow_policy":
+            _apply_workflow_policy_candidate(root, candidate)
+        else:
+            _apply_markdown_candidate(candidate, target_path)
         applied_paths = [candidate.suggested_path]
 
     log.decisions.append(
@@ -62,6 +67,8 @@ def review_candidate(
     )
     _write_governance(ai, log)
     write_experience_index(ai)
+    if decision == "applied" and candidate.kind == "workflow_policy":
+        assess_maturity(root)
     return ai
 
 
@@ -110,6 +117,68 @@ def _apply_markdown_candidate(candidate: AssetCandidateDraft, target_path: Path)
     )
     separator = "\n\n" if existing.strip() else ""
     target_path.write_text(f"{existing.rstrip()}{separator}{block}", encoding="utf-8")
+
+
+def _apply_workflow_policy_candidate(root: Path, candidate: AssetCandidateDraft) -> None:
+    if candidate.suggested_path != ".ai/harness-config.yaml":
+        raise ValueError("workflow_policy candidates can only target .ai/harness-config.yaml")
+    if candidate.workflow_policy_patch is None:
+        raise ValueError("workflow_policy_patch is required for workflow_policy candidates")
+
+    ai = root / ".ai"
+    config_path = ai / "harness-config.yaml"
+    config = HarnessConfig.model_validate(yaml.safe_load(config_path.read_text(encoding="utf-8")))
+    updated = config.model_copy(deep=True)
+    rule = candidate.workflow_policy_patch.rule
+    _validate_workflow_rule(root, updated, rule)
+    rules = [existing for existing in updated.workflow_routing.rules if existing.id != rule.id]
+    rules.append(rule)
+    updated.workflow_routing.rules = rules
+    _validate_routing_policy_invariants(updated)
+    write_yaml(config_path, updated.model_dump(mode="json"))
+
+
+def _validate_workflow_rule(root: Path, config: HarnessConfig, rule: WorkflowRoutingRule) -> None:
+    if rule.selected_workflow not in config.workflows:
+        raise ValueError(f"selected workflow does not exist: {rule.selected_workflow}")
+    for guide in rule.required_guides:
+        _require_ai_file(root, guide, "required guide")
+    for sensor in rule.required_sensors:
+        _require_ai_file(root, sensor, "required sensor")
+
+
+def _require_ai_file(root: Path, rel_path: str, label: str) -> None:
+    if not rel_path.startswith(".ai/"):
+        raise ValueError(f"{label} must stay under .ai/: {rel_path}")
+    path = (root / rel_path).resolve()
+    ai = (root / ".ai").resolve()
+    if path != ai and ai not in path.parents:
+        raise ValueError(f"{label} must stay under .ai/: {rel_path}")
+    if not path.is_file():
+        raise ValueError(f"{label} does not exist: {rel_path}")
+
+
+def _validate_routing_policy_invariants(config: HarnessConfig) -> None:
+    errors: list[str] = []
+    if config.workflow_routing.default_workflow != "lightweight":
+        errors.append("default workflow must remain lightweight")
+    rule_ids = [rule.id for rule in config.workflow_routing.rules]
+    if len(rule_ids) != len(set(rule_ids)):
+        errors.append("workflow routing rule ids must be unique")
+    required_rule_ids = {"bugfix-intent", "low-risk-lightweight", "standard-escalation"}
+    if not required_rule_ids.issubset(set(rule_ids)):
+        errors.append("workflow routing must keep required baseline rules")
+    standard = next((rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation"), None)
+    if standard is None:
+        errors.append("standard-escalation rule is required")
+    else:
+        required_triggers = {"high_risk_module", "cross_module_design", "security_or_permission", "insufficient_sensor_coverage"}
+        if not required_triggers.issubset(set(standard.triggers)):
+            errors.append("standard-escalation must keep required triggers")
+        if not standard.human_confirmation_required:
+            errors.append("standard-escalation must require human confirmation")
+    if errors:
+        raise ValueError("; ".join(errors))
 
 
 def _write_governance(ai: Path, log: CandidateGovernanceLog) -> None:

@@ -21,6 +21,7 @@ from harness_builder_agent.schemas.self_improve_package import SelfImprovePackag
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
+from harness_builder_agent.schemas.workflow_policy_patch import WorkflowPolicyPatch
 
 
 def test_project_inventory_records_stack_modules_and_evidence():
@@ -226,6 +227,77 @@ def test_candidate_governance_log_rejects_unknown_decision():
                         "rationale": "Invalid state.",
                         "reviewer": "harness-maintainer",
                         "decided_at": "2026-05-31T00:00:00Z",
+                    }
+                ],
+            }
+        )
+
+
+def test_workflow_policy_patch_accepts_upsert_routing_rule():
+    patch = WorkflowPolicyPatch.model_validate(
+        {
+            "schema_version": "1.0",
+            "operation": "upsert_routing_rule",
+            "target": "workflow_routing.rules",
+            "rule": {
+                "id": "standard-escalation",
+                "selected_workflow": "standard",
+                "rationale": "Escalate domain policy changes.",
+                "task_type_hints": ["policy"],
+                "triggers": [
+                    "high_risk_module",
+                    "cross_module_design",
+                    "security_or_permission",
+                    "insufficient_sensor_coverage",
+                    "domain_policy_change",
+                ],
+                "required_guides": [".ai/guides/project-context.md"],
+                "required_sensors": [".ai/sensors/verification.md"],
+                "human_confirmation_required": True,
+            },
+        }
+    )
+
+    assert patch.operation == "upsert_routing_rule"
+    assert patch.rule.id == "standard-escalation"
+
+
+def test_workflow_policy_patch_rejects_unknown_operation():
+    with pytest.raises(ValidationError):
+        WorkflowPolicyPatch.model_validate(
+            {
+                "schema_version": "1.0",
+                "operation": "replace_config",
+                "target": "workflow_routing.rules",
+                "rule": {
+                    "id": "standard-escalation",
+                    "selected_workflow": "standard",
+                    "rationale": "Invalid operation.",
+                },
+            }
+        )
+
+
+def test_asset_candidate_requires_structured_patch_for_workflow_policy():
+    with pytest.raises(ValidationError):
+        AssetCandidateReport.model_validate(
+            {
+                "schema_version": "1.0",
+                "source": "llm_maturity_review",
+                "candidates": [
+                    {
+                        "id": "workflow-routing-policy-review",
+                        "kind": "workflow_policy",
+                        "source_candidate_id": "candidate-1",
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/harness-config.yaml",
+                        "title": "Review workflow routing policy",
+                        "rationale": "Needs structured patch.",
+                        "draft_content": "free text is not enough",
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                        "acceptance_checks": ["Run benchmark."],
+                        "risk_level": "medium",
+                        "review_status": "pending_harness_maintainer_review",
                     }
                 ],
             }

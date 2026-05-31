@@ -87,7 +87,7 @@ Benchmark 应检查：
 - 显式 LLM review 命令生成的可选 review artifacts 在存在时必须被校验。它们不是 baseline required files，但 schema 错误、YAML/Markdown 缺少配对、跨文件引用无效或丢失 review-only 状态时，benchmark 应失败。
 - `.ai/review/maturity-review.yaml` 和 `.ai/review/maturity-review.md` 属于可选 LLM review artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、candidate id 引用和 `.ai/` evidence 边界。
 - `.ai/review/asset-candidates.yaml` 和配套 `asset-candidate-*.md` 属于可选 review-only artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配套章节、source candidate 引用、`.ai/` evidence/suggested path 边界和 `pending_harness_maintainer_review` 状态。
-- `.ai/review/candidate-governance.yaml` 和 `.ai/review/candidate-governance.md` 属于可选候选治理 artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、candidate id 引用、`.ai/` evidence/suggested/applied path 边界，以及 applied path 是否存在。
+- `.ai/review/candidate-governance.yaml` 和 `.ai/review/candidate-governance.md` 属于可选候选治理 artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、candidate id 引用、`.ai/` evidence/suggested/applied path 边界，以及 applied path 是否存在。对已应用的 `workflow_policy` candidate，还必须校验源候选存在结构化 `workflow_policy_patch`，且 `.ai/harness-config.yaml` 中对应 routing rule 与 patch 一致。
 - `.ai/review/self-improve-package.yaml` 和 `.ai/review/self-improve-package.md` 属于可选 self-improve review package；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配套章节、generated artifact 路径边界和 `pending_harness_maintainer_review` 状态。
 - `.ai/experience/experience-summary.yaml` 和 `.ai/experience/experience-summary.md` 属于可选 review-only Experience artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、`.ai/` evidence 边界和 `pending_harness_maintainer_review` 状态。
 

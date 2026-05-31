@@ -182,6 +182,10 @@ def review_candidate_command(
         trace.artifact(output_dir / "review" / "candidate-governance.yaml", "candidate_governance")
         trace.artifact(output_dir / "review" / "candidate-governance.md", "review")
         trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        if (output_dir / "maturity-score.yaml").exists():
+            trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        if (output_dir / "maturity-evidence.yaml").exists():
+            trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
         trace.event(
             "candidate-governance",
             "completed",

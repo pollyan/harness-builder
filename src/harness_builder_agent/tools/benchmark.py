@@ -66,18 +66,29 @@ def run_benchmark(repo: Path, profile: str | None = None, trace: GenerationTrace
     root = repo.resolve()
     if trace:
         trace.event("benchmark", "started", "Benchmark started.", {"profile": profile})
-    inventory, commands = scan_repository(root)
-    if trace:
-        trace.event(
-            "scan",
-            "completed",
-            "Repository scan completed for benchmark.",
-            {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)},
-        )
-    write_initial_assets(root, inventory, commands, trace=trace)
+    ai = root / ".ai"
+    if (ai / "project-inventory.json").exists() and (ai / "command-catalog.yaml").exists():
+        inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+        commands = CommandCatalog.model_validate(yaml.safe_load((ai / "command-catalog.yaml").read_text(encoding="utf-8")))
+        if trace:
+            trace.event(
+                "benchmark",
+                "existing-harness",
+                "Benchmark is validating existing Harness assets without rewriting them.",
+                {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)},
+            )
+    else:
+        inventory, commands = scan_repository(root)
+        if trace:
+            trace.event(
+                "scan",
+                "completed",
+                "Repository scan completed for benchmark.",
+                {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)},
+            )
+        write_initial_assets(root, inventory, commands, trace=trace)
     assess_maturity(root)
     generate_improvements(root)
-    ai = root / ".ai"
     if trace:
         trace.artifact(ai / "benchmark-report.yaml", "benchmark_report")
         trace.event("benchmark", "completed", "Benchmark checks are ready to evaluate.", {"profile": profile or inventory.primary_stack})
@@ -581,10 +592,12 @@ def _candidate_governance_check(ai: Path) -> dict[str, Any]:
     try:
         log = CandidateGovernanceLog.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
         candidates = AssetCandidateReport.model_validate(yaml.safe_load((ai / "review" / "asset-candidates.yaml").read_text(encoding="utf-8")))
+        config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
     except Exception as exc:  # pragma: no cover - captured in benchmark report
         return {"id": "content:candidate-governance", "passed": False, "present": True, "errors": [str(exc)]}
 
     candidates_by_id = {candidate.id: candidate for candidate in candidates.candidates}
+    rules_by_id = {rule.id: rule for rule in config.workflow_routing.rules}
     for decision in log.decisions:
         source = candidates_by_id.get(decision.candidate_id)
         if source is None:
@@ -609,6 +622,17 @@ def _candidate_governance_check(ai: Path) -> dict[str, Any]:
                 errors.append("applied_path_missing")
         if decision.decision == "applied" and not decision.applied_paths:
             errors.append("applied_decision_without_applied_path")
+        if decision.decision == "applied" and source and source.kind == "workflow_policy":
+            if ".ai/harness-config.yaml" not in decision.applied_paths:
+                errors.append("workflow_policy_applied_without_harness_config")
+            if source.workflow_policy_patch is None:
+                errors.append("workflow_policy_patch_missing")
+            else:
+                applied_rule = rules_by_id.get(source.workflow_policy_patch.rule.id)
+                if applied_rule is None:
+                    errors.append("workflow_policy_rule_missing")
+                elif applied_rule.model_dump(mode="json") != source.workflow_policy_patch.rule.model_dump(mode="json"):
+                    errors.append("workflow_policy_rule_mismatch")
 
     markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
     required_sections = ["# Candidate Governance", "## Decisions", "## Review Boundary"]

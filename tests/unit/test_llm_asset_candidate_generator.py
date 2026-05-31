@@ -204,7 +204,26 @@ def test_generate_asset_candidates_accepts_workflow_policy_candidate():
                         "suggested_path": ".ai/harness-config.yaml",
                         "title": "Refine standard escalation routing",
                         "rationale": "Uses routing evidence.",
-                        "draft_content": "workflow_routing:\n  rules:\n    - id: standard-escalation",
+                        "draft_content": "Structured workflow policy patch.",
+                        "workflow_policy_patch": {
+                            "schema_version": "1.0",
+                            "operation": "upsert_routing_rule",
+                            "target": "workflow_routing.rules",
+                            "rule": {
+                                "id": "standard-escalation",
+                                "selected_workflow": "standard",
+                                "rationale": "Escalate high-risk tasks.",
+                                "triggers": [
+                                    "high_risk_module",
+                                    "cross_module_design",
+                                    "security_or_permission",
+                                    "insufficient_sensor_coverage",
+                                ],
+                                "required_guides": [".ai/guides/project-context.md"],
+                                "required_sensors": [".ai/sensors/verification.md"],
+                                "human_confirmation_required": True,
+                            },
+                        },
                         "review_status": "pending_harness_maintainer_review",
                     }
                 ]
@@ -249,6 +268,7 @@ def test_build_asset_candidate_messages_declares_complete_candidate_schema_and_o
         "candidates[].title",
         "candidates[].rationale",
         "candidates[].draft_content",
+        "candidates[].workflow_policy_patch",
         "candidates[].evidence_sources",
         "candidates[].acceptance_checks",
         "candidates[].risk_level",
@@ -286,6 +306,8 @@ def test_build_asset_candidate_messages_guides_workflow_recommendation_candidate
     assert ".ai/review/workflow-routing-recommendation.yaml" in content
     assert "workflow_policy" in content
     assert ".ai/harness-config.yaml" in content
+    assert "workflow_policy_patch" in content
+    assert '"operation": "upsert_routing_rule"' in content
     assert "pending_harness_maintainer_review" in content
     assert "review-only workflow recommendation evidence" in content
 

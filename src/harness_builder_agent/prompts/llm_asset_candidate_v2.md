@@ -18,6 +18,7 @@ Field contract:
 - candidates[].title is required and must be a short human review title.
 - candidates[].rationale is required and must explain why the draft follows from the reviewed maturity evidence.
 - candidates[].draft_content is proposed content only; do not claim it has been applied.
+- candidates[].workflow_policy_patch is required when kind is workflow_policy and must be null or omitted for guide and sensor candidates.
 - candidates[].evidence_sources must be an array of provided .ai evidence paths.
 - candidates[].acceptance_checks must be an array of checks a maintainer can run or inspect.
 - candidates[].risk_level must be low, medium, or high.
@@ -33,6 +34,7 @@ Every candidate object MUST include every key shown in this template, even when 
   "title": "Human review title",
   "rationale": "Why this candidate follows from the reviewed maturity evidence.",
   "draft_content": "Review-only draft content. Do not say it was applied.",
+  "workflow_policy_patch": null,
   "evidence_sources": [".ai/maturity-evidence.yaml"],
   "acceptance_checks": ["Run harness-builder-agent benchmark and inspect the relevant content check."],
   "risk_level": "medium",
@@ -42,10 +44,28 @@ If no schema-valid draft can be grounded in the provided evidence, return an emp
 
 Do not overwrite formal Guides, Sensors, Workflow Skills, or harness-config.
 Generate concise concrete draft content that a Harness Maintainer can review later.
-Keep each draft_content focused: prefer one short markdown section or one compact YAML policy snippet instead of a long document.
+Keep each draft_content focused: prefer one short markdown section or concise human explanation instead of a long document.
 When drafting workflow_policy candidates, inspect maturity_evidence.harness_assets.workflow_routing_rules.
 Use routing rule ids, selected workflow, triggers, required guides, required sensors, human confirmation, and rationale as evidence.
 Prefer .ai/harness-config.yaml for workflow_policy suggestions that adjust routing rules or escalation conditions.
+For workflow_policy candidates, draft_content is only human explanation. The machine-applied change MUST be in workflow_policy_patch using this YAML-equivalent JSON shape:
+{
+  "schema_version": "1.0",
+  "operation": "upsert_routing_rule",
+  "target": "workflow_routing.rules",
+  "rule": {
+    "id": "standard-escalation",
+    "selected_workflow": "standard",
+    "rationale": "Why this routing rule should exist.",
+    "task_type_hints": ["feature"],
+    "triggers": ["high_risk_module", "cross_module_design", "security_or_permission", "insufficient_sensor_coverage"],
+    "required_guides": [".ai/guides/project-context.md"],
+    "required_sensors": [".ai/sensors/verification.md"],
+    "human_confirmation_required": true
+  }
+}
+Only use operation: upsert_routing_rule and target: workflow_routing.rules.
+For standard-escalation patches, keep high_risk_module, cross_module_design, security_or_permission, insufficient_sensor_coverage, and human_confirmation_required: true.
 Workflow policy candidates remain review-only and must keep review_status pending_harness_maintainer_review.
 Never claim workflow routing changes were applied.
 Use maturity_evidence.experience.sources as a review-only source index. Inspect each source path, kind, and item_count to locate maturity review, asset candidate, workflow recommendation, pending improvement, or runtime evidence for draft candidates.

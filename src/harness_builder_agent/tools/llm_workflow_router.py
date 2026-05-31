@@ -11,10 +11,9 @@ from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
-from harness_builder_agent.prompts.loader import load_prompt_sections
+from harness_builder_agent.prompts.registry import LLM_WORKFLOW_ROUTER_V1, build_machine_prompt_messages
 
-WORKFLOW_ROUTER_PROMPT_VERSION = "llm-workflow-router-v1"
-WORKFLOW_ROUTER_PROMPT_RESOURCE = "llm_workflow_router_v1.md"
+WORKFLOW_ROUTER_PROMPT_VERSION = LLM_WORKFLOW_ROUTER_V1.version
 
 
 def recommend_workflow_with_llm(
@@ -49,7 +48,6 @@ def build_workflow_recommendation_messages(
     config: HarnessConfig,
     evidence_pack: MaturityEvidencePack,
 ) -> list[dict[str, str]]:
-    system_prompt, user_prompt = load_prompt_sections(WORKFLOW_ROUTER_PROMPT_RESOURCE)
     payload = {
         "prompt_version": WORKFLOW_ROUTER_PROMPT_VERSION,
         "task_id": task_id,
@@ -57,16 +55,7 @@ def build_workflow_recommendation_messages(
         "harness_config": config.model_dump(mode="json"),
         "maturity_evidence": evidence_pack.model_dump(mode="json"),
     }
-    return [
-        {
-            "role": "system",
-            "content": system_prompt,
-        },
-        {
-            "role": "user",
-            "content": f"{user_prompt}\n\nWorkflow routing input JSON:\n{json.dumps(payload, ensure_ascii=False)}",
-        },
-    ]
+    return build_machine_prompt_messages(LLM_WORKFLOW_ROUTER_V1.key, payload)
 
 
 def parse_workflow_recommendation_response(

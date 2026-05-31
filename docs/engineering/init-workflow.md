@@ -172,7 +172,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/review/candidate-governance.yaml`
 - `.ai/review/candidate-governance.md`
 
-该产物记录 Harness Maintainer 对 `.ai/review/asset-candidates.yaml` 中候选的 `accepted`、`deferred`、`rejected` 或 `applied` 决策。`applied` 当前只允许 Guide / Sensor Markdown 候选追加到正式 `.ai/**/*.md` 资产；workflow policy 候选不得自动 patch `.ai/harness-config.yaml`。
+该产物记录 Harness Maintainer 对 `.ai/review/asset-candidates.yaml` 中候选的 `accepted`、`deferred`、`rejected` 或 `applied` 决策。`applied` 允许 Guide / Sensor Markdown 候选追加到正式 `.ai/**/*.md` 资产；workflow policy 候选只能通过结构化 `workflow_policy_patch` 更新 `.ai/harness-config.yaml` routing rule，不能从自由文本 `draft_content` 推断配置变更。
 
 必须生成的可追溯产物：
 

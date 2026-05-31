@@ -8,6 +8,7 @@ import yaml
 from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
+from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.benchmark import (
     _content_checks,
@@ -18,6 +19,7 @@ from harness_builder_agent.tools.benchmark import (
     _schema_checks,
     run_benchmark,
 )
+from harness_builder_agent.tools.candidate_governance import review_candidate
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -70,6 +72,12 @@ def _latest_trace(repo: Path) -> dict:
     runs = sorted((repo / ".ai" / "runs").iterdir())
     assert runs
     return yaml.safe_load((runs[-1] / "trace.yaml").read_text(encoding="utf-8"))
+
+
+def _copy_fixture_repo(tmp_path: Path, fixture_name: str) -> Path:
+    repo = tmp_path / fixture_name
+    shutil.copytree(FIXTURES / fixture_name, repo, ignore=shutil.ignore_patterns(".ai"))
+    return repo
 
 
 def _write_valid_workflow_recommendation(ai: Path) -> None:
@@ -127,7 +135,29 @@ def _write_valid_asset_candidates(ai: Path) -> None:
                         "suggested_path": ".ai/harness-config.yaml",
                         "title": "Review workflow routing policy",
                         "rationale": "Workflow recommendation evidence suggests a routing policy review.",
-                        "draft_content": "workflow_routing:\n  rules:\n    - id: standard-escalation",
+                        "draft_content": "Structured workflow policy patch.",
+                        "workflow_policy_patch": {
+                            "schema_version": "1.0",
+                            "operation": "upsert_routing_rule",
+                            "target": "workflow_routing.rules",
+                            "rule": {
+                                "id": "standard-escalation",
+                                "selected_workflow": "standard",
+                                "rationale": "Escalate high-risk and domain policy changes to the standard workflow.",
+                                "task_type_hints": ["feature", "policy"],
+                                "triggers": [
+                                    "unclear_impact_scope",
+                                    "high_risk_module",
+                                    "cross_module_design",
+                                    "security_or_permission",
+                                    "insufficient_sensor_coverage",
+                                    "domain_policy_change",
+                                ],
+                                "required_guides": [".ai/guides/project-context.md", ".ai/guides/architecture.md"],
+                                "required_sensors": [".ai/sensors/verification.md"],
+                                "human_confirmation_required": True,
+                            },
+                        },
                         "evidence_sources": [".ai/maturity-evidence.yaml"],
                         "acceptance_checks": ["Benchmark content:workflow-routing-policy passes."],
                         "risk_level": "medium",
@@ -323,8 +353,7 @@ def _write_valid_self_improve_package(ai: Path) -> None:
 
 
 def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: str = "mini-spring-boot", profile: str = "java-spring") -> Path:
-    repo = tmp_path / fixture_name
-    shutil.copytree(FIXTURES / fixture_name, repo)
+    repo = _copy_fixture_repo(tmp_path, fixture_name)
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, profile))
     result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", profile])
     assert result.exit_code == 0, result.output
@@ -332,8 +361,7 @@ def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: st
 
 
 def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch):
-    repo = tmp_path / "mini-spring-boot"
-    shutil.copytree(FIXTURES / "mini-spring-boot", repo)
+    repo = _copy_fixture_repo(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
 
     result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "java-spring"])
@@ -399,8 +427,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
 
 
 def test_benchmark_generates_report_for_dotnet_fixture(tmp_path: Path, monkeypatch):
-    repo = tmp_path / "mini-dotnet-webapi"
-    shutil.copytree(FIXTURES / "mini-dotnet-webapi", repo)
+    repo = _copy_fixture_repo(tmp_path, "mini-dotnet-webapi")
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "dotnet-aspnet"))
 
     result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "dotnet-aspnet"])
@@ -415,8 +442,7 @@ def test_benchmark_generates_report_for_dotnet_fixture(tmp_path: Path, monkeypat
 
 
 def test_benchmark_fails_when_hard_gate_command_lacks_evidence(tmp_path: Path, monkeypatch):
-    repo = tmp_path / "mini-spring-boot"
-    shutil.copytree(FIXTURES / "mini-spring-boot", repo)
+    repo = _copy_fixture_repo(tmp_path, "mini-spring-boot")
 
     def fake_scan_without_source(repo_path: Path):
         inventory, commands = _fake_scan(repo_path, "java-spring")
@@ -731,6 +757,29 @@ def test_benchmark_accepts_valid_candidate_governance_artifacts(tmp_path: Path, 
     assert check["passed"] is True
     assert check["present"] is True
     assert check["decision_count"] == 1
+
+
+def test_benchmark_preserves_applied_workflow_policy_candidate(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    review_candidate(
+        repo,
+        candidate_id="workflow-routing-policy-review",
+        decision="applied",
+        rationale="Maintainer accepted the routing patch.",
+        reviewer="harness-maintainer",
+    )
+
+    report = run_benchmark(repo, "java-spring")
+
+    config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
+    standard = next(rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation")
+    check_by_id = {check["id"]: check for check in report["checks"]}
+    assert "domain_policy_change" in standard.triggers
+    assert check_by_id["content:workflow-routing-policy"]["passed"] is True
+    assert check_by_id["content:maturity-routing-evidence"]["passed"] is True
+    assert check_by_id["content:candidate-governance"]["passed"] is True
 
 
 def test_benchmark_fails_candidate_governance_with_unknown_candidate(tmp_path: Path, monkeypatch):

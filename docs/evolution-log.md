@@ -1,5 +1,13 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Workflow Policy Candidate Apply And Prompt Registry
+
+- North Star 模块：Workflow Policy、Candidate Governance、Prompt Contract。
+- 当前 gap：`workflow_policy` asset candidate 已能被 LLM 提出，但此前只能记录治理决策，不能以机器契约应用到正式 routing policy；同时 prompt 文件虽已集中，prompt 版本、文件名和输入标题仍散落在 `tools/llm_*.py`。
+- 决策：新增 `WorkflowPolicyPatch` schema，要求 `workflow_policy` candidate 必须携带结构化 patch；`review-candidate --decision applied` 只允许通过该 patch upsert routing rule，并校验 guide/sensor 引用和核心 routing invariants。
+- 决策：新增 `prompts.registry` 作为机器消费型 LLM prompt 的单一注册表，集中管理 prompt 文件、版本、输入标题和消息构造；LLM 工具层不再直接维护 prompt 文件名或调用 loader。
+- 验收方式：schema / unit / CLI / benchmark 测试覆盖 workflow policy patch 应用、非法 patch 拒绝、成熟度证据刷新、benchmark 保留已应用 config，以及 prompt registry 防回退。
+
 ## 2026-05-31 Candidate Governance MVP
 
 - North Star 模块：Experience & Self-Improve、Maturity & Evolution、资产生成与审核接管。

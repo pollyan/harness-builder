@@ -18,7 +18,7 @@
 
 | Todo | 状态 | 优先级 | 说明 |
 | --- | --- | --- | --- |
-| [Workflow Policy Candidate Apply](workflow-policy-candidate-apply.md) | open | high | 为 `workflow_policy` asset candidate 设计结构化 patch schema，允许经 candidate governance 显式应用到 `.ai/harness-config.yaml` |
+| [成熟度驱动的 init 主向导与命令信息架构重构](maturity-driven-init-wizard.md) | open | high | 将 `init` 强化为成熟度驱动的主入口，串联扫描、确认、成熟度初评、Harness 生成、benchmark 和下一步建议；再次执行时作为已有 Harness 的状态感知维护入口。 |
 
 ## 管理规则
 

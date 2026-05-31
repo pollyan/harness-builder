@@ -81,7 +81,7 @@ Integration 测试验证多个模块一起工作，尤其是 CLI 命令。
 - `assess` 能生成成熟度评估。
 - `improve` 能生成改进候选。
 - `self-improve` 能生成 review-only 自改进包，且不修改正式 Harness 资产或创建 `.ai/task-runs`。
-- `review-candidate` 能记录候选治理决策；`applied` 只对 Guide / Sensor Markdown 候选修改正式 `.ai/**/*.md` 资产，并保留原始候选 review-only 状态。
+- `review-candidate` 能记录候选治理决策；`applied` 对 Guide / Sensor Markdown 候选修改正式 `.ai/**/*.md` 资产，对带结构化 `workflow_policy_patch` 的 workflow policy 候选更新 `.ai/harness-config.yaml`，并保留原始候选 review-only 状态。
 - `benchmark` 能检查核心文件、schema、trace、guide/sensor 内容、workflow skill 引用和 hard gate command 证据。
 
 Integration 测试可以 mock LLM，但不能弱化产物断言。

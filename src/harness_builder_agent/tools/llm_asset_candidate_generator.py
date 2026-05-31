@@ -14,10 +14,9 @@ from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
-from harness_builder_agent.prompts.loader import load_prompt_sections
+from harness_builder_agent.prompts.registry import LLM_ASSET_CANDIDATE_V2, build_machine_prompt_messages
 
-ASSET_CANDIDATE_PROMPT_VERSION = "llm-asset-candidate-v2"
-ASSET_CANDIDATE_PROMPT_RESOURCE = "llm_asset_candidate_v2.md"
+ASSET_CANDIDATE_PROMPT_VERSION = LLM_ASSET_CANDIDATE_V2.version
 
 
 def generate_asset_candidates_with_llm(
@@ -50,7 +49,6 @@ def build_asset_candidate_messages(
     maturity_review: MaturityReviewReport,
     experience_summary: ExperienceSummaryReport | None = None,
 ) -> list[dict[str, str]]:
-    system_prompt, user_prompt = load_prompt_sections(ASSET_CANDIDATE_PROMPT_RESOURCE)
     payload = {
         "prompt_version": ASSET_CANDIDATE_PROMPT_VERSION,
         "maturity_score": score.model_dump(mode="json"),
@@ -59,16 +57,7 @@ def build_asset_candidate_messages(
         "maturity_review": maturity_review.model_dump(mode="json"),
         "experience_summary": experience_summary.model_dump(mode="json") if experience_summary else None,
     }
-    return [
-        {
-            "role": "system",
-            "content": system_prompt,
-        },
-        {
-            "role": "user",
-            "content": f"{user_prompt}\n\nCandidate generation input JSON:\n{json.dumps(payload, ensure_ascii=False)}",
-        },
-    ]
+    return build_machine_prompt_messages(LLM_ASSET_CANDIDATE_V2.key, payload)
 
 
 def parse_asset_candidate_response(content: str, candidate_ids: set[str]) -> AssetCandidateReport:

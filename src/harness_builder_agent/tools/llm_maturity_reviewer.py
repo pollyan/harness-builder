@@ -13,10 +13,9 @@ from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
-from harness_builder_agent.prompts.loader import load_prompt_sections
+from harness_builder_agent.prompts.registry import LLM_MATURITY_REVIEW_V2, build_machine_prompt_messages
 
-REVIEW_PROMPT_VERSION = "llm-maturity-review-v2"
-REVIEW_PROMPT_RESOURCE = "llm_maturity_review_v2.md"
+REVIEW_PROMPT_VERSION = LLM_MATURITY_REVIEW_V2.version
 
 
 def review_maturity_with_llm(
@@ -41,7 +40,6 @@ def build_maturity_review_messages(
     candidates: ImprovementCandidateReport,
     experience_summary: ExperienceSummaryReport | None = None,
 ) -> list[dict[str, str]]:
-    system_prompt, user_prompt = load_prompt_sections(REVIEW_PROMPT_RESOURCE)
     payload = {
         "prompt_version": REVIEW_PROMPT_VERSION,
         "maturity_score": score.model_dump(mode="json"),
@@ -49,16 +47,7 @@ def build_maturity_review_messages(
         "improvement_candidates": candidates.model_dump(mode="json"),
         "experience_summary": experience_summary.model_dump(mode="json") if experience_summary else None,
     }
-    return [
-        {
-            "role": "system",
-            "content": system_prompt,
-        },
-        {
-            "role": "user",
-            "content": f"{user_prompt}\n\nReview input JSON:\n{json.dumps(payload, ensure_ascii=False)}",
-        },
-    ]
+    return build_machine_prompt_messages(LLM_MATURITY_REVIEW_V2.key, payload)
 
 
 def parse_maturity_review_response(content: str, candidate_ids: set[str]) -> MaturityReviewReport:
