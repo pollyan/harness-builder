@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 扫描关注点分组
+
+- North Star 模块：CLI Experience、Progressive Collaboration、深度扫描、成熟度叙事输入。
+- init North Star 旅程阶段：扫描结果友好呈现、与用户对齐扫描理解和成熟度判断。
+- Gap Analysis 摘要：guided `init` 已有扫描前/后进度提示和写入前成熟度预览，但 `_show_scan_findings()` 仍主要展示技术栈、证据、模块和命令；风险区域、scan warning、低置信度命令、无 hard gate、缺失验证类型等关注点没有在用户补充前形成清晰分组，用户不容易判断应该纠正哪里。
+- 用户故事：作为 Harness Maintainer，当首次 guided `init` 扫描完成并准备补充或修正扫描理解时，我可以在 CLI 中看到按“风险区域”“不确定性”“验证缺口”“建议补充”分组的关注点摘要，从而知道哪些判断需要优先确认、哪些验证能力会影响后续 Guides / Sensors / 成熟度预览。
+- 当前代码 gap：`ProjectInventory.stack_extensions` 已包含 `risk_areas`、`scan_warnings`、`needs_human_confirmation` 和 LLM proposal confidence；`CommandCatalog` 已包含 gate、source、confidence 和 type；但这些数据没有被翻译成面向用户的扫描关注点。
+- 关键决策 / 取舍：本轮只改 guided CLI 渲染层，不改 schema、不改 LLM prompt、不改 scan reconciler、不改变非交互输出；缺口表达统一使用“当前扫描未确认 / 建议补充”，避免把 evidence 缺失断言为项目能力不存在。
+- Assumptions / risks：旧 inventory 可能没有完整 `stack_extensions`，渲染层必须容错；风险摘要不是成熟度评分，后续成熟度仍由 preview 和 maturity report 负责解释。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行审查 scan findings gap 和测试策略；结论一致建议本轮做“风险 / 不确定性 / 验证缺口分组展示”，且只用 guided integration 覆盖即可。
+- 价值切分说明：本轮保护的是用户在“扫描完成 -> 输入补充”之间的判断动作，不是孤立文案；它让用户在正式生成 Guides / Sensors 前知道哪些扫描判断需要修正。
+- 验收标准及验证方式：integration 覆盖 happy path 中四个关注点分组出现在“扫描发现”后、“团队规则”前；专门 fake scan 场景覆盖风险路径、scan warning、低置信度 soft command、无 hard gate 和建议补充真实 hard gate。
+- 完成内容：`interactive_init.py` 新增扫描关注点摘要与 helper；README、init workflow、spec/plan 和演进记录同步。
+- 验证结果：targeted guided scan attention tests 已通过；fast/full/push 结果见本轮提交记录。
+- Self-Harness Gate：下一轮候选 gap 首选“Guide / Sensor 推荐与成熟度维度、阻断项的逐项关联”，其次是“真正的 scan 内部阶段 callback”。
+
 ## 2026-05-31 Guided Init 扫描进度反馈
 
 - North Star 模块：CLI Experience、Progressive Collaboration、深度扫描、可解释失败边界。

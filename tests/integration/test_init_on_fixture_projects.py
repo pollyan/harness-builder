@@ -356,6 +356,12 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert result.output.index("扫描仓库") < result.output.index("扫描发现")
     assert result.output.index("扫描完成") < result.output.index("扫描发现")
     assert "扫描发现" in result.output
+    assert "风险区域" in result.output
+    assert "不确定性" in result.output
+    assert "验证缺口" in result.output
+    assert "建议补充" in result.output
+    assert result.output.index("扫描发现") < result.output.index("\n风险区域")
+    assert result.output.index("建议补充") < result.output.index("团队规则")
     assert "主要技术栈" in result.output
     assert "团队规则" in result.output
     assert "建议生成的规则" in result.output
@@ -422,6 +428,71 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
     assert not (repo / ".ai" / "guides").exists()
     assert not (repo / ".ai" / "sensors").exists()
     assert not (repo / ".ai" / "skills").exists()
+
+
+def test_guided_init_groups_scan_risks_uncertainties_and_validation_gaps(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+
+    def scan_with_attention_points(repo_path: Path):
+        inventory = ProjectInventory(
+            repo_name=repo_path.name,
+            root_path=str(repo_path),
+            primary_stack="java-spring",
+            stacks=["java", "spring-boot"],
+            modules=[{"name": "app", "path": ".", "kind": "backend"}],
+            evidence=[{"path": "pom.xml", "reason": "build config"}],
+            stack_extensions={
+                "risk_areas": [{"path": "src/main/resources/application.yml", "reason": "配置变更影响运行环境"}],
+                "needs_human_confirmation": True,
+                "scan_warnings": [
+                    {
+                        "code": "test_evidence_not_found",
+                        "message": "No dedicated test evidence bucket was found; test strategy needs human confirmation.",
+                        "severity": "warning",
+                        "evidence": [],
+                    }
+                ],
+                "llm_scan_proposal": {"confidence": "low"},
+            },
+        )
+        commands = CommandCatalog(
+            commands=[
+                {
+                    "id": "integration_test",
+                    "command": "mvn -Pintegration test",
+                    "type": "test",
+                    "gate": "soft",
+                    "source": "pom.xml",
+                    "confidence": "low",
+                }
+            ]
+        )
+        return inventory, commands
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", scan_with_attention_points)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="\n\n\n\n\n\n\nconfirm\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "风险区域" in result.output
+    assert "src/main/resources/application.yml" in result.output
+    assert "配置变更影响运行环境" in result.output
+    assert "不确定性" in result.output
+    assert "需要人工确认" in result.output
+    assert "LLM 扫描置信度为 low" in result.output
+    assert "No dedicated test evidence bucket was found" in result.output
+    assert "mvn -Pintegration test" in result.output
+    assert "验证缺口" in result.output
+    assert "暂未确认 hard gate" in result.output
+    assert "低置信度验证命令" in result.output
+    assert "建议补充" in result.output
+    assert "真实可执行的 hard gate 命令" in result.output
+    assert result.output.index("\n风险区域") < result.output.index("团队规则")
 
 
 def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):

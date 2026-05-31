@@ -45,7 +45,7 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
 .venv/bin/harness-builder-agent benchmark --repo tests/fixtures/mini-spring-boot --profile java-spring
 ```
 
-`init` 默认是本地人机引导式向导。它会用中文解释扫描发现，说明主要技术栈、模块、证据和验证命令，允许用户输入补充，或用 `stack=<value>`、`module=路径|类型|名称`、`command=ID|命令|类型|gate|来源|置信度`、`risk=路径|原因` 修正关键扫描结论；随后会收集团队代码规范、架构约束、测试策略等团队规则，逐项展示 Guide / Sensor 候选，说明推荐 Workflow，并在写入前展示当前 Harness 成熟度初评、写入后预计建立的基线、下一目标、主要阻断项、推荐补齐动作，以及 Guides / Sensors / Workflow routing 设计预览。摘要阶段可以输入 `back` 返回修改，也可以输入 `confirm` 写入资产。
+`init` 默认是本地人机引导式向导。它会用中文解释扫描发现，说明主要技术栈、模块、证据和验证命令，并在收集用户补充前分组展示风险区域、不确定性、验证缺口和建议补充，让 Maintainer 知道应优先确认哪些判断；用户可以输入自然语言补充，或用 `stack=<value>`、`module=路径|类型|名称`、`command=ID|命令|类型|gate|来源|置信度`、`risk=路径|原因` 修正关键扫描结论。随后会收集团队代码规范、架构约束、测试策略等团队规则，逐项展示 Guide / Sensor 候选，说明推荐 Workflow，并在写入前展示当前 Harness 成熟度初评、写入后预计建立的基线、下一目标、主要阻断项、推荐补齐动作，以及 Guides / Sensors / Workflow routing 设计预览。摘要阶段可以输入 `back` 返回修改，也可以输入 `confirm` 写入资产。
 
 自动化、测试、CI 或 acceptance 场景必须显式使用非交互模式：
 

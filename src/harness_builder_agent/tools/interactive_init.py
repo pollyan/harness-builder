@@ -210,6 +210,107 @@ def _show_scan_findings(inventory: ProjectInventory, commands: CommandCatalog) -
     else:
         typer.echo("- 暂未发现稳定验证命令，后续会作为待补齐 Sensor。")
 
+    _show_scan_attention_summary(inventory, commands)
+
+
+def _show_scan_attention_summary(inventory: ProjectInventory, commands: CommandCatalog) -> None:
+    typer.echo("\n风险区域")
+    for line in _risk_attention_lines(inventory):
+        typer.echo(f"- {line}")
+
+    typer.echo("\n不确定性")
+    for line in _uncertainty_attention_lines(inventory, commands):
+        typer.echo(f"- {line}")
+
+    typer.echo("\n验证缺口")
+    for line in _verification_gap_lines(commands):
+        typer.echo(f"- {line}")
+
+    typer.echo("\n建议补充")
+    for line in _human_followup_lines(inventory, commands):
+        typer.echo(f"- {line}")
+
+
+def _risk_attention_lines(inventory: ProjectInventory) -> list[str]:
+    risk_areas = _stack_extensions_list(inventory, "risk_areas")
+    if not risk_areas:
+        return ["当前扫描暂未识别明确高风险区域；如存在支付、权限、数据迁移或配置目录，请在下一步补充。"]
+    lines: list[str] = []
+    for risk in risk_areas[:5]:
+        path = str(risk.get("path") or risk.get("name") or "未标注路径")
+        reason = str(risk.get("reason") or risk.get("summary") or "需要人工确认影响面")
+        lines.append(f"`{path}`：{reason}")
+    return lines
+
+
+def _uncertainty_attention_lines(inventory: ProjectInventory, commands: CommandCatalog) -> list[str]:
+    extensions = inventory.stack_extensions if isinstance(inventory.stack_extensions, dict) else {}
+    lines: list[str] = []
+    if extensions.get("needs_human_confirmation"):
+        lines.append("LLM 扫描标记需要人工确认，请检查技术栈、模块边界、风险区域和验证命令是否符合真实项目。")
+    llm_proposal = extensions.get("llm_scan_proposal")
+    if isinstance(llm_proposal, dict):
+        confidence = llm_proposal.get("confidence")
+        if confidence and confidence != "high":
+            lines.append(f"LLM 扫描置信度为 {confidence}，建议补充关键目录、测试入口或团队规则。")
+    if inventory.primary_stack == "unknown":
+        lines.append("主要技术栈仍不明确，需要人工补充真实技术栈或入口目录。")
+    if not inventory.modules:
+        lines.append("暂未识别稳定模块边界，需要人工确认主要模块、入口文件或职责分工。")
+    for warning in _stack_extensions_list(inventory, "scan_warnings")[:5]:
+        message = str(warning.get("message") or warning.get("code") or "扫描存在未分类 warning")
+        lines.append(message)
+    low_confidence_commands = [command for command in commands.commands if command.confidence == "low"]
+    if low_confidence_commands:
+        labels = ", ".join(f"`{command.command}`" for command in low_confidence_commands[:3])
+        lines.append(f"低置信度验证命令：{labels}，需要确认是否稳定可执行。")
+    return lines or ["当前扫描没有发现必须立即处理的不确定性；仍建议确认关键模块和验证命令。"]
+
+
+def _verification_gap_lines(commands: CommandCatalog) -> list[str]:
+    if not commands.commands:
+        return ["暂未发现验证命令；后续 Sensors 需要人工补充 build / test / lint / typecheck 入口。"]
+    lines: list[str] = []
+    hard_commands = [command for command in commands.commands if command.gate == "hard"]
+    if not hard_commands:
+        lines.append("暂未确认 hard gate；当前命令都不能直接作为阻断式完成门禁。")
+    weak_hard_commands = [command for command in hard_commands if not command.source or command.confidence == "low"]
+    if weak_hard_commands:
+        labels = ", ".join(f"`{command.command}`" for command in weak_hard_commands[:3])
+        lines.append(f"hard gate 证据不足或置信度低：{labels}，需要补充来源或降级为 soft gate。")
+    soft_commands = [command for command in commands.commands if command.gate == "soft"]
+    if soft_commands:
+        labels = ", ".join(f"`{command.command}`" for command in soft_commands[:3])
+        lines.append(f"soft gate 只能作为风险提示：{labels}，不能单独证明任务完成。")
+    present_types = {command.type for command in commands.commands}
+    missing_types = [label for label in ["build", "test", "lint", "typecheck"] if label not in present_types]
+    if missing_types:
+        lines.append(f"当前扫描未确认这些验证类型：{', '.join(missing_types)}。")
+    return lines or ["已发现 hard gate 候选；仍建议确认其在本地和 CI 中稳定可重复。"]
+
+
+def _human_followup_lines(inventory: ProjectInventory, commands: CommandCatalog) -> list[str]:
+    lines: list[str] = []
+    if _stack_extensions_list(inventory, "risk_areas"):
+        lines.append("请确认上述风险路径是否需要进入 Guides、Workflow 升级条件或人工确认项。")
+    else:
+        lines.append("如存在高风险目录、权限逻辑、配置变更或数据迁移，请在下一步补充。")
+    if not any(command.gate == "hard" for command in commands.commands):
+        lines.append("请补充真实可执行的 hard gate 命令，或确认当前项目只能先使用 soft gate。")
+    if any(command.confidence == "low" for command in commands.commands):
+        lines.append("请确认低置信度命令是否可在开发机或 CI 中稳定运行。")
+    if not inventory.modules:
+        lines.append("请补充主要模块路径、职责和入口文件，避免后续 Guide 过于泛化。")
+    return lines
+
+
+def _stack_extensions_list(inventory: ProjectInventory, key: str) -> list[dict[str, object]]:
+    extensions = inventory.stack_extensions if isinstance(inventory.stack_extensions, dict) else {}
+    value = extensions.get(key)
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
 
 def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path | None:
     ai = repo / ".ai"
