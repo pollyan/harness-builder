@@ -402,7 +402,10 @@ def test_build_asset_candidate_messages_declares_complete_candidate_schema_and_o
         "candidates[].review_status",
     ):
         assert field in content
-    assert "At most 5 candidates" in content
+    assert "At most 3 candidates" in content
+    assert "Keep each draft_content under 600 characters" in content
+    assert "Keep rationale under 240 characters" in content
+    assert "acceptance_checks array to at most 3 short checks" in content
     assert '"id": "stable-kebab-case-id"' in content
     assert '"title": "Human review title"' in content
     assert '"rationale": "Why this candidate follows from the reviewed maturity evidence."' in content

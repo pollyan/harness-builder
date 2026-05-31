@@ -29,6 +29,7 @@ from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
 from harness_builder_agent.tools.maintenance_triage import build_maintenance_triage, render_maintenance_triage_lines
+from harness_builder_agent.tools.maturity_model import build_maturity_report
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.self_improve import run_self_improve
@@ -99,6 +100,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     candidate_ids = [item.id for item in candidate_report.candidates]
 
     while True:
+        _show_prewrite_maturity_preview(repo, inventory, commands, weapon_selection)
         action = _confirm_summary(
             inventory,
             commands,
@@ -115,6 +117,9 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             _show_scan_findings(inventory, commands)
             scan_overrides = _collect_scan_supplement(inventory)
             _apply_scan_overrides(inventory, commands, scan_overrides)
+            weapon_selection = select_weapon_library(inventory, commands)
+            candidate_report = build_llm_enhancement_candidates(inventory, commands)
+            candidate_ids = [item.id for item in candidate_report.candidates]
             continue
         if action == "rules":
             inline_contexts = _collect_team_rules()
@@ -1007,6 +1012,70 @@ def _show_workflows() -> WorkflowConfirmation:
         confirmed=True,
         notes=[note] if note else [],
     )
+
+
+def _show_prewrite_maturity_preview(
+    repo: Path,
+    inventory: ProjectInventory,
+    commands: CommandCatalog,
+    weapon_selection: WeaponLibrarySelection,
+) -> None:
+    config = HarnessConfig.default()
+    planned = build_maturity_report(
+        ai=None,
+        inventory=inventory,
+        commands=commands,
+        config=config,
+        weapon_selection=weapon_selection,
+    )
+    current_level = "L1" if _has_existing_partial_harness(repo) else "L0"
+
+    typer.echo("\n当前 Harness 成熟度初评")
+    if current_level == "L0":
+        typer.echo("- 当前从 L0 起步：尚未发现项目级 `.ai` Harness，仓库还没有可被 AI Coding Runtime 稳定消费的项目控制资产。")
+    else:
+        typer.echo("- 当前从 L1 起步：已发现部分 `.ai` 资产，但还不足以构成完整项目级 Harness。")
+    typer.echo(f"- 确认写入后预计建立：{planned.overall_level} 基线，包含结构化 Guides、Sensors、Workflow Skills 和生成 trace。")
+    typer.echo(f"- 下一目标：{planned.target_next_level or planned.overall_level}")
+    typer.echo("- 写入边界：本次只生成 Harness 资产，不执行 Runtime task-run；写入后仍需显式运行 benchmark 完成质量验收。")
+
+    typer.echo("\n主要阻断项")
+    blockers = planned.blocking_reasons[:3] or ["暂无阻断项；仍建议通过 benchmark 和真实任务运行验证。"]
+    for blocker in blockers:
+        typer.echo(f"- {blocker}")
+
+    typer.echo("\n推荐补齐动作")
+    next_steps = planned.recommended_next_steps[:3] or ["运行 benchmark，并基于结果进入已有 Harness 维护入口。"]
+    for step in next_steps:
+        typer.echo(f"- {step}")
+
+    typer.echo("\n写入前 Harness 设计预览")
+    typer.echo("将生成的 Guides")
+    for weapon in weapon_selection.guide_weapons[:3]:
+        typer.echo(f"- {weapon.title}：{weapon.recommended_action}")
+    if not weapon_selection.guide_weapons:
+        typer.echo("- 暂未匹配到专门 Guide，保留通用项目上下文和人工确认点。")
+
+    typer.echo("将生成的 Sensors")
+    for weapon in weapon_selection.sensor_weapons[:3]:
+        typer.echo(f"- {weapon.title}：{weapon.recommended_action}，建议 gate={weapon.gate}")
+    if not weapon_selection.sensor_weapons:
+        typer.echo("- 暂未匹配到专门 Sensor，后续需要补齐验证命令和失败处理策略。")
+
+    typer.echo("Workflow routing")
+    routing_notes = {
+        "bugfix-intent": "缺陷修复、回归和故障任务进入 bugfix 工作流。",
+        "low-risk-lightweight": "范围清晰、低风险、单模块或文档类任务进入 lightweight 工作流。",
+        "standard-escalation": "高风险、跨模块、安全、数据、核心状态或影响不清的任务升级到 standard 工作流，并需要人工确认。",
+    }
+    for rule in config.workflow_routing.rules:
+        note = routing_notes.get(rule.id, rule.rationale)
+        typer.echo(f"- `{rule.id}` -> {rule.selected_workflow}：{note}")
+
+
+def _has_existing_partial_harness(repo: Path) -> bool:
+    ai = repo / ".ai"
+    return (ai / "project-inventory.json").exists() or (ai / "harness-config.yaml").exists()
 
 
 def _confirm_summary(

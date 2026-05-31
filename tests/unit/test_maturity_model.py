@@ -169,3 +169,14 @@ def test_experience_dimension_keeps_legacy_pending_file_behavior(tmp_path: Path)
     report = build_maturity_report(ai=ai, inventory=_inventory(), commands=_commands(), config=HarnessConfig.default())
 
     assert report.dimensions["experience"].level == "L1"
+
+
+def test_repair_loop_absent_runtime_uses_ai_contract_evidence_source(tmp_path: Path):
+    ai = tmp_path / ".ai"
+
+    report = build_maturity_report(ai=ai, inventory=_inventory(), commands=_commands(), config=HarnessConfig.default())
+
+    repair_loop = report.dimensions["repair_loop"]
+    assert repair_loop.level == "L0"
+    assert any(item.source == ".ai/task-runs/" for item in repair_loop.evidence)
+    assert all(item.source.startswith(".ai/") for item in repair_loop.evidence)

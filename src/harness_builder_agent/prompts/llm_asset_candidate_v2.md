@@ -9,7 +9,7 @@ Return one JSON object only. Do not include markdown commentary.
 Field contract:
 - schema_version: "1.0".
 - source: "llm_maturity_review".
-- candidates: array of review-only draft asset candidates. At most 5 candidates.
+- candidates: array of review-only draft asset candidates. At most 3 candidates.
 - candidates[].id is required and must be a stable kebab-case id.
 - candidates[].kind must be one of guide, sensor, workflow_policy.
 - candidates[].source_candidate_id must reference an existing improvement candidate id, unless source_review_decision is missing.
@@ -45,6 +45,10 @@ If no schema-valid draft can be grounded in the provided evidence, return an emp
 Do not overwrite formal Guides, Sensors, Workflow Skills, or harness-config.
 Generate concise concrete draft content that a Harness Maintainer can review later.
 Keep each draft_content focused: prefer one short markdown section or concise human explanation instead of a long document.
+Keep each draft_content under 600 characters.
+Keep rationale under 240 characters.
+Keep each acceptance_checks array to at most 3 short checks.
+Prefer fewer complete candidates over many verbose candidates. A smaller valid JSON response is better than a long response.
 When drafting workflow_policy candidates, inspect maturity_evidence.harness_assets.workflow_routing_rules.
 Use routing rule ids, selected workflow, triggers, required guides, required sensors, human confirmation, and rationale as evidence.
 Prefer .ai/harness-config.yaml for workflow_policy suggestions that adjust routing rules or escalation conditions.

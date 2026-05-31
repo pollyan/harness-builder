@@ -399,6 +399,11 @@ def test_build_maturity_review_messages_declares_complete_review_schema_and_temp
     assert '"review_status": "pending_harness_maintainer_review"' in content
     assert '"missing_candidates": []' in content
     assert "Do not include markdown commentary, comments, trailing commas, or text outside the JSON object." in content
+    assert "Keep summary under 200 characters" in content
+    assert "candidate_reviews[].rationale under 220 characters" in content
+    assert "candidate_reviews[].risks to at most 2 short strings" in content
+    assert "suggested_acceptance_checks to at most 2 short strings" in content
+    assert "Do not quote long evidence summaries" in content
 
 
 def test_build_maturity_review_messages_guides_workflow_recommendation_candidate():

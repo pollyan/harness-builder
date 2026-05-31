@@ -22,6 +22,15 @@ Field contract:
 - missing_candidates: array of missing improvement ideas, strings only.
 - global_risks: array of cross-candidate risks.
 
+Output length limits:
+- Keep summary under 200 characters.
+- Keep each candidate_reviews[].rationale under 220 characters.
+- Keep candidate_reviews[].risks to at most 2 short strings.
+- Keep candidate_reviews[].suggested_acceptance_checks to at most 2 short strings.
+- Keep missing_candidates to at most 3 short strings.
+- Keep global_risks to at most 3 short strings.
+- Do not quote long evidence summaries or copy large input fragments. Prefer concise judgments that keep the JSON small and complete.
+
 The response object MUST include every top-level key shown in this template, and every candidate review object MUST include every candidate review key shown here, even when an array is empty:
 {
   "schema_version": "1.0",

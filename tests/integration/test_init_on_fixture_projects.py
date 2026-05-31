@@ -353,10 +353,25 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "建议生成的规则" in result.output
     assert "建议生成的传感器" in result.output
     assert "推荐工作流" in result.output
+    assert "当前 Harness 成熟度初评" in result.output
+    assert "当前从 L0 起步" in result.output
+    assert "确认写入后预计建立" in result.output
+    assert "下一目标" in result.output
+    assert "主要阻断项" in result.output
+    assert "推荐补齐动作" in result.output
+    assert "写入前 Harness 设计预览" in result.output
+    assert "将生成的 Guides" in result.output
+    assert "将生成的 Sensors" in result.output
+    assert "Workflow routing" in result.output
+    assert "standard-escalation" in result.output
+    assert "高风险" in result.output
     assert "最终确认" in result.output
+    assert result.output.index("当前 Harness 成熟度初评") < result.output.index("最终确认")
     assert "当前成熟度" in result.output
     assert ".ai/init-summary.md" in result.output
     assert "primary_stack" not in result.output
+    assert "overall_level" not in result.output
+    assert "dimension_scores" not in result.output
     _assert_init_outputs(repo, "java-spring")
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert decisions["mode"] == "interactive"

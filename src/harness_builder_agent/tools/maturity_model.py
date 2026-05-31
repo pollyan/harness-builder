@@ -238,7 +238,7 @@ def _repair_loop_dimension(runtime_summary: RuntimeTaskRunCollectionSummary) -> 
         level="L0",
         evidence=[
             MaturityEvidence(
-                source="docs/strategy/README.md",
+                source=".ai/task-runs/",
                 summary="Task runtime execution is owned by the host AI Coding Runtime, not Harness Builder CLI.",
             )
         ],

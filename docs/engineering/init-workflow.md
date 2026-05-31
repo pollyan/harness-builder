@@ -96,7 +96,21 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 选择结果必须写入文件，便于测试和人工审查。
 - LLM 提出的新增规则只能作为 candidate，不能自动晋升为正式规则。
 
-### 5. 资产写入
+### 5. 写入前成熟度初评与设计预览
+
+首次 guided `init` 在正式写入 `.ai/` 前，必须展示面向用户的成熟度初评和 Harness 设计预览。
+
+规则：
+
+- 如果目标仓库没有完整 `.ai/project-inventory.json` 和 `.ai/harness-config.yaml`，CLI 必须明确说明当前 Harness 从 L0 起步。
+- 预览可以基于内存中的扫描结果、命令目录、默认 `HarnessConfig` 和武器库选择计算写入后预计建立的成熟度基线，但不能提前写入正式资产。
+- CLI 必须区分“当前状态”和“确认写入后预计建立的基线”，不能把 planned baseline 伪装成已存在成熟度。
+- 预览必须展示下一目标、主要阻断项、推荐补齐动作、将生成的 Guides、将生成的 Sensors 和 Workflow routing。
+- Workflow routing 预览必须覆盖 `bugfix-intent`、`low-risk-lightweight` 和 `standard-escalation`，说明高风险、跨模块、安全、数据或影响不清任务会升级到 `standard`。
+- 面向用户的预览不能直接展开 `overall_level`、`dimension_scores`、`primary_stack` 等内部字段名；机器消费字段只落在 JSON / YAML 产物中。
+- 用户在最终确认阶段返回修改 scan 后，下一次预览必须基于更新后的 inventory / commands 重新计算。
+
+### 6. 资产写入
 
 资产写入负责生成 `.ai` 下的核心产物。
 

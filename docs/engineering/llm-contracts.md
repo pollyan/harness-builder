@@ -140,8 +140,8 @@ LLM schema 应表达稳定业务契约。
 - 不要为了临时 prompt 方便加入含义模糊的字段。
 - 对 command candidate 必须保留 command、type、gate、source、confidence。
 - 对 human confirmation 必须有明确标记，而不是藏在自然语言里。
-- 对 maturity review 必须保留 candidate_id、decision、rationale、risks、suggested_acceptance_checks 和 evidence_sources，并拒绝未知 candidate_id。
-- 对 asset candidate 必须保留 kind、source_candidate_id、suggested_path、draft_content、review_status、acceptance_checks 和 evidence_sources；`suggested_path` 必须限制在安全的 `.ai/` 相对路径下，不能包含空路径段、`.` 或 `..`；`workflow_policy` candidate 的 `suggested_path` 必须精确等于 `.ai/harness-config.yaml`。
+- 对 maturity review 必须保留 candidate_id、decision、rationale、risks、suggested_acceptance_checks 和 evidence_sources，并拒绝未知 candidate_id；真实 LLM 输出必须保持短小，summary、rationale、risks、suggested_acceptance_checks、missing_candidates 和 global_risks 都要有明确长度或条数上限，不能复制大段 evidence。
+- 对 asset candidate 必须保留 kind、source_candidate_id、suggested_path、draft_content、review_status、acceptance_checks 和 evidence_sources；`suggested_path` 必须限制在安全的 `.ai/` 相对路径下，不能包含空路径段、`.` 或 `..`；`workflow_policy` candidate 的 `suggested_path` 必须精确等于 `.ai/harness-config.yaml`；真实 LLM 输出必须偏短，最多 3 个候选，`draft_content` 和 rationale 要有明确长度约束，避免长 JSON 被截断成不可解析响应。
 - 对 experience summary 必须保留 kind、title、summary、review_status、confidence、suggested_follow_up 和 evidence_sources；`evidence_sources` 必须限制在提供给 LLM 的 `.ai/` 证据路径内。
 - 对 workflow recommendation 必须保留 task_id、task_brief、recommended_workflow、matched_rule_ids、risk_level、confidence、rationale、required_guides、required_sensors、human_confirmation_required、review_status 和 evidence_sources；`recommended_workflow` 和 `matched_rule_ids` 必须和当前 `harness-config.yaml` 对齐。
 - 对 workflow recommendation、maturity review、asset candidate 和 experience summary，`evidence_sources` 不只检查 `.ai/` 前缀，还必须属于 Builder 提供给该 LLM 阶段的 evidence allowlist；未知 `.ai/` 路径必须显式失败，不能作为可追溯证据接受。

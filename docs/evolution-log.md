@@ -1,5 +1,19 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 写入前成熟度预览
+
+- North Star 模块：CLI Experience、Maturity & Evolution、Workflow Routing、Guides / Sensors。
+- Gap Analysis 摘要：首次 guided `init` 已能扫描、收集补充、展示候选并写入资产，但成熟度叙事主要发生在写入完成后的 `init-summary.md` 和 CLI completion message。用户在输入 `confirm` 前无法判断当前是否从 L0 起步、写入后预计建立什么基线、下一等级缺什么，以及 `standard` workflow 如何参与高风险任务治理。
+- 用户故事：作为 Harness Maintainer，当我第一次对遗留仓库运行 guided `init` 并准备确认写入 `.ai/` 前，我可以先看到当前 Harness 成熟度初评、写入后预计基线、下一目标、阻断项、推荐补齐动作，以及 Guides / Sensors / Workflow routing 设计预览，从而在写入前判断这套 Harness 是否值得接管和如何继续完善。
+- 关键决策 / 取舍：不新增 LLM 调用，不提前写入 `.ai/`；复用现有 `build_maturity_report(ai=None, ...)` 计算 planned baseline，并在 CLI 中明确区分当前 L0 起点和确认写入后的预计基线。本轮不实现扫描阶段进度 callback、不重构 scan pipeline、不增强自然语言语义归因。真实 acceptance 暴露 RuoYi-Vue self-improve 的 LLM 输出过长和 evidence source 契约矛盾后，本轮只收紧 review-only LLM 输出长度约束，并把 Runtime repair loop 证据源调整为 `.ai/task-runs/` 契约路径，不引入 silent fallback。
+- 边界情况 / 失败模式及回应：启动 trace 可能已创建 `.ai/runs`，但这不代表项目已有 Harness；只有已存在正式 inventory / config 时才按 partial Harness 处理。用户从最终确认返回修改 scan 后，会重新选择武器库并刷新候选报告，让下一次预览基于更新后的 inventory / commands。maturity review / asset candidate 真实 LLM 输出必须保持短 JSON；下游 review evidence source 仍只接受 Builder 提供的 `.ai/` allowlist。
+- Sub agent 使用情况：使用两个只读 explorer 子代理分别审查 North Star / 代码旅程 gap 和 guided init 测试覆盖；结论共同推荐“扫描后成熟度初评 + 写入前 Harness 设计预览”作为下一轮最高价值 `init` 切片。
+- 价值切分说明：本轮面向首次 `init` 用户旅程，不是内部字段补丁；它把 `init` 从“文件生成器写完后解释”推进到“写入前用成熟度框架解释设计方案”。
+- 可执行验收标准及验证方式：guided init integration 覆盖成熟度预览出现在最终确认前、当前从 L0 起步、显示写入后预计基线 / 下一目标 / 阻断项 / 推荐动作、展示 Guides / Sensors / Workflow routing，并包含 `standard-escalation` 高风险升级语义；同时断言 CLI 不暴露内部 schema 字段名。
+- 完成内容：`interactive_init.py` 新增写入前成熟度预览；最终确认前渲染 preview；返回 scan 后刷新 weapon selection 和候选报告；maturity review / asset candidate prompt 增加真实 LLM 输出长度约束；repair loop 无 Runtime 证据源改为 `.ai/task-runs/`；README、init workflow、LLM contracts、North Star、spec/plan 和演进记录同步。
+- 验证结果：targeted guided init happy path、guided init integration、LLM prompt unit、maturity model unit 和 RuoYi-Vue real self-improve acceptance 已通过；fast/full/push 结果见本轮提交记录。
+- Self-Harness Gate：本轮固定了首次 `init` 的成熟度叙事契约。下一轮候选 gap：扫描阶段进度反馈、用户自然语言补充后的复述和影响说明、Guide / Sensor 推荐与具体成熟度维度的更精确关联。
+
 ## 2026-05-31 Workflow 推荐到 Routing Policy 生命周期
 
 - North Star 模块：Workflow Runtime Specification、Experience & Self-Improve、Maturity & Evolution、Governance & Auditability、Benchmark / Review Intelligence。
