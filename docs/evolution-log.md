@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Scan Evidence Failed Check Triage 迁移
+
+- North Star 模块：CLI Experience、Benchmark / Review Intelligence、Maturity & Evolution。
+- init North Star 旅程阶段：再次进入已有 Harness；质量门禁解释和维护建议。
+- Gap Analysis 摘要：当前迁移 todo 仍 open，上一轮新增 `content:scan-report` 与 `content:init-summary` 后，benchmark report 已保留 missing detail，但已有 Harness 维护入口对这两个新 check id 仍缺少中文 label 和专门 triage reason。本轮候选包括 scan evidence failed check triage、failed check detail preservation 系统审计和 evidence helper 去重，优先选择 scan evidence triage，因为它直接补齐新门禁的用户可见解释。
+- 用户故事：作为再次运行 guided `init` 进入已有 Harness 维护入口的 Harness Maintainer，当最近 benchmark 因 `content:scan-report` 或 `content:init-summary` 失败时，我可以在 Benchmark signals 和 Maintenance triage guidance 中看到中文解释、具体 missing detail 和下一步动作，从而知道要补齐 scan-report / init-summary 的扫描证据审计。
+- 当前代码 gap：`_benchmark_failed_check_label()` 对 `content:scan-report` 和 `content:init-summary` 返回泛化“查看 benchmark-report.yaml”；`build_maintenance_triage()` 只专门处理 hard gate、risk context 和 project-context evidence，scan evidence 失败被归入泛化 schema/content failed checks。
+- 关键决策 / 取舍：不改 BenchmarkReport schema，不改变 benchmark pass/fail；只把两个近期新增的 scan evidence check 专门化为 `reason=scan_evidence_audit_incomplete`，detail 取第一条 missing，完整列表仍在 benchmark report。
+- Assumptions / risks：维护入口是已有 Harness 诊断的第一视图；多个 scan evidence check 同时失败时只展示第一条 missing detail，避免 triage 过长。
+- Sub agent 使用情况：尝试启动只读 explorer 审查本轮候选，但当前环境返回 `agent thread limit reached`；本轮由主线程完成分析、TDD、实现和验证。
+- 价值切分说明：本轮是 failed check detail preservation 的一个小而完整切片，不做全量 benchmark check 审计，也不重构 evidence helper。
+- 可执行验收标准及验证方式：unit 覆盖 Benchmark signals 的中文 label / missing detail，以及 Maintenance triage 的 reason/source/detail/guidance。
+- 完成内容：为 `content:scan-report`、`content:init-summary` 增加中文 failed check label；Maintenance triage 新增 `scan_evidence_audit_incomplete`；README、init workflow、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted unit 通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：Runtime 边界未变化；下一轮候选 gap：failed check missing / errors / detail preservation 系统性全量审计，或 evidence helper 去重。
+
 ## 2026-06-01 Init Summary Evidence Audit 迁移
 
 - North Star 模块：Deep Scan Evidence、CLI Experience、Maturity & Evolution、Benchmark / Review Intelligence。

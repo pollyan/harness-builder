@@ -1313,6 +1313,8 @@ def _benchmark_failed_check_label(check_id: str) -> str:
         "content:hard-gate-command-evidence": "hard gate 命令证据不足",
         "content:workflow-routing-policy": "workflow routing policy 缺少必要升级规则",
         "content:guides-quality": "project-context Guide 缺少必需章节或仓库特异性",
+        "content:scan-report": "scan-report 缺少扫描证据审计细节",
+        "content:init-summary": "init-summary 缺少扫描证据审计摘要",
         "content:project-context-evidence-context": "project-context Guide 缺少 inventory evidence 或 LLM 证据扩展摘要",
         "content:sensors-quality": "verification Sensor 缺少必需章节或验证风险说明",
     }

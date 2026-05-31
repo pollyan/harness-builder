@@ -97,6 +97,7 @@
    - project-context evidence context gate。
      - 已迁移：2026-06-01。
    - failed check missing / errors / detail preservation。
+     - 已部分迁移：2026-06-01（scan-report / init-summary evidence audit failed checks 有中文 label、missing detail 和专门 triage guidance；系统性全量审计仍待后续）。
 
 3. **Human input 闭环**
    - `.ai/human-input-needed.md#处理方式`。

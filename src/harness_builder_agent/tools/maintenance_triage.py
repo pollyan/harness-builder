@@ -48,6 +48,7 @@ def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> l
     else:
         risk_context_failed = _risk_context_failed_count(benchmark)
         hard_gate_detail = _hard_gate_weak_command_detail(benchmark)
+        scan_evidence_detail = _scan_evidence_missing_detail(benchmark)
         project_context_evidence_failed = _project_context_evidence_failed_count(benchmark)
         project_context_evidence_detail = _project_context_evidence_missing_detail(benchmark)
         schema_content_failed = _schema_content_failed_count(benchmark)
@@ -70,6 +71,19 @@ def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> l
                     action="benchmark",
                     reason="hard_gate_command_evidence",
                     source=f".ai/benchmark-report.yaml#content:hard-gate-command-evidence:{command_id}",
+                    next_action="benchmark",
+                    count=1,
+                    detail=detail,
+                )
+            )
+        elif scan_evidence_detail is not None:
+            check_id, detail = scan_evidence_detail
+            actions.append(
+                MaintenanceAction(
+                    priority=15,
+                    action="benchmark",
+                    reason="scan_evidence_audit_incomplete",
+                    source=f".ai/benchmark-report.yaml#{check_id}",
                     next_action="benchmark",
                     count=1,
                     detail=detail,
@@ -204,6 +218,9 @@ def _maintenance_action_guidance(index: int, action: MaintenanceAction) -> str:
     if action.reason == "project_context_evidence_incomplete":
         detail = f"；缺失详情 `{action.detail}`" if action.detail else ""
         return f"{prefix}补齐 project-context evidence 后运行 `benchmark`{detail}。"
+    if action.reason == "scan_evidence_audit_incomplete":
+        detail = f"；缺失详情 `{action.detail}`" if action.detail else ""
+        return f"{prefix}补齐 scan-report / init-summary 的扫描证据审计后运行 `benchmark`{detail}。"
     if action.reason == "schema_content_failed_checks":
         count = f"{action.count} 个 " if action.count else ""
         return f"{prefix}查看 `.ai/benchmark-report.yaml` 中的 {count}schema/content 失败项，修复 Harness 资产后运行 `benchmark`。"
@@ -261,6 +278,14 @@ def _project_context_evidence_missing_detail(report: BenchmarkReport) -> str | N
         if check.passed or check.id != "content:project-context-evidence-context" or not check.missing:
             continue
         return str(check.missing[0])
+    return None
+
+
+def _scan_evidence_missing_detail(report: BenchmarkReport) -> tuple[str, str] | None:
+    for check in report.checks:
+        if check.passed or check.id not in {"content:scan-report", "content:init-summary"} or not check.missing:
+            continue
+        return check.id, str(check.missing[0])
     return None
 
 

@@ -174,6 +174,55 @@ def test_benchmark_signal_lines_preview_failed_checks_with_action_details(tmp_pa
     )
 
 
+def test_benchmark_signal_lines_label_scan_evidence_failed_checks(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    (ai / "benchmark-report.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "repo_name": "demo",
+                "profile": "java-spring",
+                "status": "failed",
+                "quality_status": "failed",
+                "checks": [
+                    {
+                        "id": "content:scan-report",
+                        "passed": False,
+                        "missing": ["missing_coverage_selected_path:src/test/java/AppTest.java"],
+                    },
+                    {
+                        "id": "content:init-summary",
+                        "passed": False,
+                        "missing": ["missing_summary_expansion_rationale"],
+                    },
+                ],
+                "quality_scores": {},
+            },
+            allow_unicode=True,
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    lines = _benchmark_signal_lines(ai)
+
+    assert "benchmark_failed_checks=2" in lines
+    assert (
+        "benchmark_failed_check_detail=content:scan-report|scan-report 缺少扫描证据审计细节"
+        in lines
+    )
+    assert (
+        "benchmark_failed_check_detail=content:init-summary|init-summary 缺少扫描证据审计摘要"
+        in lines
+    )
+    assert (
+        "benchmark_failed_check_error=content:scan-report|missing_coverage_selected_path:src/test/java/AppTest.java"
+        in lines
+    )
+    assert "benchmark_failed_check_error=content:init-summary|missing_summary_expansion_rationale" in lines
+
+
 def test_benchmark_signal_lines_report_missing_when_absent(tmp_path: Path):
     ai = tmp_path / ".ai"
     ai.mkdir()

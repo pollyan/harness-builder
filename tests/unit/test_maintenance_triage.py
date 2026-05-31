@@ -215,6 +215,44 @@ def test_maintenance_triage_prioritizes_project_context_evidence_missing_detail(
     assert "补齐 project-context evidence 后运行 `benchmark`" in guidance[0]
 
 
+def test_maintenance_triage_prioritizes_scan_evidence_audit_missing_detail(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_experience_index(ai)
+    (ai / "benchmark-report.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "repo_name": "demo",
+                "profile": "java-spring",
+                "status": "failed",
+                "quality_status": "failed",
+                "checks": [
+                    {
+                        "id": "content:init-summary",
+                        "passed": False,
+                        "missing": ["missing_summary_expansion_rationale"],
+                    }
+                ],
+                "quality_scores": {},
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    actions = build_maintenance_triage(ai, score=_score())
+    lines = render_maintenance_triage_lines(actions)
+    guidance = render_maintenance_triage_guidance_lines(actions)
+
+    assert actions[0].reason == "scan_evidence_audit_incomplete"
+    assert actions[0].detail == "missing_summary_expansion_rationale"
+    assert "source=.ai/benchmark-report.yaml#content:init-summary" in lines[0]
+    assert "detail=missing_summary_expansion_rationale" in lines[0]
+    assert "补齐 scan-report / init-summary 的扫描证据审计后运行 `benchmark`" in guidance[0]
+
+
 def test_maintenance_triage_guidance_explains_next_actions(tmp_path: Path):
     ai = tmp_path / ".ai"
     ai.mkdir()
