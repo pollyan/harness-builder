@@ -41,6 +41,7 @@ REQUIRED_FILES = [
     "questionnaire.yaml",
     "human-input-needed.md",
     "scan-report.md",
+    "init-summary.md",
     "maturity-report.md",
     "maturity-score.yaml",
     "maturity-evidence.yaml",
@@ -312,12 +313,37 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _candidate_governance_check(ai),
         _self_improve_package_check(ai),
         _experience_summary_artifact_check(ai),
+        _init_summary_check(ai),
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
         _weapon_library_selection_check(ai, inventory),
         _hard_gate_command_evidence_check(ai),
     ]
+
+
+def _init_summary_check(ai: Path) -> dict[str, Any]:
+    path = ai / "init-summary.md"
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    required_sections = [
+        "## 当前成熟度",
+        "## 主要阻断项",
+        "## 建议下一步",
+        "## 推荐入口文件",
+        "## 本次未执行的事项",
+    ]
+    required_entries = [
+        ".ai/maturity-report.md",
+        ".ai/human-input-needed.md",
+        ".ai/sensors/verification.md",
+        ".ai/task-runs",
+    ]
+    missing = [item for item in [*required_sections, *required_entries] if item not in text]
+    return {
+        "id": "content:init-summary",
+        "passed": not missing,
+        "missing": missing,
+    }
 
 
 def _workflow_skills_check(ai: Path) -> dict[str, Any]:

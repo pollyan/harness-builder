@@ -1,5 +1,13 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Maturity Driven Init Summary
+
+- North Star 模块：Maturity & Evolution、CLI Experience、Benchmark / Review Intelligence。
+- 当前 gap：`init` 已生成成熟度评估，但完成输出仍偏“文件已生成”，没有把当前等级、阻断项和下一步入口作为主向导体验呈现。
+- 决策：新增 `.ai/init-summary.md` 作为首次初始化后的成熟度驱动入口摘要，并让 CLI 完成输出打印当前成熟度、阻断项、建议下一步和推荐入口文件。
+- 决策：本轮不默认运行 benchmark / self-improve / Runtime task-run，也不实现已有 Harness 的再次 init 状态菜单；这些保留在主向导 todo 的后续切片。
+- 验收方式：integration / e2e / benchmark 覆盖 init summary 文件、稳定章节、CLI 输出和 no-runtime 边界。
+
 ## 2026-05-31 Workflow Policy Candidate Apply And Prompt Registry
 
 - North Star 模块：Workflow Policy、Candidate Governance、Prompt Contract。

@@ -63,6 +63,7 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
   llm-scan-proposal.json
   weapon-library-selection.yaml
   interaction-decisions.yaml
+  init-summary.md
   guides/
   sensors/
   skills/
@@ -70,8 +71,12 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
     bugfix/SKILL.md
   maturity-report.md
   maturity-score.yaml
+  maturity-evidence.yaml
   evolution-plan.md
+  experience/experience-index.yaml
 ```
+
+`init-summary.md` 是首次初始化后的入口摘要，按成熟度框架说明当前等级、主要阻断项、建议下一步和优先查看的文件。
 
 Harness Builder 不提供任务级 `run` 命令。真实 AI Coding 工具执行 Workflow Skill 时，应按 Skill 中的 runtime artifact contract 生成任务级可观测产物：
 

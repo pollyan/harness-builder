@@ -11,6 +11,7 @@ from harness_builder_agent.tools.candidate_governance import review_candidate
 from harness_builder_agent.tools.generate_asset_candidates import generate_asset_candidates
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.init_summary import render_init_completion_message
 from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
 from harness_builder_agent.tools.review_maturity import review_maturity
@@ -46,7 +47,7 @@ def init_command(
         trace.event("init", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
-    typer.echo(f"Generated harness assets in {output_dir}")
+    typer.echo(render_init_completion_message(output_dir))
 
 
 @app.command("benchmark")

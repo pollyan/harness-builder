@@ -80,6 +80,7 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert (ai / "llm-scan-proposal.json").exists()
     assert (ai / "weapon-library-selection.yaml").exists()
     assert (ai / "scan-report.md").exists()
+    assert (ai / "init-summary.md").exists()
     assert (ai / "maturity-report.md").exists()
     assert (ai / "maturity-score.yaml").exists()
     assert (ai / "evolution-plan.md").exists()
@@ -168,6 +169,17 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     if expected_context_text:
         assert expected_context_text in human_input
 
+    init_summary = (ai / "init-summary.md").read_text(encoding="utf-8")
+    assert "# Init Summary" in init_summary
+    assert "## 当前成熟度" in init_summary
+    assert "## 主要阻断项" in init_summary
+    assert "## 建议下一步" in init_summary
+    assert "## 推荐入口文件" in init_summary
+    assert "## 本次未执行的事项" in init_summary
+    assert ".ai/maturity-report.md" in init_summary
+    assert ".ai/human-input-needed.md" in init_summary
+    assert ".ai/task-runs" in init_summary
+
     candidate_report = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
     assert candidate_report["source"] == "llm_scan_proposal"
     assert candidate_report["candidates"]
@@ -186,6 +198,7 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     artifacts = yaml.safe_load((latest / "artifacts.yaml").read_text(encoding="utf-8"))
     artifact_paths = {item["path"] for item in artifacts["artifacts"]}
     assert ".ai/project-inventory.json" in artifact_paths
+    assert ".ai/init-summary.md" in artifact_paths
     assert ".ai/llm-scan-proposal.json" in artifact_paths
     assert ".ai/interaction-decisions.yaml" in artifact_paths
     assert ".ai/guides/project-context.md" in artifact_paths
@@ -204,6 +217,9 @@ def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
     result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--context", str(context), "--non-interactive"])
 
     assert result.exit_code == 0, result.output
+    assert "当前成熟度" in result.output
+    assert ".ai/init-summary.md" in result.output
+    assert ".ai/maturity-report.md" in result.output
     _assert_init_outputs(repo, "java-spring", expected_context_text="团队规则")
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
     assert "## 团队上下文" in project_context
@@ -218,6 +234,8 @@ def test_init_generates_ai_assets_for_dotnet_fixture(tmp_path: Path, monkeypatch
     result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
 
     assert result.exit_code == 0, result.output
+    assert "当前成熟度" in result.output
+    assert ".ai/init-summary.md" in result.output
     _assert_init_outputs(repo, "dotnet-aspnet")
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text())
     assert inventory["primary_stack"] == "dotnet-aspnet"
@@ -278,6 +296,8 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "建议生成的传感器" in result.output
     assert "推荐工作流" in result.output
     assert "最终确认" in result.output
+    assert "当前成熟度" in result.output
+    assert ".ai/init-summary.md" in result.output
     assert "primary_stack" not in result.output
     _assert_init_outputs(repo, "java-spring")
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))

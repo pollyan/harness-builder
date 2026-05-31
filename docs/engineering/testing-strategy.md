@@ -169,6 +169,7 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 - `command-catalog.yaml` schema。
 - `llm-scan-proposal.json` schema。
 - `weapon-library-selection.yaml` schema 和内容。
+- `init-summary.md` 的成熟度章节、下一步入口和 Runtime 边界。
 - guide 必需章节。
 - sensor 必需章节。
 - skill 模板复制和引用。

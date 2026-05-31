@@ -88,6 +88,7 @@ def test_fixture_cli_end_to_end_for_java_and_dotnet(tmp_path: Path, monkeypatch)
         assert (repo / ".ai" / "skills" / "bugfix" / "SKILL.md").exists()
         assert (repo / ".ai" / "skills" / "standard" / "SKILL.md").exists()
         assert (repo / ".ai" / "maturity-score.yaml").exists()
+        assert (repo / ".ai" / "init-summary.md").exists()
         assert (repo / ".ai" / "improvement-candidates.yaml").exists()
         report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text())
         assert report["status"] == "passed"

@@ -9,6 +9,7 @@ from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.tools.asset_writers.shared import record_artifact, write_text, write_yaml
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.init_summary import build_init_summary_markdown
 from harness_builder_agent.tools.maturity_evidence import build_maturity_evidence_pack
 from harness_builder_agent.tools.maturity_model import build_maturity_report
 
@@ -32,6 +33,8 @@ def write_report_assets(
     record_artifact(trace, ai / "scan-report.md", "report")
     write_text(ai / "maturity-report.md", _maturity_report(maturity))
     record_artifact(trace, ai / "maturity-report.md", "report")
+    write_text(ai / "init-summary.md", build_init_summary_markdown(maturity))
+    record_artifact(trace, ai / "init-summary.md", "init_summary")
     write_yaml(ai / "maturity-score.yaml", maturity.model_dump(mode="json"))
     record_artifact(trace, ai / "maturity-score.yaml", "maturity_score")
     evidence = build_maturity_evidence_pack(

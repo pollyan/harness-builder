@@ -126,6 +126,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 必须生成的语义上下文产物：
 
 - `.ai/scan-report.md`
+- `.ai/init-summary.md`
 - `.ai/maturity-report.md`
 - `.ai/evolution-plan.md`
 - `.ai/human-input-needed.md`
@@ -142,6 +143,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/experience/team-preferences.md`
 - `.ai/experience/pending-improvements.md`
 - `.ai/experience/deprecated-experience.md`
+
+其中 `.ai/init-summary.md` 是首次初始化完成后的成熟度驱动入口摘要，必须保留 `## 当前成熟度`、`## 主要阻断项`、`## 建议下一步`、`## 推荐入口文件` 和 `## 本次未执行的事项` 章节。它面向 Harness Maintainer，解释初始化结果、下一步优先查看的文件，以及 `init` 未默认执行 self-improve / Runtime task-run 的边界。
 
 显式运行 `summarize-experience` 后生成的 review-only Experience 语义摘要：
 

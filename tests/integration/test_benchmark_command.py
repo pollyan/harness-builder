@@ -380,7 +380,9 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert all(check["passed"] for check in report["checks"])
     check_ids = {check["id"] for check in report["checks"]}
     assert "exists:scan-metadata.yaml" in check_ids
+    assert "exists:init-summary.md" in check_ids
     assert "exists:llm-scan-proposal.json" in check_ids
+    assert "content:init-summary" in check_ids
     assert "content:workflow-skills" in check_ids
     assert "content:workflow-skill-config-reference" in check_ids
     assert "content:workflow-routing-policy" in check_ids
