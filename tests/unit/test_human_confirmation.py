@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 from harness_builder_agent.tools.human_confirmation import build_questionnaire, read_context_inputs
 
 
@@ -16,6 +17,7 @@ def test_read_context_inputs_summarizes_files(tmp_path: Path):
     assert payload["contexts"][0]["size_bytes"] > 0
     assert payload["contexts"][0]["truncated"] is True
     assert len(payload["contexts"][0]["summary"]) <= 1200
+    ContextInputs.model_validate(payload)
 
 
 def test_build_questionnaire_includes_context_guides_sensors_and_warnings():
@@ -27,4 +29,4 @@ def test_build_questionnaire_includes_context_guides_sensors_and_warnings():
     ids = {item["interaction_id"] for item in questionnaire["questions"]}
     assert {"confirm:team-context", "confirm:guide-candidates", "confirm:sensor-gates"}.issubset(ids)
     assert "confirm:scan-warning:command_without_evidence" in ids
-
+    Questionnaire.model_validate(questionnaire)

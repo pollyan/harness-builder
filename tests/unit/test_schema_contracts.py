@@ -8,6 +8,7 @@ from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.harness_map import HarnessMap
+from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
@@ -54,6 +55,37 @@ def test_weapon_library_candidate_report_rejects_invalid_status():
                         "evidence": [".ai/project-inventory.json"],
                         "source": "llm_scan_proposal",
                         "human_confirmation_required": True,
+                    }
+                ],
+            }
+        )
+
+
+def test_context_inputs_reject_negative_size():
+    with pytest.raises(ValidationError):
+        ContextInputs.model_validate(
+            {
+                "schema_version": "1.0",
+                "contexts": [
+                    {"path": "/repo/team.md", "size_bytes": -1, "summary": "team", "truncated": False}
+                ],
+            }
+        )
+
+
+def test_questionnaire_rejects_unknown_interaction_type():
+    with pytest.raises(ValidationError):
+        Questionnaire.model_validate(
+            {
+                "schema_version": "1.0",
+                "questions": [
+                    {
+                        "interaction_type": "unknown",
+                        "interaction_id": "confirm:unknown",
+                        "question": "Confirm?",
+                        "options": ["yes"],
+                        "confidence": "medium",
+                        "reason": "Needs confirmation.",
                     }
                 ],
             }

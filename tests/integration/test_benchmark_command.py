@@ -9,7 +9,14 @@ from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
-from harness_builder_agent.tools.benchmark import _content_checks, _llm_enhancement_checks, _quality_scores, _schema_checks, run_benchmark
+from harness_builder_agent.tools.benchmark import (
+    _content_checks,
+    _human_confirmation_checks,
+    _llm_enhancement_checks,
+    _quality_scores,
+    _schema_checks,
+    run_benchmark,
+)
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -285,6 +292,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:generation-trace" in check_ids
     assert "schema:runtime-summary" not in check_ids
     assert "content:runtime-workflow-trace" not in check_ids
+    assert "schema:context-inputs" in check_ids
     assert "schema:questionnaire" in check_ids
     assert "content:human-confirmation" in check_ids
     assert "exists:review/llm-enhancement-candidates.md" in check_ids
@@ -345,6 +353,20 @@ def test_benchmark_fails_weapon_library_candidates_with_invalid_status(tmp_path:
 
     schema = next(check for check in checks if check["id"] == "schema:weapon-library-candidates")
     assert schema["passed"] is False
+
+
+def test_benchmark_fails_invalid_questionnaire_schema(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    path = ai / "questionnaire.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["questions"][0]["interaction_type"] = "unknown"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    checks = _human_confirmation_checks(ai)
+
+    questionnaire = next(check for check in checks if check["id"] == "schema:questionnaire")
+    assert questionnaire["passed"] is False
 
 
 def test_benchmark_schema_checks_fail_when_project_inventory_is_invalid(tmp_path: Path, monkeypatch):

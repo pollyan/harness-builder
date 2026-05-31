@@ -12,6 +12,7 @@ from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.harness_config import HarnessConfig
+from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
@@ -230,18 +231,23 @@ def _generation_trace_checks(ai: Path) -> list[dict[str, Any]]:
 
 
 def _human_confirmation_checks(ai: Path) -> list[dict[str, Any]]:
+    checks: list[dict[str, Any]] = []
     try:
-        questionnaire = yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8"))
-        questions = questionnaire.get("questions", [])
-        schema_passed = questionnaire.get("schema_version") == "1.0" and bool(questions)
-        checks = [{"id": "schema:questionnaire", "passed": schema_passed, "question_count": len(questions)}]
+        context_inputs = ContextInputs.model_validate(yaml.safe_load((ai / "context-inputs.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:context-inputs", "passed": True, "context_count": len(context_inputs.contexts)})
     except Exception as exc:  # pragma: no cover
-        return [
-            {"id": "schema:questionnaire", "passed": False, "error": str(exc)},
-            {"id": "content:human-confirmation", "passed": False, "error": "questionnaire unavailable"},
-        ]
+        checks.append({"id": "schema:context-inputs", "passed": False, "error": str(exc)})
 
-    ids = {item.get("interaction_id") for item in questions}
+    try:
+        questionnaire = Questionnaire.model_validate(yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8")))
+        questions = questionnaire.questions
+        checks.append({"id": "schema:questionnaire", "passed": True, "question_count": len(questions)})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:questionnaire", "passed": False, "error": str(exc)})
+        checks.append({"id": "content:human-confirmation", "passed": False, "error": "questionnaire unavailable"})
+        return checks
+
+    ids = {item.interaction_id for item in questions}
     required_ids = {"confirm:team-context", "confirm:guide-candidates", "confirm:sensor-gates"}
     human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8") if (ai / "human-input-needed.md").exists() else ""
     checks.append(
