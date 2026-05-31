@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Workflow 补充改进候选
+
+- North Star 模块：CLI Experience、Workflow Toolkit、Maturity & Evolution、Experience & Self-Improve、资产生成与审核接管。
+- init North Star 旅程阶段：Workflow 设计、用户补充吸收、已有 Harness 维护入口、review-only 改进候选。
+- Gap Analysis 摘要：当前 open todo 为空，旧本地独有能力迁移已归档。本轮重新读取事实源后，Workflow 补充已经进入 `interaction-decisions.yaml`、project-context 和 human-input-needed，并带有 review-only 结构化边界；但 existing Harness `improve` 只消费 maturity evidence / workflow recommendation review 计数，不能把 guided `init` 收到的 Workflow note 转成可治理候选。候选还包括直接生成结构化 `workflow_policy` asset candidate、follow-up resolved 状态和 push/full regression；本轮选择低风险的 review-only improvement candidate。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 中输入 Workflow 补充说明后，再次进入已有 Harness 并选择 `improve`，我可以在 `.ai/improvement-candidates.yaml` 和 `.ai/evolution-plan.md` 中看到一个 review-only 的 `workflow_policy_update` 候选，引用 `interaction-decisions.yaml` / `human-input-needed.md`，并明确它不会直接修改正式 routing policy，从而让 Workflow 经验进入可审查改进流。
+- 当前代码 gap：`generate_improvements()` 不读取 `interaction-decisions.yaml`，`MaturityEvidencePack.maturity_inputs` 也未暴露 `interaction-decisions.yaml` / `human-input-needed.md` 作为后续 evidence allowlist 来源。
+- 关键决策 / 取舍：使用 `ImprovementCandidate` 而不是 `AssetCandidateDraft(kind="workflow_policy")`；候选只表达“应审查是否调整 routing policy”，不生成 `WorkflowPolicyPatch`，不修改 `.ai/harness-config.yaml`。
+- Assumptions / risks：Workflow note 是用户 review-only 说明，不是扫描事实；后续如需正式 routing rule 变更，仍必须经过 LLM / 人工审查生成结构化 patch 并由 candidate governance 应用。
+- 边界情况 / 失败模式：旧 Harness 缺少 `interaction-decisions.yaml` 时 `improve` 不失败，只是不生成该候选；无 note、非 pending review 或非 review-only effect 时不生成候选；本轮不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 调研 Workflow 补充链路，但当前返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮把“Workflow 补充被记录”推进到“Workflow 补充能进入 review-only 改进治理入口”，完成首次 guided init 与 existing Harness improve 之间的一段闭环。
+- 可执行验收标准及验证方式：unit 测试覆盖 pending review / review-only note 生成候选和非 review-only 不生成；integration 覆盖 guided init 输入 Workflow note 后 existing Harness `improve` 生成候选、不重新扫描、不覆盖正式资产、不污染 routing policy；maturity evidence 测试覆盖新增 evidence inputs。
+- 完成内容：`generate_improvements()` 读取可选 `interaction-decisions.yaml` 并生成稳定 `interaction-workflow-note-review` 候选；`MATURITY_INPUTS` 增加 `.ai/interaction-decisions.yaml` 和 `.ai/human-input-needed.md`；`docs/engineering/init-workflow.md` 固化 review-only 边界；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 unit `tests/unit/test_generate_improvements.py` 4 passed；相关 unit / maturity evidence 7 passed；相关 improve / guided init integration 6 passed；完整 guided init integration 39 passed；`git diff --check` 通过；`scripts/test-fast.sh` 通过，392 passed。
+- Self-Harness Gate：长期规则已同步到 `docs/engineering/init-workflow.md`；README 不需要新增细节，因为面向用户的主入口已说明 `improve` 生成 review-only 候选且 Workflow policy apply 需要结构化 patch；`docs/todos/` 暂不新增。下一轮候选 gap：更完整的 Workflow note -> 结构化 `workflow_policy` asset candidate 安全设计、follow-up Maintainer resolved 状态、或 push 前 full regression / 远端同步。
+
 ## 2026-06-01 Questionnaire Follow-up 回应状态契约
 
 - North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、资产生成与审核接管。

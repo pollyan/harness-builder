@@ -5,6 +5,7 @@ from typing import Any
 
 import yaml
 
+from harness_builder_agent.schemas.interaction_decision import InteractionDecisions
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidate, ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
@@ -20,7 +21,8 @@ def generate_improvements(repo: Path) -> Path:
 
     score = MaturityReport.model_validate(yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8")))
     evidence_pack = MaturityEvidencePack.model_validate(yaml.safe_load((ai / "maturity-evidence.yaml").read_text(encoding="utf-8")))
-    candidates = ImprovementCandidateReport(candidates=_candidates(score, evidence_pack))
+    decisions = _load_interaction_decisions(ai)
+    candidates = ImprovementCandidateReport(candidates=_candidates(score, evidence_pack, decisions))
     _write_yaml(ai / "improvement-candidates.yaml", candidates.model_dump(mode="json"))
     _write_evolution_plan(ai / "evolution-plan.md", candidates)
     _write_pending_improvements(ai / "experience" / "pending-improvements.md", candidates)
@@ -28,7 +30,11 @@ def generate_improvements(repo: Path) -> Path:
     return ai
 
 
-def _candidates(score: MaturityReport, evidence_pack: MaturityEvidencePack) -> list[ImprovementCandidate]:
+def _candidates(
+    score: MaturityReport,
+    evidence_pack: MaturityEvidencePack,
+    interaction_decisions: InteractionDecisions | None = None,
+) -> list[ImprovementCandidate]:
     candidates: list[ImprovementCandidate] = []
     seen: set[str] = set()
     for step in sorted(score.next_steps, key=_priority_rank):
@@ -41,6 +47,8 @@ def _candidates(score: MaturityReport, evidence_pack: MaturityEvidencePack) -> l
             _append_unique(candidates, seen, _runtime_evidence_candidate(warning, evidence_pack))
     if evidence_pack.experience.workflow_recommendation_count > 0:
         _append_unique(candidates, seen, _workflow_recommendation_review_candidate(evidence_pack))
+    if _has_review_only_workflow_notes(interaction_decisions):
+        _append_unique(candidates, seen, _workflow_note_review_candidate(interaction_decisions, evidence_pack))
     return candidates
 
 
@@ -134,6 +142,62 @@ def _workflow_recommendation_review_candidate(evidence_pack: MaturityEvidencePac
     )
 
 
+def _workflow_note_review_candidate(
+    interaction_decisions: InteractionDecisions | None,
+    evidence_pack: MaturityEvidencePack,
+) -> ImprovementCandidate:
+    notes = _workflow_notes(interaction_decisions)
+    evidence = [
+        f"Review-only Workflow supplements pending review: {len(notes)}.",
+        "Routing policy effect: review_only_no_direct_policy_change.",
+        *[f"Workflow note: {_short_text(note)}" for note in notes[:3]],
+    ]
+    if len(notes) > 3:
+        evidence.append(f"Additional workflow notes omitted from this summary: {len(notes) - 3}.")
+    return ImprovementCandidate(
+        id="interaction-workflow-note-review",
+        candidate_type="workflow_policy_update",
+        suggested_target=".ai/harness-config.yaml",
+        rationale=(
+            "Guided init captured review-only Workflow supplements; inspect whether routing policy should be "
+            "updated through candidate governance and a structured workflow policy patch. This candidate is "
+            "review-only and does not directly modify formal routing policy."
+        ),
+        evidence=evidence,
+        confidence="medium",
+        priority="medium",
+        target_dimension="workflow",
+        source_next_step="workflow-note-review",
+        acceptance_checks=[
+            "Candidate remains pending review before formal workflow routing policy is changed.",
+            "Any formal workflow policy change must use a structured WorkflowPolicyPatch.",
+            "Benchmark content:workflow-skill-config-reference passes after any reviewed routing policy change.",
+        ],
+        evidence_sources=_evidence_sources(evidence_pack),
+    )
+
+
+def _has_review_only_workflow_notes(interaction_decisions: InteractionDecisions | None) -> bool:
+    workflow = interaction_decisions.workflow_confirmation if interaction_decisions else None
+    return (
+        workflow is not None
+        and bool(_workflow_notes(interaction_decisions))
+        and workflow.review_status == "pending_harness_maintainer_review"
+        and workflow.routing_policy_effect == "review_only_no_direct_policy_change"
+    )
+
+
+def _workflow_notes(interaction_decisions: InteractionDecisions | None) -> list[str]:
+    if interaction_decisions is None:
+        return []
+    return [note.strip() for note in interaction_decisions.workflow_confirmation.notes if note.strip()]
+
+
+def _short_text(value: str, limit: int = 180) -> str:
+    value = " ".join(value.split())
+    return value if len(value) <= limit else f"{value[: limit - 3]}..."
+
+
 def _candidate_type_for_dimension(dimension: str) -> str:
     if dimension == "guides":
         return "guide_update"
@@ -192,6 +256,13 @@ def _dimension_for_cap(cap_id: str) -> str:
 
 def _evidence_sources(evidence_pack: MaturityEvidencePack) -> list[str]:
     return [".ai/maturity-evidence.yaml", *evidence_pack.maturity_inputs]
+
+
+def _load_interaction_decisions(ai: Path) -> InteractionDecisions | None:
+    path = ai / "interaction-decisions.yaml"
+    if not path.exists():
+        return None
+    return InteractionDecisions.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
 
 
 def _write_yaml(path: Path, payload: dict[str, Any]) -> None:

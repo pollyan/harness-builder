@@ -180,7 +180,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 成熟度评分中的 Experience 维度应优先消费 `.ai/experience/experience-index.yaml` 的结构化计数，包括 workflow recommendation review 计数；旧版本 Harness 缺少 index 时才使用 pending improvement 文件存在性作为兼容判断。
 
-`improve` 应把非零 workflow recommendation review 计数转成待审核的 `workflow_policy_update` 候选，指向 `.ai/harness-config.yaml`；不得直接修改正式 routing policy。
+`improve` 应把非零 workflow recommendation review 计数转成待审核的 `workflow_policy_update` 候选，指向 `.ai/harness-config.yaml`；不得直接修改正式 routing policy。`improve` 还应读取 `.ai/interaction-decisions.yaml` 中 pending review 且 `routing_policy_effect=review_only_no_direct_policy_change` 的 `workflow_confirmation.notes`，把 guided `init` 收到的 Workflow 补充转成 review-only 的 `workflow_policy_update` 改进候选，并引用 `.ai/interaction-decisions.yaml` / `.ai/human-input-needed.md` 作为证据来源；该候选只表示需要审查是否调整 routing policy，不能从自由文本 Workflow 补充直接生成 `WorkflowPolicyPatch`，也不能修改 `.ai/harness-config.yaml`。
 
 `recommend-workflow` 写出最新 `.ai/review/workflow-routing-recommendation.*` 后，还必须写出不可覆盖的 `.ai/review/workflow-routing-recommendations/<recommendation_id>.*`、`.ai/review/workflow-routing-recommendations/index.yaml` 和 `.ai/review/workflow-routing-recommendations.md`，再刷新 `.ai/experience/experience-index.yaml`、`.ai/maturity-score.yaml` 和 `.ai/maturity-evidence.yaml`，让多次推荐证据立即进入后续 maturity / improve 链路；该刷新不能生成 `.ai/task-runs`，也不能应用正式 routing policy 变更。
 

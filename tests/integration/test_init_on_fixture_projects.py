@@ -1168,6 +1168,56 @@ def test_guided_init_restates_user_supplements_before_write_and_persists_them(tm
     assert "bugfix 工作流适合缺陷修复" in human_input
 
 
+def test_guided_init_existing_harness_improve_creates_review_only_workflow_note_candidate(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    runner = CliRunner()
+
+    init_result = runner.invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "\n"
+            "\n\n\n\n"
+            "支付权限变更应升级到 standard workflow。\n"
+            "confirm\n"
+        ),
+    )
+    assert init_result.exit_code == 0, init_result.output
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness improve must not rescan while creating workflow note candidate")
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.assess_maturity.scan_repository", fail_scan)
+
+    improve_result = runner.invoke(app, ["init", "--repo", str(repo)], input="improve\n")
+
+    assert improve_result.exit_code == 0, improve_result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+    candidates = ImprovementCandidateReport.model_validate(
+        yaml.safe_load((repo / ".ai" / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+    )
+    workflow_candidate = next(item for item in candidates.candidates if item.id == "interaction-workflow-note-review")
+    assert workflow_candidate.candidate_type == "workflow_policy_update"
+    assert workflow_candidate.suggested_target == ".ai/harness-config.yaml"
+    assert workflow_candidate.human_confirmation_required is True
+    assert workflow_candidate.target_dimension == "workflow"
+    assert workflow_candidate.source_next_step == "workflow-note-review"
+    assert ".ai/interaction-decisions.yaml" in workflow_candidate.evidence_sources
+    assert ".ai/human-input-needed.md" in workflow_candidate.evidence_sources
+    assert any("支付权限变更应升级到 standard workflow" in item for item in workflow_candidate.evidence)
+
+    config = yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8"))
+    routing_text = yaml.safe_dump(config["workflow_routing"], allow_unicode=True)
+    assert "支付权限变更应升级到 standard workflow" not in routing_text
+    pending = (repo / ".ai" / "experience" / "pending-improvements.md").read_text(encoding="utf-8")
+    assert "interaction-workflow-note-review" in pending
+
+
 def test_guided_init_stack_correction_updates_inventory_and_decisions(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

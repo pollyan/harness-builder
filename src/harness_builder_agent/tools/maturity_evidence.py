@@ -29,6 +29,8 @@ MATURITY_INPUTS = [
     ".ai/scan-metadata.yaml",
     ".ai/llm-scan-proposal.json",
     ".ai/weapon-library-selection.yaml",
+    ".ai/interaction-decisions.yaml",
+    ".ai/human-input-needed.md",
     ".ai/guides/",
     ".ai/sensors/",
     ".ai/skills/",
