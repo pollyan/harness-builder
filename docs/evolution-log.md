@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 本地独有能力迁移收口归档
+
+- North Star 模块：Goal Mode / 工程治理、CLI Experience、Deep Scan Evidence、Benchmark / Review Intelligence。
+- init North Star 旅程阶段：已有 Harness 维护；扫描理解可解释；质量门禁解释；后续目标模式选题。
+- Gap Analysis 摘要：当前唯一 open todo 是“本地独有 / 更细能力合并与迁移”。连续迁移切片已经覆盖 Existing Harness 维护入口、human input 待确认回访、Benchmark / Workflow routing signals、init-summary 待确认入口、hard gate source path、risk context consistency、project-context evidence context、scan-report evidence visibility、init-summary evidence audit、content quality detail 和 evidence reason preservation。剩余 `test/risk/API/llm_requested` 顶层 inventory 字段恢复属于新的 schema 设计，benchmark failed check 系统性全量审计属于后续 hardening，不应继续阻塞旧 61 提交迁移包收口。
+- 用户故事：作为 Harness Maintainer，当我查看 `docs/todos/` 和当前 git 分支时，我可以看到本地独有 / 更细能力迁移工作包已经收口归档、已迁移切片和未迁移取舍清楚可追溯，并且本地 commits 已通过 full regression 后同步远端，从而后续目标模式可以回到 init North Star 的新 gap，而不是继续围绕旧 61 提交做重复合并。
+- 当前代码 gap：无产品代码 gap 进入本轮；问题在于迁移 todo 仍 open，会持续牵引目标模式围绕旧分支迁移，而不是进入新的 Current State Gap Analysis。
+- 关键决策 / 取舍：不恢复旧顶层 evidence schema 字段作为迁移阻塞项；不保留两套 guided init / scanner / completion summary；不把 benchmark failed detail 全量审计塞入本迁移 todo。后续若需要，按新的具体 milestone 进入。
+- Assumptions / risks：归档表示本地 61 提交迁移工作包已有第一版完整收口，不表示 Harness Builder 已达到最终 North Star；push 前 full regression 可能受真实 DeepSeek、真实仓库或网络影响，失败时不 push。
+- Sub agent 使用情况：尝试启动只读 explorer 审查归档判断，但当前环境返回 `agent thread limit reached`；本轮由主线程完成审计、文档收口和验证。
+- 价值切分说明：本轮是工作包治理切片，目的是建立干净远端基线和后续选题边界；不改 CLI、schema 或 Runtime。
+- 可执行验收标准及验证方式：todo 状态为 implemented；todo README 无旧迁移 open 项；archive 增加归档记录；fast / full regression 通过后 push。
+- 完成内容：`local-unique-capability-migration.md` 增加完成说明；`docs/todos/README.md` 更新当前待办；`archive.md` 增加归档行；新增 closeout spec / plan。
+- 验证结果：本地验证和 push 结果见本轮提交后记录。
+- Self-Harness Gate：后续候选 gap 回到 init North Star：可重新评估顶层 evidence schema 扩展、benchmark failed detail 系统审计、用户补充如何更深影响成熟度预览与推荐，或 CLI transcript 的下一段真实体验缺口。
+
 ## 2026-06-01 Evidence Reason Preservation 迁移
 
 - North Star 模块：Deep Scan Evidence、Benchmark / Review Intelligence、CLI Experience。

@@ -18,9 +18,9 @@
 
 | Todo | 状态 | 优先级 | 说明 |
 | --- | --- | --- | --- |
-| [本地独有 / 更细能力合并与迁移](local-unique-capability-migration.md) | open | high | 以最新 `origin/main` 为基线，只迁移本地 61 个提交中远端未覆盖或更细的能力，避免整包 merge 并行实现。 |
+| 暂无 | - | - | 当前没有由旧 61 个本地提交迁移驱动的 open todo。后续目标模式按 `docs/strategy/init-north-star.md` 和 Current State Gap Analysis 重新选择具体 gap。 |
 
-当前只有上表这一项 open todo。`guided-init-ai4se-real-repo-findings.md` 与 `maturity-driven-init-wizard.md` 暂停为背景参考，后续迁移完成后再基于最新代码重新拆分具体 gap。
+`local-unique-capability-migration.md` 已归档为 implemented，用于记录本地 61 个提交迁移收口过程、已迁移切片和未迁移取舍。`guided-init-ai4se-real-repo-findings.md` 与 `maturity-driven-init-wizard.md` 暂停为背景参考；如果后续仍有价值，应基于最新代码和 North Star 拆成新的具体 gap，而不是直接重新打开旧宽泛 todo。
 
 ## 管理规则
 

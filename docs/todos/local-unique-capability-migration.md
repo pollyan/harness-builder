@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态：open
+- 状态：implemented
 - 优先级：high
 - 发现日期：2026-06-01
 - 相关命令：`git fetch origin`、`git merge-tree --write-tree HEAD origin/main`、`harness-builder-agent init`、`benchmark`
@@ -151,3 +151,25 @@
 - 远端新加的 `docs/strategy/goal-mode-playbook.md` 是否应成为后续目标模式的主要流程事实源。
 - 本地 `Maintenance triage` 系列能力应整体迁移，还是拆成 benchmark signals、routing signals、human input signals 三个小切片。
 - 本地 scan warning action hints 与远端 scan followup questions / self-check 应如何统一成一个人工确认模型。
+
+## 完成说明
+
+本迁移工作包已完成第一轮收口：不再把本地 61 个提交作为整体 merge / cherry-pick 目标；已按最新 `origin/main` 主线逐步迁移本地独有或更细的高价值能力。
+
+已迁移能力包括：
+
+- Existing Harness 维护入口的编号菜单、动作 normalization、中文 guidance、Benchmark / Workflow routing signals、human-input-needed signals 和 maintenance triage top actions。
+- `init-summary.md` 待确认处理入口、questionnaire `confirm:*` ID 对齐和 scan warning action hints。
+- hard gate command source path / weak command detail、risk context consistency、project-context evidence context gate。
+- scan-report evidence visibility、init-summary evidence audit、LLM requested evidence 在 scan-report / project-context / init-summary 中的审计展示。
+- benchmark failed check detail preservation 的重点路径，包括 scan-report / init-summary evidence audit、content quality checks、hard gate weak commands 和 project-context missing detail。
+- evidence reason preservation：scan reconcile 保留 deterministic evidence reason，scan-report / project-context 展示 reason，benchmark 防止 reason 漂移。
+
+未直接迁移的旧分支内容和取舍：
+
+- 不恢复旧分支依赖的 `ProjectInventory.test_files`、`risk_files`、`api_entrypoints`、`llm_requested_files` 顶层字段。当前先通过 `ScanMetadata.coverage.bucket_coverage[].selected_paths`、`ScanMetadata.evidence_expansion`、risk areas 和 evidence reason 提供审计可见性；如未来需要机器契约级字段，应作为新的 schema milestone 设计。
+- 不继续保留两套 guided `init` 阶段输出、completion summary 或旧 scanner package。当前以远端主线的 guided init、scan followup / self-check、evidence plan 和 goal-mode playbook 为事实源。
+- 不把 benchmark failed check detail 的系统性全量审计塞入本迁移 todo。重点用户路径已迁移；剩余细节可作为后续 benchmark hardening gap 单独评估。
+- 不迁移旧过程文档的完整历史，只保留本轮 spec / plan / evolution log 中的稳定决策和验收结果。
+
+后续目标模式应回到 `docs/strategy/init-north-star.md` 和全景规划做新的 Current State Gap Analysis；如重新发现具体缺口，新增更窄的 todo 或直接进入 spec / plan。

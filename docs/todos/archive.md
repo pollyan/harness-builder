@@ -21,6 +21,7 @@
 | [Self-Improve 真实 LLM Acceptance 覆盖](self-improve-acceptance-coverage.md) | 当前 todo | implemented | `tests/acceptance/test_real_repositories_e2e.py` 在 `RuoYi-Vue` 真实仓库上运行 `self-improve`，校验 self-improve package、asset candidates 的 review-only schema，并要求 benchmark 通过 `content:self-improve-package` |
 | [Workflow Policy Candidate Apply](workflow-policy-candidate-apply.md) | 当前 todo | implemented | `WorkflowPolicyPatch` schema、`review-candidate --decision applied` 结构化 routing rule upsert、benchmark applied policy 校验、成熟度证据刷新 |
 | [LLM Evidence Source Whitelist Hardening](llm-evidence-source-whitelist.md) | 当前 todo | implemented | LLM review-only 产物 parser 和 benchmark 统一校验 evidence source allowlist，未知 `.ai/` source 显式失败 |
+| [本地独有 / 更细能力合并与迁移](local-unique-capability-migration.md) | 当前 todo | implemented | 基于最新远端主线逐步迁移本地 61 个提交中独有 / 更细能力；完成 existing Harness 维护入口、human input、benchmark signals、scan-report / init-summary evidence audit、evidence reason 和 failed check detail 重点路径迁移；旧提交不再整体合并 |
 
 ## 归档规则
 
