@@ -165,15 +165,25 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             candidate_ids = [item.id for item in candidate_report.candidates]
             continue
         if action == "rules":
+            previous_inline_contexts = inline_contexts
+            _show_team_rules_back_revision_notice(previous_inline_contexts)
             inline_contexts = _collect_team_rules()
-            _show_team_rules_immediate_summary(inline_contexts)
+            if inline_contexts:
+                _show_team_rules_immediate_summary(inline_contexts)
+            elif previous_inline_contexts:
+                _show_team_rules_cleared_summary()
             continue
         if action == "candidates":
             candidate_decisions = _review_candidates(candidate_report, weapon_selection, commands)
             continue
         if action == "workflow":
+            previous_workflow_confirmation = workflow_confirmation
+            _show_workflow_back_revision_notice(previous_workflow_confirmation)
             workflow_confirmation = _show_workflows()
-            _show_workflow_note_immediate_summary(workflow_confirmation)
+            if workflow_confirmation.notes:
+                _show_workflow_note_immediate_summary(workflow_confirmation)
+            elif previous_workflow_confirmation.notes:
+                _show_workflow_note_cleared_summary()
             continue
 
     decisions = accepted_interactive_decisions(
@@ -1615,6 +1625,20 @@ def _show_team_rules_immediate_summary(inline_contexts: list[str]) -> None:
     typer.echo("- 如果规则需要改变正式 workflow routing policy，后续仍应通过候选治理或结构化 patch 审核。")
 
 
+def _show_team_rules_back_revision_notice(previous_inline_contexts: list[str]) -> None:
+    if not previous_inline_contexts:
+        return
+    typer.echo("\n团队规则返回修改")
+    typer.echo("- 你将重新填写团队规则。")
+    typer.echo("- 新输入会替换上一版团队规则；直接回车会清空上一版团队规则。")
+    typer.echo(f"- 上一版团队规则摘要：{_brief_text_items(previous_inline_contexts)}")
+
+
+def _show_team_rules_cleared_summary() -> None:
+    typer.echo("\n团队规则已清空")
+    typer.echo("- 已移除上一版团队规则；后续预览和正式资产将不再保留这些团队规则。")
+
+
 def _review_candidates(
     report,
     weapon_selection: WeaponLibrarySelection,
@@ -1698,6 +1722,28 @@ def _show_workflow_note_immediate_summary(workflow_confirmation: WorkflowConfirm
     typer.echo("- 这些补充会进入 interaction-decisions.yaml、project-context.md 和 human-input-needed.md。")
     typer.echo("- 它们会作为 review-only 的人工说明影响后续审查；不直接修改正式 workflow routing policy。")
     typer.echo("- 如需改变正式 routing policy，后续仍应通过候选治理或结构化 workflow policy patch 审核。")
+
+
+def _show_workflow_back_revision_notice(previous_workflow_confirmation: WorkflowConfirmation) -> None:
+    if not previous_workflow_confirmation.notes:
+        return
+    typer.echo("\nWorkflow 补充返回修改")
+    typer.echo("- 你将重新填写 Workflow 补充。")
+    typer.echo("- 新输入会替换上一版 Workflow 补充；直接回车会清空上一版 Workflow 补充。")
+    typer.echo(f"- 上一版 Workflow 补充摘要：{_brief_text_items(previous_workflow_confirmation.notes)}")
+
+
+def _show_workflow_note_cleared_summary() -> None:
+    typer.echo("\nWorkflow 补充已清空")
+    typer.echo("- 已移除上一版 Workflow 补充；后续预览和正式资产将不再保留这些 Workflow 补充。")
+
+
+def _brief_text_items(items: list[str], *, limit: int = 2) -> str:
+    shown = [item for item in items if item.strip()][:limit]
+    if not shown:
+        return "无"
+    suffix = f"；还有 {len(items) - limit} 条" if len(items) > limit else ""
+    return "；".join(shown) + suffix
 
 
 def _show_prewrite_maturity_preview(

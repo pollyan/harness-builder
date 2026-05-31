@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init 团队规则与 Workflow 返回修改提示
+
+- North Star 模块：CLI Experience、Maturity & Evolution、Workflow Toolkit、资产生成与审核接管。
+- init North Star 旅程阶段：团队规则补充、Workflow 设计、最终确认返回修改、写入前 Harness 设计预览。
+- Gap Analysis 摘要：当前 open todo 为空。本轮重新读取事实源后，scan 返回修改已经具备替换 / 清空 / old-current 可见语义；团队规则和 Workflow 补充虽然能替换最终资产中的旧输入，但返回修改前不说明新输入替换旧输入，直接回车清空也没有可见确认。候选还包括 Workflow note review-only routing candidate 和 push 前 full regression；本轮选择同一 final confirmation 纠错旅程下的 rules / workflow 提示补齐。
+- 用户故事：作为 Harness Maintainer，当我在最终确认阶段返回修改团队规则或 Workflow 补充时，我可以在重新输入前看到新输入会替换上一版内容、直接回车会清空上一版内容，并在清空后看到系统确认最终资产不会保留旧内容，从而不用担心旧团队规则或旧 Workflow note 悄悄进入正式 `.ai` 资产。
+- 当前代码 gap：`back -> rules` 和 `back -> workflow` 分支直接重新收集输入；有旧输入时没有替换提示，清空旧输入时没有清空确认。
+- 关键决策 / 取舍：新增 team rules / workflow note 返回修改 notice 和清空 summary；无旧输入时不增加噪音；不新增 schema，不生成候选，不修改 workflow routing policy。
+- Assumptions / risks：返回 rules / workflow 后重新输入表达替换上一版而不是累计追加；未来如果支持多条规则逐项编辑，需要升级为更明确的 add/remove/edit 交互。
+- 边界情况 / 失败模式：返回后直接回车会清空旧 rules / workflow note，并最终不写入 project-context、human-input-needed 或 interaction decisions notes；本轮不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 back->rules/workflow 路径，但当前返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮和上一轮 scan diff preview 一起完成 final confirmation 三类用户补充的纠错信任链路：scan / rules / workflow 都能说明替换或清空边界。
+- 可执行验收标准及验证方式：integration 测试覆盖 back->rules 替换提示和清空确认、back->workflow 替换提示和清空确认，并断言旧内容不进入 interaction-decisions、project-context、human-input-needed 或 routing。
+- 完成内容：`interactive_init.py` 增加四个 CLI helper；`docs/engineering/init-workflow.md` 固化 rules / workflow 返回修改语义；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 integration 测试 4 passed；完整 guided init integration 37 passed；相关 unit 测试 17 passed；`git diff --check` 通过；`scripts/test-fast.sh` 通过，380 passed。
+- Self-Harness Gate：README 当前无需细化该纠错提示；`docs/todos/` 暂不新增。下一轮候选 gap：Workflow note review-only routing candidate 的安全设计、push 前 full regression / 远端同步前置条件，或用户补充对成熟度推荐的更深消费。
+
 ## 2026-06-01 Guided Init Scan 返回修改差异预览
 
 - North Star 模块：CLI Experience、Deep Scan Evidence、资产生成与审核接管。

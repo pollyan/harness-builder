@@ -1206,11 +1206,50 @@ def test_guided_init_final_summary_can_go_back_to_team_rules(tmp_path: Path, mon
 
     assert result.exit_code == 0, result.output
     assert "返回修改" in result.output
+    assert "团队规则返回修改" in result.output
+    rules_revision = result.output[
+        result.output.index("团队规则返回修改") : result.output.index("\n团队规则理解", result.output.index("团队规则返回修改"))
+    ]
+    assert "新输入会替换上一版团队规则" in rules_revision
+    assert "直接回车会清空上一版团队规则" in rules_revision
+    assert "初始规则需要修改" in rules_revision
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert decisions["context_confirmation"]["inline_contexts"] == ["最终团队规则：配置变更必须说明影响环境。"]
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
     assert "最终团队规则" in project_context
     assert "初始规则需要修改" not in project_context
+
+
+def test_guided_init_final_summary_back_to_team_rules_can_clear_previous_rules(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n\n"
+            "初始规则需要清空。\n"
+            "\n\n\n"
+            "\n"
+            "back\n"
+            "rules\n"
+            "\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "团队规则返回修改" in result.output
+    assert "直接回车会清空上一版团队规则" in result.output
+    assert "团队规则已清空" in result.output
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["context_confirmation"]["inline_contexts"] == []
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
+    assert "初始规则需要清空" not in project_context
+    assert "初始规则需要清空" not in human_input
 
 
 def test_guided_init_final_summary_can_go_back_to_workflow_note(tmp_path: Path, monkeypatch):
@@ -1235,6 +1274,13 @@ def test_guided_init_final_summary_can_go_back_to_workflow_note(tmp_path: Path, 
     assert result.exit_code == 0, result.output
     assert "返回修改" in result.output
     assert "workflow=Workflow补充" in result.output
+    assert "Workflow 补充返回修改" in result.output
+    workflow_revision = result.output[
+        result.output.index("Workflow 补充返回修改") : result.output.index("\n推荐工作流", result.output.index("Workflow 补充返回修改"))
+    ]
+    assert "新输入会替换上一版 Workflow 补充" in workflow_revision
+    assert "直接回车会清空上一版 Workflow 补充" in workflow_revision
+    assert "初始 Workflow 说明需要修改" in workflow_revision
     assert result.output.count("Workflow 补充理解") == 2
     final_preview = result.output[result.output.rindex("写入前 Harness 设计预览") : result.output.rindex("\n最终确认\n")]
     assert "最终 Workflow 说明：bugfix 只用于缺陷修复" in final_preview
@@ -1247,6 +1293,40 @@ def test_guided_init_final_summary_can_go_back_to_workflow_note(tmp_path: Path, 
     assert "最终 Workflow 说明：bugfix 只用于缺陷修复" in human_input
     assert "初始 Workflow 说明需要修改" not in project_context
     assert "初始 Workflow 说明需要修改" not in human_input
+
+
+def test_guided_init_final_summary_back_to_workflow_can_clear_previous_note(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n\n\n"
+            "\n\n\n"
+            "初始 Workflow 说明需要清空。\n"
+            "back\n"
+            "workflow\n"
+            "\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Workflow 补充返回修改" in result.output
+    assert "直接回车会清空上一版 Workflow 补充" in result.output
+    assert "Workflow 补充已清空" in result.output
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["workflow_confirmation"]["notes"] == []
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
+    config = yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8"))
+    routing_text = yaml.safe_dump(config["workflow_routing"], allow_unicode=True)
+    assert "初始 Workflow 说明需要清空" not in project_context
+    assert "初始 Workflow 说明需要清空" not in human_input
+    assert "初始 Workflow 说明需要清空" not in routing_text
 
 
 def test_guided_init_final_summary_back_to_scan_replaces_previous_corrections(tmp_path: Path, monkeypatch):
