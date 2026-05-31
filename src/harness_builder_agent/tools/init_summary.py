@@ -7,6 +7,7 @@ import yaml
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.interaction_decision import InteractionDecisions
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
+from harness_builder_agent.schemas.human_confirmation import Questionnaire
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 
@@ -82,22 +83,27 @@ def render_init_completion_message(ai: Path) -> str:
     score = MaturityReport.model_validate(
         yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8"))
     )
-    blockers = _numbered_lines(score.blocking_reasons[:3])
+    evidence_or_gaps = _completion_evidence_gap_lines(score)
     next_steps = _numbered_lines(score.recommended_next_steps[:3])
     return (
-        f"Harness assets are available in {ai}\n\n"
-        f"当前成熟度：{score.overall_level}"
-        f"{f' -> {score.target_next_level}' if score.target_next_level else ''}\n\n"
-        "主要阻断项：\n"
-        f"{blockers}\n\n"
+        "== 初始化完成 ==\n"
+        f"- 输出目录：{ai}\n"
+        "- 本终端摘要是本次 init 的主要交付说明；Markdown 文件用于持久化审查、团队协作和后续 Runtime 上下文。\n\n"
+        "本次已生成：\n"
+        f"{_generated_asset_summary(ai)}\n\n"
+        "当前成熟度：\n"
+        f"- 当前等级：{score.overall_level}\n"
+        f"- 下一目标：{score.target_next_level or score.overall_level}\n\n"
+        "主要证据 / 缺口：\n"
+        f"{evidence_or_gaps}\n\n"
         "建议下一步：\n"
         f"{next_steps}\n\n"
         "Benchmark 健康度：\n"
         f"{_benchmark_readiness(ai)}\n\n"
-        "推荐入口：\n"
-        "- `.ai/init-summary.md`\n"
-        "- `.ai/maturity-report.md`\n"
-        "- `.ai/human-input-needed.md`"
+        "优先查看：\n"
+        f"{_priority_entry_lines(ai)}\n\n"
+        "仍需人工确认：\n"
+        f"{_pending_confirmation_lines(ai)}"
     )
 
 
@@ -111,6 +117,60 @@ def _numbered_lines(items: list[str]) -> str:
     if not items:
         return "1. 暂无明确事项。"
     return "\n".join(f"{index}. {item}" for index, item in enumerate(items, start=1))
+
+
+def _completion_evidence_gap_lines(score: MaturityReport) -> str:
+    lines: list[str] = []
+    for item in score.evidence[:2]:
+        lines.append(f"- 证据：{item}")
+    for item in score.blocking_reasons[:3]:
+        lines.append(f"- 缺口：{item}")
+    return "\n".join(lines) or "- 暂无明确证据或缺口；建议先运行 benchmark 做质量验收。"
+
+
+def _generated_asset_summary(ai: Path) -> str:
+    checks = [
+        ("项目清单", ai / "project-inventory.json"),
+        ("命令目录", ai / "command-catalog.yaml"),
+        ("Guides", ai / "guides"),
+        ("Sensors", ai / "sensors"),
+        ("Workflow Skills", ai / "skills"),
+        ("成熟度报告", ai / "maturity-report.md"),
+        ("待确认项", ai / "human-input-needed.md"),
+        ("生成 trace", ai / "runs"),
+    ]
+    return "\n".join(
+        f"- {label}：{'已生成' if path.exists() else 'missing'}"
+        for label, path in checks
+    )
+
+
+def _priority_entry_lines(ai: Path) -> str:
+    entries = [
+        (".ai/init-summary.md", "完整阅读本次初始化交付、成熟度缺口和未执行边界。"),
+        (".ai/maturity-report.md", "查看 L0-L4 评分证据、阻断项和下一等级要求。"),
+        (".ai/sensors/verification.md", "确认验证命令、hard gate 和失败处理策略。"),
+        (".ai/human-input-needed.md", "处理团队规则、风险边界和候选项的待确认问题。"),
+        (".ai/evolution-plan.md", "查看后续 Harness 演进建议。"),
+    ]
+    return "\n".join(
+        f"{index}. `{path}`：{reason}{'' if (ai.parent / path).exists() else '（当前缺失，需检查生成过程）'}"
+        for index, (path, reason) in enumerate(entries, start=1)
+    )
+
+
+def _pending_confirmation_lines(ai: Path) -> str:
+    path = ai / "questionnaire.yaml"
+    if not path.exists():
+        return "1. 未找到 `.ai/questionnaire.yaml`；请查看 `.ai/human-input-needed.md`。"
+    questionnaire = Questionnaire.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    lines = [
+        f"{index}. `{item.interaction_id}`：{item.question}（confidence={item.confidence}）"
+        for index, item in enumerate(questionnaire.questions[:3], start=1)
+    ]
+    if len(questionnaire.questions) > 3:
+        lines.append(f"{len(lines) + 1}. 还有 {len(questionnaire.questions) - 3} 个问题，详见 `.ai/human-input-needed.md`。")
+    return "\n".join(lines) or "1. 暂无待确认问题。"
 
 
 def _repository_fact_lines(inventory: ProjectInventory | None, commands: CommandCatalog | None) -> str:

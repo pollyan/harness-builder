@@ -294,6 +294,11 @@ def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert "当前成熟度" in result.output
+    assert "== 初始化完成 ==" in result.output
+    assert "本次已生成" in result.output
+    assert "优先查看" in result.output
+    assert "仍需人工确认" in result.output
+    assert "本终端摘要是本次 init 的主要交付说明" in result.output
     assert "Benchmark 健康度" in result.output
     assert "benchmark_status=not_run" in result.output
     assert "quality_status=not_available" in result.output
@@ -316,6 +321,11 @@ def test_init_generates_ai_assets_for_dotnet_fixture(tmp_path: Path, monkeypatch
 
     assert result.exit_code == 0, result.output
     assert "当前成熟度" in result.output
+    assert "== 初始化完成 ==" in result.output
+    assert "本次已生成" in result.output
+    assert "优先查看" in result.output
+    assert "仍需人工确认" in result.output
+    assert "本终端摘要是本次 init 的主要交付说明" in result.output
     assert ".ai/init-summary.md" in result.output
     _assert_init_outputs(repo, "dotnet-aspnet")
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text())
@@ -439,6 +449,11 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "最终确认" in result.output
     assert result.output.index("当前 Harness 成熟度初评") < result.output.index("最终确认")
     assert "当前成熟度" in result.output
+    assert "== 初始化完成 ==" in result.output
+    assert "本次已生成" in result.output
+    assert "优先查看" in result.output
+    assert "仍需人工确认" in result.output
+    assert "本终端摘要是本次 init 的主要交付说明" in result.output
     assert ".ai/init-summary.md" in result.output
     assert "primary_stack" not in result.output
     assert "overall_level" not in result.output
@@ -785,6 +800,8 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert "human_input_needed=" in result.output
     assert "schema_content_failed_checks=" in result.output
     assert "exit" in result.output
+    assert "== 初始化完成 ==" not in result.output
+    assert "本次已生成" not in result.output
     assert (repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8") == inventory_before
     assert (repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8") == config_before
     assert (repo / ".ai" / "init-summary.md").read_text(encoding="utf-8") == summary_before
@@ -925,6 +942,8 @@ def test_guided_init_existing_harness_can_assess_without_overwriting_formal_asse
     assert "assess" in result.output
     assert "成熟度评估已刷新" in result.output
     assert "当前成熟度" in result.output
+    assert "== 初始化完成 ==" not in result.output
+    assert "本次已生成" not in result.output
     assert (repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8") == inventory_before
     assert (repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8") == config_before
     assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == guide_before

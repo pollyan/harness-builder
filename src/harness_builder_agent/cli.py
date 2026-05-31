@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+import yaml
 
 from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.assess_maturity import assess_maturity
@@ -47,7 +48,14 @@ def init_command(
         trace.event("init", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
-    typer.echo(render_init_completion_message(output_dir))
+    if _should_render_initial_init_completion(trace):
+        typer.echo(render_init_completion_message(output_dir))
+
+
+def _should_render_initial_init_completion(trace: GenerationTrace) -> bool:
+    trace_payload = yaml.safe_load((trace.run_dir / "trace.yaml").read_text(encoding="utf-8"))
+    summary = trace_payload.get("summary", {}) if isinstance(trace_payload, dict) else {}
+    return "existing_harness_action" not in summary
 
 
 @app.command("benchmark")

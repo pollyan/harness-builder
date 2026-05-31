@@ -1,5 +1,20 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Init CLI 交付摘要增强
+
+- North Star 模块：CLI Experience、Maturity & Evolution、Guides / Sensors、Progressive Collaboration。
+- init North Star 旅程阶段：写入后的交付摘要、CLI 视觉焦点、下一步入口。
+- Gap Analysis 摘要：`init` 已经在 CLI 中展示扫描、成熟度初评、用户补充影响和写入前 preview，但写入完成后的 completion message 仍只显示英文资产路径、成熟度、benchmark readiness 和少量入口；它没有完整承担 North Star 要求的 CLI-first 交付摘要职责。
+- 用户故事：作为 Harness Maintainer，当我完成首次 `init` 写入后，我可以直接在 CLI 中看到本次生成结果、当前 L0-L4 成熟度、主要证据 / 缺口、Benchmark 状态、优先查看入口、仍需人工确认的问题和下一步命令，从而不用先打开 Markdown 文件也能理解初始化交付。
+- 当前代码 gap：`render_init_completion_message()` 只读取 `maturity-score.yaml` 和 benchmark report，缺少生成结果清单、待确认问题摘要、优先入口原因和 CLI / Markdown 边界说明；integration 测试只覆盖“当前成熟度”和 benchmark 字段。
+- 关键决策 / 取舍：本轮只增强 completion message，不改扫描、LLM、成熟度评分、资产 schema 或已有 Harness 维护入口；`questionnaire.yaml` 通过 `Questionnaire` schema 只读校验后提取待确认问题，缺失时显式提示查看 `human-input-needed.md`。
+- Assumptions / risks：completion message 是交付说明，不是新的交互菜单；首次 `init` 仍不默认运行 benchmark，也不执行 Runtime task-run。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行审查 guided init transcript 和 completion summary gap；两者均建议优先补齐 CLI completion summary，并把更完整 Transcript Contract V1 留作后续切片。
+- 价值切分说明：本轮直接回应“CLI 工具第一优先级”，把写入后的理解和下一步从 Markdown 前移到终端，同时保留 Markdown 作为持久化材料。
+- 验收标准及验证方式：unit 覆盖 completion message 的 `== 初始化完成 ==`、生成结果、成熟度、Benchmark、优先查看、仍需人工确认和 CLI-first 说明；integration 覆盖非交互与 guided init 输出均包含这些交付摘要要素，并覆盖已有 Harness `exit` / `assess` 不追加首次初始化交付摘要。
+- 完成内容：`render_init_completion_message()` 改为中文 CLI-first 交付摘要；新增生成资产摘要、优先入口和待确认问题 helper；`cli.py` 通过 trace summary 区分首次生成与已有 Harness 维护动作；init workflow、todo 和演进记录同步。
+- Self-Harness Gate：下一轮候选 gap 首选“首次 guided init 启动说明和阶段标题统一”，其次是“用户补充后区分结构化吸收与 notes 保存”，继续围绕 CLI-first 用户旅程推进。
+
 ## 2026-05-31 Init 资产仓库特异性增强
 
 - North Star 模块：CLI Experience、Guides / Sensors、Maturity & Evolution、Progressive Collaboration。

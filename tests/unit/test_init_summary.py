@@ -83,6 +83,50 @@ def test_init_summary_reports_existing_benchmark_status(tmp_path: Path):
     assert "failed_checks=1" in message
 
 
+def test_init_completion_message_is_cli_first_delivery_summary(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    (ai / "guides").mkdir()
+    (ai / "sensors").mkdir()
+    (ai / "skills").mkdir()
+    (ai / "maturity-score.yaml").write_text(yaml.safe_dump(_score().model_dump(mode="json")), encoding="utf-8")
+    (ai / "questionnaire.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "questions": [
+                    {
+                        "interaction_type": "context_confirmation",
+                        "interaction_id": "confirm:team-context",
+                        "question": "是否有团队规则需要加入 Harness？",
+                        "options": ["补充", "暂缓"],
+                        "confidence": "medium",
+                        "reason": "团队规则会影响 Guides。",
+                    }
+                ],
+            },
+            allow_unicode=True,
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    message = render_init_completion_message(ai)
+
+    assert "== 初始化完成 ==" in message
+    assert "本次已生成" in message
+    assert "当前成熟度" in message
+    assert "主要证据 / 缺口" in message
+    assert "Benchmark 健康度" in message
+    assert "benchmark_status=not_run" in message
+    assert "优先查看" in message
+    assert "仍需人工确认" in message
+    assert "是否有团队规则需要加入 Harness" in message
+    assert "本终端摘要是本次 init 的主要交付说明" in message
+    assert ".ai/init-summary.md" in message
+    assert ".ai/sensors/verification.md" in message
+
+
 def test_init_summary_records_repository_facts_user_supplements_and_asset_gap_links(tmp_path: Path):
     ai = tmp_path / ".ai"
     ai.mkdir()
