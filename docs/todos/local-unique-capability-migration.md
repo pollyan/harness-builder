@@ -69,6 +69,7 @@
 - 2026-06-01：迁移 scan report evidence visibility。当前 `scan-report.md` 会展示 Evidence、LLM Evidence Expansion、Evidence Coverage、Stack Evidence Validation、Scan Warnings、Risk Areas 和 Command Candidates；`content:scan-report` 会报告缺失章节、evidence path、coverage selected path、evidence expansion detail、warning、risk 或 command confidence。
 - 2026-06-01：迁移 init summary evidence audit。当前 `init-summary.md` 会在 `## 扫描证据审计` 摘要展示 evidence expansion requested/read paths、risk focus、confidence、read file count、rationale 和 coverage selected paths；`content:init-summary` 会报告缺失章节、summary expansion detail 或 summary coverage selected path。
 - 2026-06-01：迁移内容质量 failed check detail preservation。当前 `content:workflow-skills`、`content:guides-quality`、`content:sensors-quality` 和 `content:stack-specific-guides` 失败时会保留具体 `missing` detail，包括缺失 Skill 文件 / marker、Guide / Sensor 章节、hard gate marker 或 stack-specific weapon id。
+- 2026-06-01：迁移 evidence reason preservation。当前 scan reconcile 会在 `ProjectInventory.evidence`、`documents`、`configs` 和 `ci_files` 中保留 deterministic evidence reason；`scan-report.md` 与 `project-context.md` 展示这些 reason，`content:scan-report` 和 `content:project-context-evidence-context` 会报告 `missing_evidence_reason:<path>`。
 
 ## 理想状态
 
@@ -112,6 +113,7 @@
 
 4. **Scan evidence 可审计细节**
    - evidence reason preservation。
+     - 已迁移：2026-06-01。
    - test / risk / API entrypoint / document evidence report visibility。
      - 已部分迁移：2026-06-01（scan-report 通过 coverage selected paths、risk areas、documents/configs/CI 和命令置信度展示；更细顶层 inventory 字段仍不新增）。
    - LLM requested evidence 在 scan report、project-context 和 init summary 中的审计展示。

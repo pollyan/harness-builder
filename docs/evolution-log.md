@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Evidence Reason Preservation 迁移
+
+- North Star 模块：Deep Scan Evidence、Benchmark / Review Intelligence、CLI Experience。
+- init North Star 旅程阶段：扫描理解可解释；生成资产可审计；质量门禁解释。
+- Gap Analysis 摘要：迁移 todo 中 scan evidence 可审计细节仍有 `evidence reason preservation` 未完成。旧备份分支会通过 `_evidence_entry()` 保留 `EvidenceFile.reason`，当前 main 虽然已展示 evidence path、coverage、LLM evidence expansion 和风险路径，但 reconcile 写入 `ProjectInventory` 时会把 key evidence 的 reason 降级为 kind，configs / ci / documents 也常只剩 kind；benchmark 也只校验 path，不校验 reason。
+- 用户故事：作为 Harness Maintainer，当我查看 `.ai/scan-report.md`、`.ai/guides/project-context.md` 或 benchmark report 审计扫描 evidence 时，我可以看到每个关键 evidence path 为什么被选中，并且 benchmark 会在 reason 从报告中丢失时指出具体 path，从而判断扫描结论不是只有路径列表，而是有可解释依据。
+- 当前代码 gap：`scan_reconciler.py` 没有保留 `EvidenceFile.reason`；`content:scan-report` 和 `content:project-context-evidence-context` 没有 `missing_evidence_reason:<path>` 校验。
+- 关键决策 / 取舍：不新增 ProjectInventory 顶层字段；只在现有 evidence / documents / configs / ci_files dict entry 中保留 `reason`。proposal configs / ci_files 如果没有 reason，则从同 path 的 deterministic evidence 补齐；旧 inventory 没有 reason 时不强制失败。
+- Assumptions / risks：真实 LLM proposal path 与 deterministic evidence path 不一致时无法补齐 reason；这种情况保留 proposal 原样，不做近似匹配或 silent fallback。
+- Sub agent 使用情况：尝试启动只读 explorer 审查旧分支 evidence reason，但当前环境返回 `agent thread limit reached`；本轮由主线程完成旧分支对比、TDD、实现和验证。
+- 价值切分说明：本轮只恢复 reason 的扫描调和、语义展示和 benchmark 防漂移，不扩展 test / risk / API / llm_requested 顶层 inventory 字段。
+- 可执行验收标准及验证方式：unit 覆盖 reconcile reason 保留和 writer reason 展示；benchmark integration 覆盖 scan-report / project-context 缺 reason 时返回 `missing_evidence_reason:<path>`。
+- 完成内容：`reconcile_scan()` 保留 evidence reason；proposal configs / ci_files 补齐 deterministic reason；benchmark 校验 scan-report 和 project-context evidence reason；README、init workflow、LLM contracts、testing strategy、sensor/gate rules、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted unit / integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：Runtime 边界未变化，未执行任务、不创建 `.ai/task-runs`。下一轮候选 gap：test / risk / API entrypoint / document evidence report visibility 是否需要恢复顶层 schema，或 failed check missing / errors / detail preservation 系统性全量审计。
+
 ## 2026-06-01 Content Quality Detail Preservation 迁移
 
 - North Star 模块：Benchmark / Review Intelligence、CLI Experience、Maturity & Evolution。

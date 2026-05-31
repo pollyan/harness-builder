@@ -18,9 +18,9 @@ def _inventory(repo: Path) -> ProjectInventory:
         stacks=["java", "maven", "spring-boot"],
         modules=[{"name": "app", "path": ".", "kind": "backend"}],
         evidence=[{"path": "pom.xml", "reason": "maven build file"}],
-        documents=[{"path": "README.md", "kind": "project documentation"}],
-        configs=[{"path": "src/main/resources/application.yml", "kind": "spring configuration"}],
-        ci_files=[{"path": ".github/workflows/ci.yml", "kind": "github actions"}],
+        documents=[{"path": "README.md", "kind": "document", "reason": "Repository documentation entrypoint"}],
+        configs=[{"path": "src/main/resources/application.yml", "kind": "config", "reason": "Spring runtime configuration"}],
+        ci_files=[{"path": ".github/workflows/ci.yml", "kind": "ci", "reason": "GitHub Actions CI definition"}],
         stack_extensions={
             "scan_metadata": {
                 "schema_version": "1.0",
@@ -125,7 +125,9 @@ def test_write_report_assets_writes_reports_scores_plan_and_records_trace(tmp_pa
     scan_report = (ai / "scan-report.md").read_text(encoding="utf-8")
     assert "## Evidence" in scan_report
     assert "README.md" in scan_report
+    assert "Repository documentation entrypoint" in scan_report
     assert ".github/workflows/ci.yml" in scan_report
+    assert "GitHub Actions CI definition" in scan_report
     assert "## LLM Evidence Expansion" in scan_report
     assert "requested_paths=`src/main/java/com/example/demo/DemoController.java`" in scan_report
     assert "read_paths=`src/main/java/com/example/demo/DemoController.java`" in scan_report

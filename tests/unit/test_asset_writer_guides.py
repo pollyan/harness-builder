@@ -17,6 +17,7 @@ def _inventory(repo: Path) -> ProjectInventory:
         stacks=["java", "maven", "spring-boot"],
         modules=[{"name": "app", "path": ".", "kind": "backend"}],
         evidence=[{"path": "pom.xml", "reason": "maven build file"}],
+        documents=[{"path": "README.md", "kind": "document", "reason": "Repository documentation entrypoint"}],
         stack_extensions={
             "risk_areas": [
                 {"path": "src/main/resources/application.yml", "reason": "数据库配置需要人工确认"},
@@ -70,6 +71,7 @@ def test_write_guide_assets_writes_guides_templates_and_records_trace(tmp_path: 
     assert "## 验证入口" in project_context
     assert "## 成熟度缺口关联" in project_context
     assert "## 来源证据" in project_context
+    assert "Repository documentation entrypoint" in project_context
     assert "java-spring.guide." in project_context
     assert "src/main/resources/application.yml" in project_context
     assert "数据库配置需要人工确认" in project_context

@@ -93,6 +93,7 @@ Evidence 是 LLM 的输入，也是调和阶段的审计依据。
 规则：
 
 - Evidence collector 收集事实，不做最终业务判断。
+- `EvidenceFile.reason` 是扫描审计的一部分，进入 `ProjectInventory.evidence`、`documents`、`configs` 和 `ci_files` 后不能被降级为单纯 kind。生成的 scan report 和 project-context Guide 必须展示 reason，让 Maintainer 知道路径为什么被选中。
 - LLM evidence planner 可以基于初始 `EvidenceBundle.files` 选择少量需要深入读取的补充文件；它只能引用已发现的仓库内路径，Python 必须用 Pydantic schema 和 allowlist 校验后再读取摘要。
 - LLM evidence planner 的结构化输出必须进入 `ScanMetadata.evidence_expansion`，记录 planner prompt version、requested paths、risk focus、rationale、confidence、实际读取 paths 和读取文件数量，便于调试和审计深度扫描决策。
 - `ScanMetadata.evidence_expansion` 不能只停留在机器 metadata 中；生成的 `.ai/scan-report.md` 必须以 `## LLM Evidence Expansion` 展示 requested/read paths、risk focus、confidence、read file count 和 rationale，生成的 `.ai/guides/project-context.md` 必须以 `## LLM 证据扩展` 展示同类审计信息，生成的 `.ai/init-summary.md` 必须以 `## 扫描证据审计` 摘要展示 evidence expansion 和 coverage selected paths。benchmark 分别用 `content:scan-report`、`content:project-context-evidence-context` 和 `content:init-summary` 防止审计上下文漂移。

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from typing import Any
+
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.scan import (
     EvidenceBundle,
+    EvidenceFile,
     LLMEvidenceExpansionMetadata,
     LLMEvidencePlan,
     LLMCommandCandidate,
@@ -101,10 +104,10 @@ def reconcile_scan(
         primary_stack=proposal.primary_stack,
         stacks=proposal.stacks,
         modules=proposal.modules,
-        evidence=[{"path": item.path, "reason": item.kind} for item in evidence.key_files],
-        documents=[{"path": item.path, "kind": item.kind} for item in evidence.documents],
-        configs=proposal.configs or [{"path": item.path, "kind": item.kind} for item in evidence.config_files],
-        ci_files=proposal.ci_files or [{"path": item.path, "kind": item.kind} for item in evidence.ci_files],
+        evidence=[_evidence_entry(item) for item in evidence.key_files],
+        documents=[_evidence_entry(item) for item in evidence.documents],
+        configs=_proposal_entries_with_evidence_reasons(proposal.configs, evidence.config_files),
+        ci_files=_proposal_entries_with_evidence_reasons(proposal.ci_files, evidence.ci_files),
         stack_extensions={
             "architecture_signals": proposal.architecture_signals,
             "risk_areas": proposal.risk_areas,
@@ -117,6 +120,34 @@ def reconcile_scan(
         },
     )
     return inventory, CommandCatalog(commands=commands), metadata
+
+
+def _evidence_entry(item: EvidenceFile) -> dict[str, str]:
+    entry = {"path": item.path, "kind": item.kind}
+    if item.reason:
+        entry["reason"] = item.reason
+    return entry
+
+
+def _proposal_entries_with_evidence_reasons(
+    proposal_entries: list[dict[str, Any]],
+    evidence_entries: list[EvidenceFile],
+) -> list[dict[str, Any]]:
+    if not proposal_entries:
+        return [_evidence_entry(item) for item in evidence_entries]
+    evidence_by_path = {item.path: _evidence_entry(item) for item in evidence_entries}
+    enriched: list[dict[str, Any]] = []
+    for item in proposal_entries:
+        entry = dict(item)
+        path = str(entry.get("path") or "").strip()
+        evidence_entry = evidence_by_path.get(path)
+        if evidence_entry:
+            if evidence_entry.get("kind"):
+                entry.setdefault("kind", evidence_entry["kind"])
+            if evidence_entry.get("reason"):
+                entry.setdefault("reason", evidence_entry["reason"])
+        enriched.append(entry)
+    return enriched
 
 
 def _build_followup_questions(

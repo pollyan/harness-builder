@@ -220,7 +220,7 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 - scan report 缺少 evidence / LLM evidence expansion / coverage / stack validation / warning / risk / command confidence 审计信息时能通过 `content:scan-report` 报告。
 - init-summary 缺少 `## 扫描证据审计`、evidence expansion detail 或 coverage selected path 时能通过 `content:init-summary` 报告。
 - scan risk path 缺少 Guide、Sensor 或 standard routing 任一环时能通过 `content:risk-context-consistency` 报告。
-- project-context 缺少 inventory evidence path、`## LLM 证据扩展`、evidence expansion requested/read path、risk focus、confidence 或 rationale 时能通过 `content:project-context-evidence-context` 报告。
+- project-context 缺少 inventory evidence path / reason、`## LLM 证据扩展`、evidence expansion requested/read path、risk focus、confidence 或 rationale 时能通过 `content:project-context-evidence-context` 报告。
 - Guide、Sensor、Workflow Skill 或 stack-specific Guide 缺少必需章节、marker 或 weapon id 时能通过对应 content check 的 `missing` detail 报告。
 - hard gate command 缺少 evidence/source、source path 不存在、source path 逃出仓库或 low confidence 能被报告。
 - 报告自身符合 `BenchmarkReport` schema。

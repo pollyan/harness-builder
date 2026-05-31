@@ -544,9 +544,10 @@ def _add_consistent_risk_context(ai: Path, risk_path: str, reason: str = "核心
 def _add_consistent_project_context_evidence_context(ai: Path) -> ProjectInventory:
     inventory_path = ai / "project-inventory.json"
     inventory_payload = json.loads(inventory_path.read_text(encoding="utf-8"))
-    inventory_payload["documents"] = [{"path": "README.md", "kind": "project documentation"}]
-    inventory_payload["configs"] = [{"path": "src/main/resources/application.yml", "kind": "spring configuration"}]
-    inventory_payload["ci_files"] = [{"path": ".github/workflows/ci.yml", "kind": "github actions"}]
+    inventory_payload["evidence"] = [{"path": "pom.xml", "kind": "build", "reason": "Maven build manifest"}]
+    inventory_payload["documents"] = [{"path": "README.md", "kind": "document", "reason": "Repository documentation entrypoint"}]
+    inventory_payload["configs"] = [{"path": "src/main/resources/application.yml", "kind": "config", "reason": "Spring runtime configuration"}]
+    inventory_payload["ci_files"] = [{"path": ".github/workflows/ci.yml", "kind": "ci", "reason": "GitHub Actions CI definition"}]
     inventory_payload.setdefault("stack_extensions", {}).setdefault("scan_metadata", {})["evidence_expansion"] = {
         "schema_version": "1.0",
         "planner_prompt_version": "llm-evidence-planner-v1",
@@ -562,9 +563,10 @@ def _add_consistent_project_context_evidence_context(ai: Path) -> ProjectInvento
     guide_path = ai / "guides" / "project-context.md"
     guide_text = guide_path.read_text(encoding="utf-8")
     source_lines = (
-        "- `README.md`：project documentation\n"
-        "- `src/main/resources/application.yml`：spring configuration\n"
-        "- `.github/workflows/ci.yml`：github actions\n"
+        "- `pom.xml`：Maven build manifest\n"
+        "- `README.md`：Repository documentation entrypoint\n"
+        "- `src/main/resources/application.yml`：Spring runtime configuration\n"
+        "- `.github/workflows/ci.yml`：GitHub Actions CI definition\n"
     )
     if "## LLM 证据扩展" in guide_text:
         guide_text = guide_text.replace("## LLM 证据扩展", source_lines + "\n## LLM 证据扩展", 1)
@@ -598,9 +600,10 @@ def _add_consistent_project_context_evidence_context(ai: Path) -> ProjectInvento
 def _add_consistent_scan_report_context(ai: Path) -> ProjectInventory:
     inventory_path = ai / "project-inventory.json"
     inventory_payload = json.loads(inventory_path.read_text(encoding="utf-8"))
-    inventory_payload["documents"] = [{"path": "README.md", "kind": "project documentation"}]
-    inventory_payload["configs"] = [{"path": "src/main/resources/application.yml", "kind": "spring configuration"}]
-    inventory_payload["ci_files"] = [{"path": ".github/workflows/ci.yml", "kind": "github actions"}]
+    inventory_payload["evidence"] = [{"path": "pom.xml", "kind": "build", "reason": "Maven build manifest"}]
+    inventory_payload["documents"] = [{"path": "README.md", "kind": "document", "reason": "Repository documentation entrypoint"}]
+    inventory_payload["configs"] = [{"path": "src/main/resources/application.yml", "kind": "config", "reason": "Spring runtime configuration"}]
+    inventory_payload["ci_files"] = [{"path": ".github/workflows/ci.yml", "kind": "ci", "reason": "GitHub Actions CI definition"}]
     inventory_payload.setdefault("stack_extensions", {})["risk_areas"] = [
         {"path": "src/main/resources/application.yml", "reason": "database config risk"}
     ]
@@ -658,10 +661,10 @@ def _add_consistent_scan_report_context(ai: Path) -> ProjectInventory:
         "Repository: `mini-spring-boot`\n\n"
         "Primary stack: `java-spring`\n\n"
         "## Evidence\n\n"
-        "- `pom.xml`: maven build file\n"
-        "- `README.md`: project documentation\n"
-        "- `src/main/resources/application.yml`: spring configuration\n"
-        "- `.github/workflows/ci.yml`: github actions\n\n"
+        "- `pom.xml`: Maven build manifest\n"
+        "- `README.md`: Repository documentation entrypoint\n"
+        "- `src/main/resources/application.yml`: Spring runtime configuration\n"
+        "- `.github/workflows/ci.yml`: GitHub Actions CI definition\n\n"
         "## LLM Evidence Expansion\n\n"
         "- requested_paths=`src/main/java/com/example/demo/DemoController.java`\n"
         "- read_paths=`src/main/java/com/example/demo/DemoController.java`\n"
@@ -1166,6 +1169,46 @@ def test_benchmark_fails_when_scan_report_omits_llm_evidence_expansion_detail(tm
     assert "missing_expansion_read_path:src/main/java/com/example/demo/DemoController.java" in check["missing"]
     assert "missing_expansion_read_file_count:1" in check["missing"]
     assert "missing_expansion_rationale" in check["missing"]
+
+
+def test_benchmark_fails_when_scan_report_omits_evidence_reason(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_scan_report_context(ai)
+    report = ai / "scan-report.md"
+    report.write_text(
+        report.read_text(encoding="utf-8").replace(
+            "- `README.md`: Repository documentation entrypoint",
+            "- `README.md`: document",
+        ),
+        encoding="utf-8",
+    )
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:scan-report")
+    assert check["passed"] is False
+    assert "missing_evidence_reason:README.md" in check["missing"]
+
+
+def test_benchmark_fails_when_project_context_omits_evidence_reason(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_project_context_evidence_context(ai)
+    guide = ai / "guides" / "project-context.md"
+    guide.write_text(
+        guide.read_text(encoding="utf-8").replace(
+            "- `README.md`：Repository documentation entrypoint",
+            "- `README.md`：document",
+        ),
+        encoding="utf-8",
+    )
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:project-context-evidence-context")
+    assert check["passed"] is False
+    assert "missing_evidence_reason:README.md" in check["missing"]
 
 
 def test_benchmark_fails_weapon_library_candidates_with_invalid_status(tmp_path: Path, monkeypatch):

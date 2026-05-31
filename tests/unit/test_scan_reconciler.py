@@ -94,6 +94,33 @@ def test_reconcile_persists_evidence_coverage_and_warnings():
     assert inventory.stack_extensions["scan_metadata"]["coverage"]["selected_evidence_count"] == 3
 
 
+def test_reconcile_preserves_evidence_reasons_in_inventory_entries():
+    evidence = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[
+            EvidenceFile(path="pom.xml", kind="build", reason="Maven build manifest", priority="critical", bucket="build"),
+            EvidenceFile(path="README.md", kind="document", reason="Repository overview", bucket="document"),
+            EvidenceFile(path="application.yml", kind="config", reason="Spring runtime configuration", bucket="config"),
+            EvidenceFile(path=".github/workflows/ci.yml", kind="ci", reason="GitHub Actions CI definition", bucket="ci"),
+        ],
+        key_files=[EvidenceFile(path="pom.xml", kind="build", reason="Maven build manifest", priority="critical", bucket="build")],
+        documents=[EvidenceFile(path="README.md", kind="document", reason="Repository overview", bucket="document")],
+        config_files=[EvidenceFile(path="application.yml", kind="config", reason="Spring runtime configuration", bucket="config")],
+        ci_files=[EvidenceFile(path=".github/workflows/ci.yml", kind="ci", reason="GitHub Actions CI definition", bucket="ci")],
+    )
+    proposal = _proposal()
+    proposal.configs = [{"path": "application.yml", "kind": "config"}]
+    proposal.ci_files = [{"path": ".github/workflows/ci.yml", "kind": "ci"}]
+
+    inventory, _commands, _metadata = reconcile_scan(evidence, proposal)
+
+    assert inventory.evidence == [{"path": "pom.xml", "kind": "build", "reason": "Maven build manifest"}]
+    assert inventory.documents == [{"path": "README.md", "kind": "document", "reason": "Repository overview"}]
+    assert inventory.configs == [{"path": "application.yml", "kind": "config", "reason": "Spring runtime configuration"}]
+    assert inventory.ci_files == [{"path": ".github/workflows/ci.yml", "kind": "ci", "reason": "GitHub Actions CI definition"}]
+
+
 def test_reconcile_persists_llm_evidence_expansion_metadata():
     evidence = EvidenceBundle(
         repo_name="demo",

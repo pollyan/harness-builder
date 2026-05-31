@@ -440,6 +440,9 @@ def _scan_report_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
     for evidence_path in _inventory_evidence_paths(inventory):
         if f"`{evidence_path}`" not in evidence_text:
             missing.append(f"missing_evidence_path:{evidence_path}")
+    for evidence_path, reason in _inventory_evidence_reasons(inventory):
+        if reason not in evidence_text:
+            missing.append(f"missing_evidence_reason:{evidence_path}")
 
     expansion_text = _section_text(text, "## LLM Evidence Expansion", "## Evidence Coverage")
     _append_missing_evidence_expansion_details(missing, expansion_text, inventory)
@@ -1307,6 +1310,9 @@ def _project_context_evidence_context_check(ai: Path, inventory: ProjectInventor
     for path in evidence_paths:
         if f"`{path}`" not in evidence_text:
             missing.append(f"missing_evidence_path:{path}")
+    for path, reason in _inventory_evidence_reasons(inventory):
+        if reason not in evidence_text:
+            missing.append(f"missing_evidence_reason:{path}")
 
     if "## LLM 证据扩展" not in text:
         missing.append("missing_llm_evidence_expansion_section")
@@ -1356,6 +1362,19 @@ def _inventory_evidence_paths(inventory: ProjectInventory) -> list[str]:
                 seen.add(path)
                 paths.append(path)
     return paths
+
+
+def _inventory_evidence_reasons(inventory: ProjectInventory) -> list[tuple[str, str]]:
+    reasons: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for bucket in (inventory.evidence, inventory.documents, inventory.configs, inventory.ci_files):
+        for item in bucket:
+            path = str(item.get("path") or "").strip()
+            reason = str(item.get("reason") or "").strip()
+            if path and reason and path not in seen:
+                seen.add(path)
+                reasons.append((path, reason))
+    return reasons
 
 
 def _inventory_evidence_expansion(inventory: ProjectInventory) -> Any:
