@@ -14,7 +14,8 @@
   - `2026-05-31 Guided Init 采样覆盖不足中文化`：`source_sampling_truncated` 不再把 `source:.py skipped 73 files` 作为 CLI 主界面文案，而是用中文说明抽样范围、未进入初始摘要数量、影响和补充建议；metadata 保留 bucket / selected / skipped / total 计数。
   - `2026-05-31 Guided Init 高风险发现确认链路`：疑似 API key / 凭证 / 安全 / 支付 / 权限 / 数据迁移风险会在 CLI 中标记为待确认高风险，并进入 questionnaire、human-input-needed、Guide 和 Sensor 的确认与升级说明。
   - `2026-05-31 Guided Init 多栈仓库组合建模`：scan schema 支持 `python-flask`，reconciler 可验证 Python Flask + React / TypeScript 组合栈并派生 `stack_profile`，guided CLI 用中文展示组合技术栈，weapon library 可同时选择 Python Flask 后端和 Node / 前端 Guide / Sensor。
-- 剩余成熟度英文叙事和 LLM-planned deep scan 仍保持 open。
+  - `2026-05-31 成熟度叙事中文化`：`MaturityReport` 源头的 blocker、evidence summary、next level requirement 和 blocking cap 改为中文；`maturity-report.md` 使用中文维度标签和“证据 / 阻断”展示标签，guided CLI 不再泄漏已知英文 maturity blocker。
+- 剩余 LLM-planned deep scan 仍保持 open。
 
 ## 背景
 

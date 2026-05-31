@@ -421,6 +421,12 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "按当前扫描写入后预计建立" in result.output
     assert "主要差距" in result.output
     assert "建议优先补充" in result.output
+    assert "Guides are structured" not in result.output
+    assert "Workflow routing policy exists" not in result.output
+    assert "Bind guides to workflow" not in result.output
+    assert "Validate workflow routing" not in result.output
+    assert "Guides 已结构化" in result.output
+    assert "用全部 resolved 的 Runtime task-run 证据验证 Workflow routing" in result.output
     assert "hard gate 命令" in result.output
     assert "模块边界" in result.output
     assert "风险区域" in result.output

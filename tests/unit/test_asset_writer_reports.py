@@ -48,14 +48,23 @@ def test_write_report_assets_writes_reports_scores_plan_and_records_trace(tmp_pa
     assert (ai / "maturity-score.yaml").exists()
     assert (ai / "maturity-evidence.yaml").exists()
     assert (ai / "evolution-plan.md").exists()
-    assert "## 证据" in (ai / "maturity-report.md").read_text(encoding="utf-8")
+    maturity_report = (ai / "maturity-report.md").read_text(encoding="utf-8")
+    assert "## 证据" in maturity_report
+    assert "evidence:" not in maturity_report
+    assert "blockers:" not in maturity_report
+    assert "Guides 上下文" in maturity_report
+    assert "证据：" in maturity_report
+    assert "阻断：" in maturity_report
     maturity = yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8"))
     assert maturity["schema_version"] == "1.0"
     assert "dimensions" in maturity
     assert "guides" in maturity["dimensions"]
     assert maturity["dimensions"]["workflow"]["level"] == "L2"
-    assert any("Workflow routing rules configured: 3" in item["summary"] for item in maturity["dimensions"]["workflow"]["evidence"])
-    assert "Validate workflow routing with resolved Runtime task-run evidence." in maturity["dimensions"]["workflow"]["next_level_requirements"]
+    maturity_text = yaml.safe_dump(maturity, allow_unicode=True)
+    assert "Workflow routing rules configured" not in maturity_text
+    assert "Validate workflow routing" not in maturity_text
+    assert any("Workflow routing 规则数量：3" in item["summary"] for item in maturity["dimensions"]["workflow"]["evidence"])
+    assert "用全部 resolved 的 Runtime task-run 证据验证 Workflow routing。" in maturity["dimensions"]["workflow"]["next_level_requirements"]
     assert any(blocker["id"] == "runtime-workflow-not-observed" for blocker in maturity["dimensions"]["workflow"]["blockers"])
     assert "next_steps" in maturity
     evidence = yaml.safe_load((ai / "maturity-evidence.yaml").read_text(encoding="utf-8"))

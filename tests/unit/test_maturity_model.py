@@ -131,7 +131,26 @@ def test_runtime_failed_sensor_keeps_overall_below_l3(tmp_path: Path):
     assert report.overall_level == "L2"
     assert report.dimensions["workflow"].level == "L2"
     assert any(blocker.id == "runtime-sensors-unresolved" for blocker in report.dimensions["workflow"].blockers)
-    assert any("Runtime sensor results are not fully resolved" in reason for reason in report.blocking_reasons)
+    assert any("Runtime Sensor 结果尚未全部 resolved" in reason for reason in report.blocking_reasons)
+
+
+def test_maturity_report_uses_chinese_user_facing_narrative():
+    report = build_maturity_report(
+        ai=None,
+        inventory=_inventory(),
+        commands=_hard_gate_commands(),
+        config=HarnessConfig.default(),
+    )
+
+    text = "\n".join(report.blocking_reasons + report.recommended_next_steps)
+
+    assert "Guides are structured" not in text
+    assert "Workflow routing policy exists" not in text
+    assert "Bind guides to workflow" not in text
+    assert "Validate workflow routing" not in text
+    assert "Guides 已结构化" in text
+    assert "绑定 Guides 到 Workflow routing 和任务风险上下文" in text
+    assert "用全部 resolved 的 Runtime task-run 证据验证 Workflow routing" in text
 
 
 def test_experience_dimension_uses_workflow_recommendation_review_count(tmp_path: Path):
@@ -157,7 +176,7 @@ def test_experience_dimension_uses_workflow_recommendation_review_count(tmp_path
 
     experience = report.dimensions["experience"]
     assert experience.level == "L2"
-    assert any("Workflow recommendation reviews: 1" in item.summary for item in experience.evidence)
+    assert any("Workflow recommendation reviews 数量：1" in item.summary for item in experience.evidence)
     assert any(blocker.id == "experience-not-runtime-derived" for blocker in experience.blockers)
 
 

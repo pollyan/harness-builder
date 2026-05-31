@@ -89,18 +89,18 @@ def _guides_dimension(
     return MaturityDimensionReport(
         level=level,
         evidence=[
-            MaturityEvidence(source=".ai/guides/project-context.md", summary="Project context guide records stable project facts."),
-            MaturityEvidence(source=".ai/project-inventory.json", summary=f"Primary stack is {inventory.primary_stack}."),
-            MaturityEvidence(source=".ai/weapon-library-selection.yaml", summary=f"Selected guide weapons: {guide_count}."),
+            MaturityEvidence(source=".ai/guides/project-context.md", summary="项目上下文 Guide 记录稳定项目事实。"),
+            MaturityEvidence(source=".ai/project-inventory.json", summary=f"主技术栈：{inventory.primary_stack}。"),
+            MaturityEvidence(source=".ai/weapon-library-selection.yaml", summary=f"已选择 Guide 武器数量：{guide_count}。"),
         ],
         blockers=[
             MaturityBlocker(
                 id="guides-not-risk-routed",
-                reason="Guides are structured but not yet dynamically loaded by task risk and context.",
+                reason="Guides 已结构化，但还没有按任务风险和上下文动态加载。",
                 prevents_level="L3",
             )
         ],
-        next_level_requirements=["Bind guides to workflow routing and task risk context."],
+        next_level_requirements=["绑定 Guides 到 Workflow routing 和任务风险上下文。"],
         confidence="high" if structured_guides else "medium",
     )
 
@@ -110,18 +110,18 @@ def _sensors_dimension(commands: CommandCatalog) -> MaturityDimensionReport:
     return MaturityDimensionReport(
         level="L2" if has_commands else "L0",
         evidence=[
-            MaturityEvidence(source=".ai/command-catalog.yaml", summary=f"Validation command count: {len(commands.commands)}.")
+            MaturityEvidence(source=".ai/command-catalog.yaml", summary=f"验证命令数量：{len(commands.commands)}。")
         ],
         blockers=[] if has_commands else [
             MaturityBlocker(
                 id="no-executable-sensors",
-                reason="No executable validation command is available for Harness sensors.",
+                reason="当前没有可供 Harness Sensors 使用的可执行验证命令。",
                 prevents_level="L1",
             )
         ],
         next_level_requirements=[
-            "Bind sensor failures into workflow repair behavior.",
-            "Classify lint, typecheck, test, build, and security checks by gate strength.",
+            "把 Sensor 失败接入 Workflow repair 行为。",
+            "按 gate 强度区分 lint、typecheck、test、build 和 security 检查。",
         ],
         confidence="high",
     )
@@ -142,18 +142,18 @@ def _workflow_dimension(
         blockers = [
             MaturityBlocker(
                 id="workflow-routing-not-adaptive",
-                reason="Runtime evidence is resolved, but routing has not yet been optimized from repeated task outcomes.",
+                reason="Runtime 证据已 resolved，但 routing 还没有基于多次任务结果优化。",
                 prevents_level="L4",
             )
         ]
-        next_level_requirements = ["Use task outcomes to tune routing and escalation rules."]
+        next_level_requirements = ["使用任务结果持续调优 routing 和升级规则。"]
     elif workflow_ready and has_standard_escalation:
         level = "L2"
         if runtime_summary.task_run_count > 0:
             blockers = [
                 MaturityBlocker(
                     id="runtime-sensors-unresolved",
-                    reason="Runtime sensor results are not fully resolved, so workflow-bound L3 is blocked.",
+                    reason="Runtime Sensor 结果尚未全部 resolved，因此 Workflow-bound L3 仍被阻断。",
                     prevents_level="L3",
                 )
             ]
@@ -161,31 +161,31 @@ def _workflow_dimension(
             blockers = [
                 MaturityBlocker(
                     id="runtime-workflow-not-observed",
-                    reason="Workflow routing policy exists, but no Runtime task-run has validated the execution protocol.",
+                    reason="Workflow routing policy 已存在，但还没有 Runtime task-run 验证执行协议。",
                     prevents_level="L3",
                 )
             ]
-        next_level_requirements = ["Validate workflow routing with resolved Runtime task-run evidence."]
+        next_level_requirements = ["用全部 resolved 的 Runtime task-run 证据验证 Workflow routing。"]
     else:
         level = "L2" if workflow_ready else "L1"
         blockers = [
             MaturityBlocker(
                 id="workflow-not-risk-adaptive",
-                reason="Workflow routing is present but not yet adaptive by maturity, task risk, and historical outcomes.",
+                reason="Workflow routing 已存在，但还没有按成熟度、任务风险和历史结果自适应调整。",
                 prevents_level="L3",
             )
         ]
-        next_level_requirements = ["Add risk-based workflow routing and non-skippable hard gate policy."]
+        next_level_requirements = ["增加基于风险的 Workflow routing 和不可随意跳过的 hard gate 策略。"]
     runtime_evidence = [
-        MaturityEvidence(source=source, summary="Runtime task-run validates workflow execution evidence.")
+        MaturityEvidence(source=source, summary="Runtime task-run 提供 Workflow 执行验证证据。")
         for source in runtime_summary.source_paths
     ]
     return MaturityDimensionReport(
         level=level,
         evidence=[
-            MaturityEvidence(source=".ai/harness-config.yaml", summary=f"Configured workflow count: {len(config.workflows)}."),
-            MaturityEvidence(source=".ai/skills/", summary=f"Workflow skill files ready: {workflow_ready}."),
-            MaturityEvidence(source=".ai/harness-config.yaml", summary=f"Workflow routing rules configured: {len(routing_rules)}."),
+            MaturityEvidence(source=".ai/harness-config.yaml", summary=f"已配置 Workflow 数量：{len(config.workflows)}。"),
+            MaturityEvidence(source=".ai/skills/", summary=f"Workflow Skill 文件就绪：{workflow_ready}。"),
+            MaturityEvidence(source=".ai/harness-config.yaml", summary=f"Workflow routing 规则数量：{len(routing_rules)}。"),
         ] + runtime_evidence,
         blockers=blockers,
         next_level_requirements=next_level_requirements,
@@ -197,15 +197,15 @@ def _risk_control_dimension(inventory: ProjectInventory) -> MaturityDimensionRep
     risk_count = len(inventory.stack_extensions.get("risk_areas", [])) if inventory.stack_extensions else 0
     return MaturityDimensionReport(
         level="L1" if risk_count else "L0",
-        evidence=[MaturityEvidence(source=".ai/project-inventory.json", summary=f"Risk area hints: {risk_count}.")],
+        evidence=[MaturityEvidence(source=".ai/project-inventory.json", summary=f"风险区域线索数量：{risk_count}。")],
         blockers=[
             MaturityBlocker(
                 id="risk-zones-not-confirmed",
-                reason="Risk zones are not yet confirmed and enforced by workflow routing.",
+                reason="风险区域尚未确认，也还没有被 Workflow routing 强制执行。",
                 prevents_level="L2",
             )
         ],
-        next_level_requirements=["Confirm risk zones and connect them to workflow escalation rules."],
+        next_level_requirements=["确认风险区域，并连接到 Workflow 升级规则。"],
         confidence="medium",
     )
 
@@ -214,9 +214,9 @@ def _repair_loop_dimension(runtime_summary: RuntimeTaskRunCollectionSummary) -> 
     if runtime_summary.task_run_count > 0:
         level: MaturityLevel = "L2" if runtime_summary.repair_attempt_count > 0 else "L1"
         repair_summary = (
-            f"Runtime repair attempts observed: {runtime_summary.repair_attempt_count}."
+            f"已观察到 Runtime repair 尝试次数：{runtime_summary.repair_attempt_count}。"
             if runtime_summary.repair_attempt_count > 0
-            else "Runtime task-runs exist, but no repair attempt has been observed."
+            else "已存在 Runtime task-runs，但尚未观察到 repair 尝试。"
         )
         return MaturityDimensionReport(
             level=level,
@@ -227,11 +227,11 @@ def _repair_loop_dimension(runtime_summary: RuntimeTaskRunCollectionSummary) -> 
             blockers=[
                 MaturityBlocker(
                     id="repair-loop-not-history-optimized",
-                    reason="Repair loop evidence is available, but repair policy is not yet optimized from repeated outcomes.",
+                    reason="Repair loop 证据已存在，但 repair 策略还没有基于重复结果优化。",
                     prevents_level="L3",
                 )
             ],
-            next_level_requirements=["Use repeated Runtime repair outcomes to tune workflow repair policy."],
+            next_level_requirements=["使用重复出现的 Runtime repair 结果调优 Workflow repair 策略。"],
             confidence="medium",
         )
     return MaturityDimensionReport(
@@ -239,17 +239,17 @@ def _repair_loop_dimension(runtime_summary: RuntimeTaskRunCollectionSummary) -> 
         evidence=[
             MaturityEvidence(
                 source=".ai/task-runs/",
-                summary="Task runtime execution is owned by the host AI Coding Runtime, not Harness Builder CLI.",
+                summary="任务级 Runtime 执行由宿主 AI Coding Runtime 负责，不由 Harness Builder CLI 执行。",
             )
         ],
         blockers=[
             MaturityBlocker(
                 id="runtime-repair-loop-external",
-                reason="Repair loop evidence requires host Runtime task execution artifacts.",
+                reason="Repair loop 证据需要宿主 Runtime 任务执行产物。",
                 prevents_level="L1",
             )
         ],
-        next_level_requirements=["Consume host Runtime sensor reports and repair loop summaries when available."],
+        next_level_requirements=["在可用时消费宿主 Runtime sensor reports 和 repair loop summaries。"],
         confidence="high",
     )
 
@@ -260,33 +260,33 @@ def _observability_dimension(ai: Path | None, runtime_summary: RuntimeTaskRunCol
         return MaturityDimensionReport(
             level="L2",
             evidence=[
-                MaturityEvidence(source=".ai/runs/", summary=f"Generation trace exists: {has_generation_runs}."),
+                MaturityEvidence(source=".ai/runs/", summary=f"Generation trace 是否存在：{has_generation_runs}。"),
                 *[
-                    MaturityEvidence(source=source, summary="Runtime task-run includes sensor report and handoff evidence.")
+                    MaturityEvidence(source=source, summary="Runtime task-run 包含 sensor report 和 handoff 证据。")
                     for source in runtime_summary.source_paths
                 ],
             ],
             blockers=[
                 MaturityBlocker(
                     id="runtime-trends-not-available",
-                    reason="Runtime task evidence exists, but trend and replay analysis are not available yet.",
+                    reason="Runtime task 证据已存在，但趋势分析和 replay 分析尚不可用。",
                     prevents_level="L3",
                 )
             ],
-            next_level_requirements=["Aggregate Runtime task events into trend and replay evidence."],
+            next_level_requirements=["把 Runtime task events 汇总为趋势和 replay 证据。"],
             confidence="high",
         )
     return MaturityDimensionReport(
         level="L1" if has_generation_runs else "L0",
-        evidence=[MaturityEvidence(source=".ai/runs/", summary=f"Generation trace exists: {has_generation_runs}.")],
+        evidence=[MaturityEvidence(source=".ai/runs/", summary=f"Generation trace 是否存在：{has_generation_runs}。")],
         blockers=[
             MaturityBlocker(
                 id="runtime-observability-not-present",
-                reason="Runtime task events are not available to support trend and replay analysis.",
+                reason="Runtime task events 尚不可用，无法支撑趋势和 replay 分析。",
                 prevents_level="L2",
             )
         ],
-        next_level_requirements=["Ingest host Runtime task events, sensor reports, and decision logs."],
+        next_level_requirements=["摄取宿主 Runtime task events、sensor reports 和 decision logs。"],
         confidence="high" if has_generation_runs else "medium",
     )
 
@@ -302,14 +302,14 @@ def _experience_dimension(ai: Path | None) -> MaturityDimensionReport:
             + index.runtime_task_run_count
         )
         evidence = [
-            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Pending improvements: {index.pending_improvement_count}."),
-            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Asset candidates: {index.asset_candidate_count}."),
-            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Maturity reviews: {index.maturity_review_count}."),
+            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Pending improvements 数量：{index.pending_improvement_count}。"),
+            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Asset candidates 数量：{index.asset_candidate_count}。"),
+            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Maturity reviews 数量：{index.maturity_review_count}。"),
             MaturityEvidence(
                 source=".ai/experience/experience-index.yaml",
-                summary=f"Workflow recommendation reviews: {index.workflow_recommendation_count}.",
+                summary=f"Workflow recommendation reviews 数量：{index.workflow_recommendation_count}。",
             ),
-            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Runtime task runs: {index.runtime_task_run_count}."),
+            MaturityEvidence(source=".ai/experience/experience-index.yaml", summary=f"Runtime task runs 数量：{index.runtime_task_run_count}。"),
         ]
         return MaturityDimensionReport(
             level="L2" if signal_count else "L1",
@@ -317,11 +317,11 @@ def _experience_dimension(ai: Path | None) -> MaturityDimensionReport:
             blockers=[
                 MaturityBlocker(
                     id="experience-not-runtime-derived",
-                    reason="Experience candidates are not yet derived from real task outcomes and review feedback.",
+                    reason="Experience candidates 尚未来自真实任务结果和 Review 反馈。",
                     prevents_level="L3",
                 )
             ],
-            next_level_requirements=["Extract experience candidates from Runtime artifacts and review feedback."],
+            next_level_requirements=["从 Runtime artifacts 和 Review 反馈中提取 Experience candidates。"],
             confidence="medium",
         )
 
@@ -329,16 +329,16 @@ def _experience_dimension(ai: Path | None) -> MaturityDimensionReport:
     return MaturityDimensionReport(
         level="L1" if has_pending else "L0",
         evidence=[
-            MaturityEvidence(source=".ai/experience/pending-improvements.md", summary=f"Pending improvements file exists: {has_pending}.")
+            MaturityEvidence(source=".ai/experience/pending-improvements.md", summary=f"Pending improvements 文件是否存在：{has_pending}。")
         ],
         blockers=[
             MaturityBlocker(
                 id="experience-not-runtime-derived",
-                reason="Experience candidates are not yet derived from real task outcomes and review feedback.",
+                reason="Experience candidates 尚未来自真实任务结果和 Review 反馈。",
                 prevents_level="L2",
             )
         ],
-        next_level_requirements=["Extract experience candidates from Runtime artifacts and review feedback."],
+        next_level_requirements=["从 Runtime artifacts 和 Review 反馈中提取 Experience candidates。"],
         confidence="medium",
     )
 
@@ -347,15 +347,15 @@ def _verification_dimension(commands: CommandCatalog) -> MaturityDimensionReport
     has_commands = bool(commands.commands)
     return MaturityDimensionReport(
         level="L1" if has_commands else "L0",
-        evidence=[MaturityEvidence(source=".ai/command-catalog.yaml", summary=f"Command count: {len(commands.commands)}.")],
+        evidence=[MaturityEvidence(source=".ai/command-catalog.yaml", summary=f"命令数量：{len(commands.commands)}。")],
         blockers=[
             MaturityBlocker(
                 id="verification-not-mapped-to-task-risk",
-                reason="Verification commands are not yet mapped to task type, risk level, or invariants.",
+                reason="验证命令尚未映射到任务类型、风险等级或不变量。",
                 prevents_level="L2",
             )
         ],
-        next_level_requirements=["Map validation commands to task type, gate strength, and risk context."],
+        next_level_requirements=["把验证命令映射到任务类型、gate 强度和风险上下文。"],
         confidence="high" if has_commands else "medium",
     )
 
@@ -366,30 +366,30 @@ def _governance_dimension(ai: Path | None, runtime_summary: RuntimeTaskRunCollec
         return MaturityDimensionReport(
             level="L2",
             evidence=[
-                MaturityEvidence(source=source, summary="Runtime task-run includes decision log and handoff summary.")
+                MaturityEvidence(source=source, summary="Runtime task-run 包含 decision log 和 handoff summary。")
                 for source in runtime_summary.source_paths
             ],
             blockers=[
                 MaturityBlocker(
                     id="workflow-event-store-missing",
-                    reason="Decision logs and handoff summaries exist, but task-level event store and replay are not available.",
+                    reason="Decision logs 和 handoff summaries 已存在，但任务级 event store 和 replay 尚不可用。",
                     prevents_level="L3",
                 )
             ],
-            next_level_requirements=["Aggregate Runtime decision logs into workflow event history."],
+            next_level_requirements=["把 Runtime decision logs 汇总为 Workflow event history。"],
             confidence="high",
         )
     return MaturityDimensionReport(
         level="L1" if has_generation_runs else "L0",
-        evidence=[MaturityEvidence(source=".ai/runs/", summary=f"Generation audit trail exists: {has_generation_runs}.")],
+        evidence=[MaturityEvidence(source=".ai/runs/", summary=f"Generation audit trail 是否存在：{has_generation_runs}。")],
         blockers=[
             MaturityBlocker(
                 id="runtime-audit-not-ingested",
-                reason="Runtime decision logs and handoff summaries are not yet ingested.",
+                reason="Runtime decision logs 和 handoff summaries 尚未摄取。",
                 prevents_level="L2",
             )
         ],
-        next_level_requirements=["Ingest Runtime decision logs and expose governance audit checks."],
+        next_level_requirements=["摄取 Runtime decision logs，并暴露 governance audit checks。"],
         confidence="high" if has_generation_runs else "medium",
     )
 
@@ -403,17 +403,17 @@ def _blocking_caps(
     caps = [
         MaturityBlockingCap(
             id="runtime-audit-not-owned-by-builder",
-            reason="L4 governance requires repeated host Runtime audit artifacts; Harness Builder CLI does not generate task-runs.",
+            reason="L4 governance 需要重复的宿主 Runtime 审计产物；Harness Builder CLI 不生成 task-runs。",
             max_level="L3",
             active=runtime_summary.task_run_count == 0,
-            evidence=[".ai/task-runs is an external Runtime contract"],
+            evidence=[".ai/task-runs 是外部 Runtime 契约"],
         )
     ]
     if runtime_summary.task_run_count > 0 and not runtime_resolved:
         caps.append(
             MaturityBlockingCap(
                 id="runtime-sensors-unresolved",
-                reason="Runtime task-runs exist, but failed/skipped/unresolved sensors block Workflow-bound L3.",
+                reason="Runtime task-runs 已存在，但 failed / skipped / unresolved Sensors 会阻断 Workflow-bound L3。",
                 max_level="L2",
                 active=True,
                 evidence=runtime_summary.source_paths,
@@ -423,20 +423,20 @@ def _blocking_caps(
         caps.append(
             MaturityBlockingCap(
                 id="no-executable-sensors",
-                reason="No executable validation commands are available.",
+                reason="当前没有可执行验证命令。",
                 max_level="L0",
                 active=True,
-                evidence=[".ai/command-catalog.yaml commands is empty"],
+                evidence=[".ai/command-catalog.yaml 中 commands 为空"],
             )
         )
     if ai is not None and not _has_generation_runs(ai):
         caps.append(
             MaturityBlockingCap(
                 id="no-generation-trace",
-                reason="No Harness Builder generation trace was found.",
+                reason="未发现 Harness Builder generation trace。",
                 max_level="L0",
                 active=True,
-                evidence=[".ai/runs missing or empty"],
+                evidence=[".ai/runs 缺失或为空"],
             )
         )
     return caps
@@ -456,7 +456,7 @@ def _next_steps(dimensions: dict[str, MaturityDimensionReport]) -> list[Maturity
                 target_dimension=name,
                 action=report.next_level_requirements[0],
                 priority=priority,
-                expected_lift=f"{name} {report.level} -> next",
+                expected_lift=f"{name} {report.level} -> 下一等级",
             )
         )
     return steps

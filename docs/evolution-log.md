@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 成熟度叙事中文化
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：Maturity & Evolution、CLI Experience、可解释性、Harness 推荐质量。
+- init North Star 旅程阶段：成熟度初评与差距解释、设计预览、写入摘要、已有 Harness 维护入口。
+- Gap Analysis 摘要：真实 `ai4se` guided `init` 暴露“主要差距”中出现 `Guides are structured...` 等英文内部句；代码确认 `maturity_model.py` 的 blocker、evidence summary、next level requirement 和 blocking cap 会被 CLI、`maturity-score.yaml`、`maturity-report.md`、`init-summary.md` 直接消费。
+- 用户故事：作为 Harness Maintainer，当我查看首次 `init` 的成熟度初评、写入前 preview、`maturity-report.md` 或 assess 刷新的成熟度报告时，我可以看到中文、面向 L0-L4 工程影响的阻断项和下一步建议，而不是英文内部叙事。
+- 当前代码 gap：`maturity_model.py` 源头 user-facing strings 多数是英文；`asset_writers/reports.py` 和 `assess_maturity.py` 还在维度详情中输出 `evidence:` / `blockers:` 英文标签。
+- 关键决策 / 取舍：在源头中文化 maturity free-text，保留 dimension key、blocker id、source path 和 schema 字段；新增 `maturity_rendering.py` 只做中文展示 label，不翻译机器 key；保留 `Guides`、`Sensors`、`Workflow`、`Runtime`、`hard gate` 等产品术语。
+- Assumptions / risks：LLM reviewer 后续会消费中文 maturity score；这符合仓库“过程文档和用户叙事中文化”的方向，但若需要 LLM 输出也中文化，应单独调整 maturity review prompt。
+- Sub agent 使用情况：使用一个只读子代理审查 maturity 出口、测试和 LLM 风险；采纳其“源头翻译为主，渲染层补标签映射”的建议。
+- 价值切分说明：本轮修的是同一成熟度叙事出口链路，不改变评分算法和 schema，直接保护用户理解 L0-L4 成熟度、阻断项和下一步建议的体验。
+- 验收标准及验证方式：unit 覆盖 `build_maturity_report()` 不含已知英文 blocker / next step；report writer 覆盖 `maturity-score.yaml` 和 `maturity-report.md` 中文文案；assess integration 覆盖刷新报告不含 `evidence:` / `blockers:`；guided init happy path 覆盖 CLI 不再出现已知英文 maturity blocker。
+- 完成内容：中文化 maturity evidence / blocker / next requirement / blocking cap；新增中文 maturity report rendering helper；asset writer 和 assess 共用该 helper；同步 todo、spec 和 plan。
+- Self-Harness Gate：同一 high priority todo 只剩 LLM-planned deep scan 主线；它风险更高，下一轮应重新做 gap analysis，优先判断是否先做 planner prompt / coverage confidence 的较窄纵向切片。
+
 ## 2026-05-31 Guided Init 多栈仓库组合建模
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

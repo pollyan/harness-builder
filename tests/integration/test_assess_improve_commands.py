@@ -126,6 +126,11 @@ def test_assess_generates_maturity_score_from_current_harness(tmp_path: Path, mo
     assert "## 证据" in report
     assert "## 维度详情" in report
     assert "## 下一等级要求" in report
+    assert "evidence:" not in report
+    assert "blockers:" not in report
+    assert "Guides 上下文" in report
+    assert "证据：" in report
+    assert "阻断：" in report
     assert not (repo / ".ai" / "task-runs").exists()
     trace = _latest_trace(repo)
     assert trace["command"] == "assess"
