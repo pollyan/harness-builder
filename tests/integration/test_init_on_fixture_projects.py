@@ -1218,6 +1218,126 @@ def test_guided_init_existing_harness_improve_creates_review_only_workflow_note_
     assert "interaction-workflow-note-review" in pending
 
 
+def test_guided_init_workflow_note_self_improve_creates_review_only_workflow_policy_candidate(
+    tmp_path: Path, monkeypatch
+):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    runner = CliRunner()
+
+    init_result = runner.invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "\n"
+            "\n\n\n\n"
+            "支付权限变更应升级到 standard workflow。\n"
+            "confirm\n"
+        ),
+    )
+    assert init_result.exit_code == 0, init_result.output
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness self-improve must not rescan while reviewing workflow notes")
+
+    def fake_review(score, evidence_pack, candidates, experience_summary=None):
+        assert any(candidate.id == "interaction-workflow-note-review" for candidate in candidates.candidates)
+        assert ".ai/interaction-decisions.yaml" in evidence_pack.maturity_inputs
+        return MaturityReviewReport(
+            summary="Workflow note should become a review-only routing policy draft.",
+            candidate_reviews=[
+                {
+                    "candidate_id": "interaction-workflow-note-review",
+                    "decision": "support",
+                    "rationale": "The note is grounded in guided init interaction evidence.",
+                    "risks": ["Routing policy changes require maintainer review."],
+                    "suggested_acceptance_checks": ["Benchmark content:workflow-routing-policy passes."],
+                    "evidence_sources": [".ai/interaction-decisions.yaml"],
+                }
+            ],
+            missing_candidates=[],
+            global_risks=[],
+        )
+
+    def fake_assets(score, evidence_pack, improvement_candidates, maturity_review, experience_summary=None):
+        assert any(candidate.id == "interaction-workflow-note-review" for candidate in improvement_candidates.candidates)
+        review = next(item for item in maturity_review.candidate_reviews if item.candidate_id == "interaction-workflow-note-review")
+        assert review.decision == "support"
+        return AssetCandidateReport(
+            candidates=[
+                {
+                    "id": "workflow-standard-payment-permission",
+                    "kind": "workflow_policy",
+                    "source_candidate_id": "interaction-workflow-note-review",
+                    "source_review_decision": "support",
+                    "suggested_path": ".ai/harness-config.yaml",
+                    "title": "Escalate payment permission changes",
+                    "rationale": "The reviewed Workflow note supports a routing policy candidate.",
+                    "draft_content": "Review-only routing policy update for payment permission changes.",
+                    "workflow_policy_patch": {
+                        "schema_version": "1.0",
+                        "operation": "upsert_routing_rule",
+                        "target": "workflow_routing.rules",
+                        "rule": {
+                            "id": "standard-escalation",
+                            "selected_workflow": "standard",
+                            "rationale": "Escalate high-risk, cross-module, security, low-coverage, and payment permission changes.",
+                            "task_type_hints": ["feature", "permission"],
+                            "triggers": [
+                                "unclear_impact_scope",
+                                "high_risk_module",
+                                "cross_module_design",
+                                "security_or_permission",
+                                "insufficient_sensor_coverage",
+                                "payment_permission_change",
+                            ],
+                            "required_guides": [".ai/guides/project-context.md", ".ai/guides/architecture.md"],
+                            "required_sensors": [".ai/sensors/verification.md"],
+                            "human_confirmation_required": True,
+                        },
+                    },
+                    "evidence_sources": [".ai/interaction-decisions.yaml", ".ai/human-input-needed.md"],
+                    "acceptance_checks": ["Benchmark content:workflow-routing-policy passes."],
+                    "risk_level": "high",
+                    "review_status": "pending_harness_maintainer_review",
+                }
+            ]
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.assess_maturity.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.review_maturity.review_maturity_with_llm", fake_review)
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.generate_asset_candidates.generate_asset_candidates_with_llm",
+        fake_assets,
+    )
+
+    result = runner.invoke(app, ["init", "--repo", str(repo)], input="self-improve\n")
+
+    assert result.exit_code == 0, result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+    assert not (repo / ".ai" / "task-runs").exists()
+    asset_report = AssetCandidateReport.model_validate(
+        yaml.safe_load((repo / ".ai" / "review" / "asset-candidates.yaml").read_text(encoding="utf-8"))
+    )
+    workflow_candidate = next(item for item in asset_report.candidates if item.id == "workflow-standard-payment-permission")
+    assert workflow_candidate.kind == "workflow_policy"
+    assert workflow_candidate.source_candidate_id == "interaction-workflow-note-review"
+    assert workflow_candidate.source_review_decision == "support"
+    assert workflow_candidate.suggested_path == ".ai/harness-config.yaml"
+    assert workflow_candidate.workflow_policy_patch is not None
+    assert "payment_permission_change" in workflow_candidate.workflow_policy_patch.rule.triggers
+    assert ".ai/interaction-decisions.yaml" in workflow_candidate.evidence_sources
+    package = SelfImprovePackageManifest.model_validate(
+        yaml.safe_load((repo / ".ai" / "review" / "self-improve-package.yaml").read_text(encoding="utf-8"))
+    )
+    assert package.candidate_counts.workflow_policy_candidates == 1
+    assert package.review_status == "pending_harness_maintainer_review"
+
+
 def test_review_human_input_command_marks_scan_followup_resolved_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

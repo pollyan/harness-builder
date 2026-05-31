@@ -85,6 +85,30 @@ def _workflow_recommendation_improvement_candidates() -> ImprovementCandidateRep
     )
 
 
+def _workflow_note_improvement_candidates() -> ImprovementCandidateReport:
+    return ImprovementCandidateReport(
+        candidates=[
+            ImprovementCandidate(
+                id="interaction-workflow-note-review",
+                candidate_type="workflow_policy_update",
+                suggested_target=".ai/harness-config.yaml",
+                rationale="Review guided init Workflow note evidence.",
+                evidence=[
+                    "Review-only Workflow supplements pending review: 1.",
+                    "Routing policy effect: review_only_no_direct_policy_change.",
+                    "Workflow note: 支付权限变更应升级到 standard workflow。",
+                ],
+                target_dimension="workflow",
+                evidence_sources=[
+                    ".ai/maturity-evidence.yaml",
+                    ".ai/interaction-decisions.yaml",
+                    ".ai/human-input-needed.md",
+                ],
+            )
+        ]
+    )
+
+
 def _maturity_review() -> MaturityReviewReport:
     return MaturityReviewReport(
         summary="Review summary.",
@@ -440,6 +464,39 @@ def test_build_asset_candidate_messages_guides_workflow_recommendation_candidate
     assert '"operation": "upsert_routing_rule"' in content
     assert "pending_harness_maintainer_review" in content
     assert "review-only workflow recommendation evidence" in content
+
+
+def test_build_asset_candidate_messages_guides_workflow_note_candidate():
+    evidence = _evidence_pack()
+    evidence.maturity_inputs.extend([".ai/interaction-decisions.yaml", ".ai/human-input-needed.md"])
+
+    messages = build_asset_candidate_messages(
+        _score(),
+        evidence,
+        _workflow_note_improvement_candidates(),
+        MaturityReviewReport(
+            summary="Workflow note should become a routing policy draft.",
+            candidate_reviews=[
+                {
+                    "candidate_id": "interaction-workflow-note-review",
+                    "decision": "support",
+                    "rationale": "Workflow note is grounded in guided init evidence.",
+                    "evidence_sources": [".ai/interaction-decisions.yaml"],
+                }
+            ],
+        ),
+    )
+
+    content = messages[-1]["content"]
+    assert "interaction-workflow-note-review" in content
+    assert ".ai/interaction-decisions.yaml" in content
+    assert ".ai/human-input-needed.md" in content
+    assert "workflow_policy" in content
+    assert ".ai/harness-config.yaml" in content
+    assert "workflow_policy_patch" in content
+    assert '"operation": "upsert_routing_rule"' in content
+    assert "pending_harness_maintainer_review" in content
+    assert "review-only Workflow note evidence" in content
 
 
 def test_build_asset_candidate_messages_guides_experience_source_details():

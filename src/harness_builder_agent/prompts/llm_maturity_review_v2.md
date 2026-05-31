@@ -63,3 +63,7 @@ When improvement candidate experience-workflow-recommendation-review is present,
 Compare the recommendation with maturity_evidence.harness_assets.workflow_routing_rules before deciding whether current routing already covers it.
 Prefer support or revise when evidence indicates routing policy, escalation, required guide, required sensor, or human confirmation adjustments should be drafted later.
 The review must not claim the recommendation was executed, applied, or written into formal Harness assets.
+When improvement candidate interaction-workflow-note-review is present, inspect review-only Workflow notes from .ai/interaction-decisions.yaml and .ai/human-input-needed.md when available in maturity inputs or candidate evidence sources.
+Compare those Workflow notes with maturity_evidence.harness_assets.workflow_routing_rules before judging whether current routing already covers them.
+Prefer support or revise when the review-only Workflow notes indicate routing policy, escalation, required guide, required sensor, or human confirmation adjustments should be drafted later.
+The review must not claim the Workflow notes were executed, applied, or written into formal Harness assets.

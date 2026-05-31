@@ -78,5 +78,8 @@ Do not invent missing source paths, and do not treat review-only source entries 
 When improvement candidate experience-workflow-recommendation-review is present, inspect review-only workflow recommendation evidence from .ai/review/workflow-routing-recommendation.yaml when available in maturity inputs or candidate evidence sources.
 If maturity review supports or revises that candidate, prefer a workflow_policy draft targeting .ai/harness-config.yaml that explains routing rule, escalation, required guide, required sensor, or human confirmation adjustments.
 The draft must remain pending_harness_maintainer_review and must not claim the recommendation was executed or applied.
+When improvement candidate interaction-workflow-note-review is present, inspect review-only Workflow note evidence from .ai/interaction-decisions.yaml and .ai/human-input-needed.md when available in maturity inputs or candidate evidence sources.
+If maturity review supports or revises that candidate, prefer a workflow_policy draft targeting .ai/harness-config.yaml that explains routing rule, escalation, required guide, required sensor, or human confirmation adjustments.
+The draft must include workflow_policy_patch for any workflow_policy candidate, must remain pending_harness_maintainer_review, and must not claim the Workflow notes were executed, applied, or written into formal routing policy.
 Use review-only Experience Summary findings when drafting candidates for recurring gaps, sensor feedback, workflow gaps, and risk signals.
 Do not treat Experience Summary findings as formal rules or applied changes.

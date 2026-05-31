@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Workflow Note 资产候选闭环
+
+- North Star 模块：CLI Experience、Workflow Toolkit、Maturity & Evolution、Experience & Self-Improve、资产生成与审核接管。
+- init North Star 旅程阶段：Workflow 设计、用户补充吸收、已有 Harness 维护入口、review-only 自演进候选。
+- Gap Analysis 摘要：当前 open todo 为空，旧本地独有能力迁移已归档。本轮重新读取事实源后，guided `init` 的 Workflow note 已能进入 `interaction-decisions.yaml`、`human-input-needed.md` 和 `interaction-workflow-note-review` improvement candidate，但 LLM maturity review / asset candidate prompt 只对 `experience-workflow-recommendation-review` 有专门指引，缺少 Workflow note -> `workflow_policy` asset candidate 的稳定提示契约。候选还包括 push/full regression 和 human-input review 菜单化；本轮选择 Workflow note 资产候选闭环。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 中留下 Workflow 补充说明，并在已有 Harness 入口运行 self-improve 或专家链路时，我可以得到一个以该 Workflow note 为 evidence 的 review-only `workflow_policy` asset candidate，且它必须携带结构化 `WorkflowPolicyPatch`、保持 `pending_harness_maintainer_review`、不修改正式 routing policy，从而把交互式 Workflow 经验推进到可审核的 Harness 演进候选。
+- 当前代码 gap：`generate_improvements()` 已生成 `interaction-workflow-note-review`，但 `llm_maturity_review_v2.md` 和 `llm_asset_candidate_v2.md` 没有告诉真实 LLM 如何专门处理该候选；缺少 integration 证明 Workflow note 能在 self-improve 中变成 workflow_policy asset candidate。
+- 关键决策 / 取舍：不新增确定性 free-text-to-patch；Workflow note 到 routing patch 的语义判断仍由 LLM asset candidate generator 完成，Python 继续负责 schema、evidence allowlist、safe path、`WorkflowPolicyPatch` 和 review-only 校验；不自动 apply `.ai/harness-config.yaml`。
+- Assumptions / risks：Workflow note 是用户 review-only routing signal，不是正式配置；LLM 可能生成过宽 routing rule，因此候选仍需 Maintainer 审核，`review-candidate applied` 会校验 routing invariants，benchmark 继续校验 workflow policy / candidate governance。
+- 边界情况 / 失败模式：未知 source candidate、非法 evidence source、非法 workflow policy target 和缺失 patch 仍由现有 parser/schema 拒绝；本轮不执行 Runtime、不创建 `.ai/task-runs`、不扩展 guided workflow_policy apply。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 调研 Workflow note 到 asset candidate 链路，但当前返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮补齐 `guided init Workflow note -> improvement candidate -> maturity review prompt -> asset candidate prompt -> self-improve package` 的纵向闭环，不把正式候选应用或菜单化混入同一轮。
+- 可执行验收标准及验证方式：prompt unit 覆盖 `interaction-workflow-note-review`、`.ai/interaction-decisions.yaml`、`.ai/human-input-needed.md`、review-only 边界和 `workflow_policy_patch` 指引；integration 覆盖 guided `init` 输入 Workflow note 后 existing Harness `self-improve` 生成 workflow_policy candidate，正式资产不变且不创建 `.ai/task-runs`。
+- 完成内容：`llm_maturity_review_v2.md` 增加 Workflow note review-only 判断指引；`llm_asset_candidate_v2.md` 增加 Workflow note -> review-only workflow_policy candidate / structured patch 指引；README 和 `docs/engineering/init-workflow.md` 同步边界；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：TDD 红测先因 prompt 缺少 Workflow note 专门指引失败；实现后目标测试 3 passed；相关 LLM unit 31 passed；相关 Workflow note integration 2 passed；完整 guided init integration 41 passed；`git diff --check` 通过；`scripts/test-fast.sh` 通过，402 passed。
+- Self-Harness Gate：长期文档已同步；`docs/todos/` 暂不新增。下一轮候选 gap：push 前 full regression / 远端同步、human-input review guided 菜单化、或真实 DeepSeek targeted acceptance 验证 Workflow note asset candidate prompt 效果。
+
 ## 2026-06-01 Human Input Follow-up 人工复核治理
 
 - North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、资产生成与审核接管。

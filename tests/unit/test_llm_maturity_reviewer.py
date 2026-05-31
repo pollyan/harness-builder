@@ -97,6 +97,30 @@ def _workflow_recommendation_candidates() -> ImprovementCandidateReport:
     )
 
 
+def _workflow_note_candidates() -> ImprovementCandidateReport:
+    return ImprovementCandidateReport(
+        candidates=[
+            ImprovementCandidate(
+                id="interaction-workflow-note-review",
+                candidate_type="workflow_policy_update",
+                suggested_target=".ai/harness-config.yaml",
+                rationale="Review guided init Workflow note evidence.",
+                evidence=[
+                    "Review-only Workflow supplements pending review: 1.",
+                    "Routing policy effect: review_only_no_direct_policy_change.",
+                    "Workflow note: 支付权限变更应升级到 standard workflow。",
+                ],
+                target_dimension="workflow",
+                evidence_sources=[
+                    ".ai/maturity-evidence.yaml",
+                    ".ai/interaction-decisions.yaml",
+                    ".ai/human-input-needed.md",
+                ],
+            )
+        ]
+    )
+
+
 def _experience_summary() -> ExperienceSummaryReport:
     return ExperienceSummaryReport(
         summary="Sensor coverage is the main repeated issue.",
@@ -421,6 +445,26 @@ def test_build_maturity_review_messages_guides_workflow_recommendation_candidate
     assert ".ai/review/workflow-routing-recommendation.yaml" in content
     assert "workflow_routing_rules" in content
     assert "review-only workflow recommendation evidence" in content
+    assert "support or revise" in content
+    assert "must not claim" in content
+
+
+def test_build_maturity_review_messages_guides_workflow_note_candidate():
+    evidence = _evidence_pack()
+    evidence.maturity_inputs.extend([".ai/interaction-decisions.yaml", ".ai/human-input-needed.md"])
+
+    messages = build_maturity_review_messages(
+        _score(),
+        evidence,
+        _workflow_note_candidates(),
+    )
+
+    content = messages[-1]["content"]
+    assert "interaction-workflow-note-review" in content
+    assert ".ai/interaction-decisions.yaml" in content
+    assert ".ai/human-input-needed.md" in content
+    assert "workflow_routing_rules" in content
+    assert "review-only Workflow notes" in content
     assert "support or revise" in content
     assert "must not claim" in content
 
