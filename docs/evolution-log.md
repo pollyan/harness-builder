@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 多栈仓库组合建模
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：LLM-first Repository Understanding、CLI Experience、Guides / Sensors、Maturity & Evolution。
+- init North Star 旅程阶段：基础扫描、扫描结果友好呈现、与用户对齐扫描理解、写入前 Harness 设计预览。
+- Gap Analysis 摘要：真实 `ai4se` 试跑中扫描看到了 Python、Flask、React、TypeScript、Vite、Docker、Nginx 等线索，但 `primary_stack` 只能在 Java / .NET / Node / unknown 中选择，用户补充提示也只能修正为单栈，导致多栈仓库容易被降级为 `unknown`。
+- 用户故事：作为 Harness Maintainer，当我在 Python Flask + React / TypeScript 混合仓库上运行 guided `init` 时，我可以看到系统用中文说明组合技术栈、模块角色和验证能力，并让后续 Guide / Sensor 推荐围绕真实后端与前端模块，而不是误导成单一技术栈或 unknown。
+- 当前代码 gap：`LLMScanProposal.primary_stack` 缺少 `python-flask`；`scan_reconciler` 没有 Python Flask evidence validation 和组合栈 profile；`interactive_init` 只显示 `_stack_label(primary_stack)`；`weapon_library` 只按 primary stack 选择一组栈特定 weapons。
+- 关键决策 / 取舍：新增 `python-flask` 作为第一批 Python 主栈；React / TypeScript / Vite 暂由既有 `node` canonical 栈承载；新增 `stack_profile` 作为 `stack_extensions` 中的派生用户叙事，不替代 `primary_stack`、`stacks`、`modules` 机器契约；本轮不做完整 LLM-planned deep scan。
+- Assumptions / risks：`python-flask` 不能代表所有 Python Web 项目，FastAPI / Django 后续应单独建模；多栈 profile 依赖 LLM proposal 和 evidence validation，扫描覆盖不足仍需通过已有 uncertainty 机制提醒用户。
+- Sub agent 使用情况：使用两个只读子代理并行做 gap 排序与测试覆盖审查；两个结论均建议多栈建模优先，成熟度中文叙事与 LLM-planned deep scan 保留为后续切片。
+- 价值切分说明：本轮完成“扫描理解 -> schema/reconciler 验证 -> CLI 组合表达 -> weapon selection -> 正式资产保留”的纵向闭环，避免只改字段或只改文案。
+- 验收标准及验证方式：unit 覆盖 `python-flask` scan schema、Python Flask + React evidence validation、`stack_profile`、多栈 weapon selection；integration 覆盖 guided CLI 输出 `Python Flask 后端 + React / TypeScript 前端`、补充入口包含 `stack=python-flask` 和自然语言多栈说明，并验证 project inventory / weapon selection 产物。
+- 完成内容：扩展 scan schema 与 LLM prompt；reconciler 增加 Python Flask / Node 多栈验证和 `stack_profile`；weapon library 增加 Python Flask 与 Node / 前端 Guide / Sensor；guided CLI 使用组合栈标签并允许 `stack=python-flask`。
+- Self-Harness Gate：下一轮候选 gap 优先继续消化同一 todo 中的成熟度英文叙事中文化；更大范围的 LLM-planned deep scan 仍需单独 spec，避免和当前多栈 schema 扩展混在一起。
+
 ## 2026-05-31 Guided Init 高风险发现确认链路
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

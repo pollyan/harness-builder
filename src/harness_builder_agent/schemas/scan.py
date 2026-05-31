@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from harness_builder_agent.schemas.common import Confidence, Gate
 
-PrimaryStack = Literal["java-spring", "dotnet-aspnet", "node", "unknown"]
+PrimaryStack = Literal["java-spring", "dotnet-aspnet", "node", "python-flask", "unknown"]
 EvidencePriority = Literal["critical", "high", "medium", "low"]
 
 

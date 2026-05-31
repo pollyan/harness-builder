@@ -481,6 +481,89 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert decisions["final_confirmation"]["status"] == "confirmed"
 
 
+def test_guided_init_explains_python_flask_react_multistack(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+
+    def scan_multistack(repo_path: Path):
+        inventory = ProjectInventory(
+            repo_name=repo_path.name,
+            root_path=str(repo_path),
+            primary_stack="python-flask",
+            stacks=["python", "flask", "react", "typescript", "vite"],
+            modules=[
+                {"name": "api", "path": ".", "kind": "backend"},
+                {"name": "web", "path": "frontend", "kind": "frontend"},
+            ],
+            evidence=[
+                {"path": "pyproject.toml", "reason": "Flask dependency"},
+                {"path": "frontend/package.json", "reason": "React / TypeScript app"},
+            ],
+            configs=[{"path": "pyproject.toml", "kind": "python"}, {"path": "frontend/package.json", "kind": "node"}],
+            stack_extensions={
+                "stack_profile": {
+                    "primary_label": "Python Flask 后端",
+                    "composition_label": "Python Flask 后端 + React / TypeScript 前端",
+                    "supported_stacks": ["python-flask", "node"],
+                    "module_roles": [
+                        {"name": "api", "path": ".", "kind": "backend"},
+                        {"name": "web", "path": "frontend", "kind": "frontend"},
+                    ],
+                },
+                "llm_scan_proposal": {
+                    "architecture_signals": ["Flask API and React frontend"],
+                    "risk_areas": [],
+                    "command_candidates": [
+                        {"id": "pytest", "command": "pytest", "source": "pyproject.toml"},
+                        {"id": "npm_test", "command": "npm test", "source": "frontend/package.json"},
+                    ],
+                },
+            },
+        )
+        commands = CommandCatalog(
+            commands=[
+                {
+                    "id": "pytest",
+                    "command": "pytest",
+                    "type": "test",
+                    "gate": "hard",
+                    "source": "pyproject.toml",
+                    "confidence": "high",
+                },
+                {
+                    "id": "npm_test",
+                    "command": "npm test",
+                    "type": "test",
+                    "gate": "hard",
+                    "source": "frontend/package.json",
+                    "confidence": "medium",
+                },
+            ]
+        )
+        return inventory, commands
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", scan_multistack)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="\n\n\n\n\n\n\nconfirm\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Python Flask 后端 + React / TypeScript 前端" in result.output
+    assert "stack=python-flask" in result.output
+    assert "可以直接用自然语言说明多栈、噪声目录或真实主模块" in result.output
+    inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
+    assert inventory["primary_stack"] == "python-flask"
+    assert {"backend", "frontend"}.issubset({module["kind"] for module in inventory["modules"]})
+    assert inventory["stack_extensions"]["stack_profile"]["composition_label"] == "Python Flask 后端 + React / TypeScript 前端"
+    weapon_selection = yaml.safe_load((repo / ".ai" / "weapon-library-selection.yaml").read_text(encoding="utf-8"))
+    assert {"common", "python-flask", "node"}.issubset(set(weapon_selection["selected_stacks"]))
+    assert any(item.startswith("python-flask.guide.") for item in weapon_selection["guide_weapon_ids"])
+    assert any(item.startswith("node.guide.") for item in weapon_selection["guide_weapon_ids"])
+
+
 def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

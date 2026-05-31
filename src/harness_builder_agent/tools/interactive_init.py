@@ -218,7 +218,7 @@ _SCAN_PROGRESS_LABELS = {
 def _show_scan_progress_completed(inventory: ProjectInventory, commands: CommandCatalog) -> None:
     typer.echo("\n扫描完成")
     typer.echo("- 已完成 evidence 收集、LLM 结构化分析和扫描调和。")
-    typer.echo(f"- 初步识别技术栈：{_stack_label(inventory.primary_stack)}。")
+    typer.echo(f"- 初步识别技术栈：{_stack_summary_label(inventory)}。")
     typer.echo(f"- 初步识别验证命令数量：{len(commands.commands)}。")
 
 
@@ -232,7 +232,7 @@ def _show_scan_progress_failed(exc: Exception) -> None:
 def _show_scan_findings(inventory: ProjectInventory, commands: CommandCatalog) -> None:
     typer.echo("\n扫描发现")
     typer.echo("我先根据仓库文件、构建配置、源码样本和 LLM 结构化分析做了一个初步判断。")
-    typer.echo(f"- 主要技术栈：{_stack_label(inventory.primary_stack)}")
+    typer.echo(f"- 主要技术栈：{_stack_summary_label(inventory)}")
     if inventory.stacks:
         typer.echo(f"- 技术线索：{', '.join(inventory.stacks)}")
 
@@ -477,7 +477,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
 
     typer.echo("\n我发现这个仓库已存在 Harness。")
     typer.echo(f"- 仓库：`{inventory.repo_name}`")
-    typer.echo(f"- 技术栈：{_stack_label(inventory.primary_stack)}")
+    typer.echo(f"- 技术栈：{_stack_summary_label(inventory)}")
     if score:
         typer.echo(f"- 当前成熟度：{score.overall_level}，下一目标：{score.target_next_level or score.overall_level}")
         if score.blocking_reasons:
@@ -1176,7 +1176,11 @@ def _benchmark_schema_content_failed_count(ai: Path) -> str:
 def _collect_scan_supplement(inventory: ProjectInventory) -> GuidedScanOverrides:
     typer.echo("\n需要你补充或修正的地方")
     typer.echo("如果这些判断符合你的理解，直接回车继续。")
-    typer.echo("如果需要修正，可以直接输入说明；如果主要技术栈不对，可以输入 `stack=java-spring`、`stack=dotnet-aspnet`、`stack=node` 或 `stack=unknown`。")
+    typer.echo(
+        "如果需要修正，可以直接输入说明；如果主要技术栈不对，可以输入 `stack=java-spring`、"
+        "`stack=dotnet-aspnet`、`stack=node`、`stack=python-flask` 或 `stack=unknown`。"
+    )
+    typer.echo("可以直接用自然语言说明多栈、噪声目录或真实主模块；这些说明会进入后续 Harness 上下文。")
     typer.echo("也可以用结构化片段补充：`module=路径|类型|名称`、`command=ID|命令|类型|gate|来源|置信度`、`risk=路径|原因`，多个片段用分号分隔。")
     answer = typer.prompt("你的补充或修正", default="", show_default=False).strip()
     if not answer:
@@ -1191,8 +1195,11 @@ def _collect_scan_supplement(inventory: ProjectInventory) -> GuidedScanOverrides
         key = key.strip().lower()
         value = value.strip()
         if key == "stack":
-            if value not in {"java-spring", "dotnet-aspnet", "node", "unknown"}:
-                value = typer.prompt("请输入允许的技术栈：java-spring / dotnet-aspnet / node / unknown", default=inventory.primary_stack).strip()
+            if value not in {"java-spring", "dotnet-aspnet", "node", "python-flask", "unknown"}:
+                value = typer.prompt(
+                    "请输入允许的技术栈：java-spring / dotnet-aspnet / node / python-flask / unknown",
+                    default=inventory.primary_stack,
+                ).strip()
             overrides.primary_stack = value
             overrides.notes.append(f"用户将主要技术栈修正为：{value}")
         elif key == "module":
@@ -1431,7 +1438,7 @@ def _confirm_summary(
 ) -> str:
     typer.echo("\n最终确认")
     typer.echo("即将写入 Harness 资产，请检查下面的摘要。")
-    typer.echo(f"- 技术栈：{_stack_label(inventory.primary_stack)}")
+    typer.echo(f"- 技术栈：{_stack_summary_label(inventory)}")
     typer.echo(f"- 模块数量：{len(inventory.modules)}")
     typer.echo(f"- 团队规则：{len(inline_contexts)} 条")
     accepted = sum(1 for item in candidate_decisions if item.decision == "accepted")
@@ -1544,6 +1551,17 @@ def _stack_label(stack: str) -> str:
         "java-spring": "Java 后端项目，使用 Spring / Spring Boot 相关框架",
         "dotnet-aspnet": ".NET 后端项目，使用 ASP.NET Core 相关框架",
         "node": "Node.js / 前端或服务端 JavaScript 项目",
+        "python-flask": "Python Flask 后端项目",
         "unknown": "暂时无法可靠判断，需要人工确认",
     }
     return labels.get(stack, stack)
+
+
+def _stack_summary_label(inventory: ProjectInventory) -> str:
+    extensions = inventory.stack_extensions if isinstance(inventory.stack_extensions, dict) else {}
+    profile = extensions.get("stack_profile")
+    if isinstance(profile, dict):
+        composition = profile.get("composition_label")
+        if isinstance(composition, str) and composition.strip():
+            return composition.strip()
+    return _stack_label(inventory.primary_stack)

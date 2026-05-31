@@ -10,8 +10,8 @@
 
 机器契约字段：
 
-- primary_stack: 必须是一个 canonical 枚举值，只能为 java-spring、dotnet-aspnet、node、unknown。
-- stacks: canonical lowercase 字符串数组，例如 java、maven、spring-boot、dotnet、aspnet-core、node、npm、typescript。不要把 "Spring Boot" 这类展示名放进 primary_stack。
+- primary_stack: 必须是一个 canonical 枚举值，只能为 java-spring、dotnet-aspnet、node、python-flask、unknown。
+- stacks: canonical lowercase 字符串数组，例如 java、maven、spring-boot、dotnet、aspnet-core、node、npm、python、flask、react、typescript、vite。不要把 "Spring Boot" 或 "Python Flask + React" 这类展示名放进 primary_stack。
 - modules: 对象数组，每个对象包含 name、path、kind。
 - architecture_signals: 字符串数组，必须能从 evidence 追溯。
 - risk_areas: 对象数组，每个对象包含 path、reason。
@@ -29,6 +29,8 @@
 - 当 evidence 包含 Spring Boot 或 Spring Framework 信号时，选择 java-spring。典型信号包括 spring-boot-starter dependencies、org.springframework imports、@SpringBootApplication、@RestController、@Controller，或 Java/Maven/Gradle 项目中的 DemoController。
 - 当 evidence 包含 ASP.NET Core 信号时，选择 dotnet-aspnet。典型信号包括 Microsoft.NET.Sdk.Web、Program.cs minimal API setup、controllers、MapGet/MapPost endpoints、.sln，或 .csproj web SDK。
 - 当 evidence 包含 package.json 加 Node application/runtime 信号时，选择 node。
+- 当 evidence 包含 Flask 信号时，选择 python-flask。典型信号包括 pyproject.toml、requirements.txt、Pipfile、app.py、from flask import Flask、flask run 或 Flask 依赖。
+- 多栈仓库不要因为同时出现前端、后端和部署线索就降级为 unknown。应把主业务后端写入 primary_stack，把 react、typescript、vite、docker、nginx 等线索保留在 stacks / modules / configs 中。
 - 只有当 stack evidence 真正不足、互相冲突或无法确认时，才选择 unknown。
 
 Evidence 覆盖与优先级规则：

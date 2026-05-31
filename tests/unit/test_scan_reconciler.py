@@ -159,6 +159,66 @@ def test_reconcile_does_not_treat_javascript_evidence_as_java_support():
     assert any("java-spring" in warning.evidence for warning in metadata.warnings)
 
 
+def test_reconcile_preserves_python_flask_react_multistack_profile():
+    evidence = EvidenceBundle(
+        repo_name="ai4se-like",
+        root_path="/tmp/ai4se-like",
+        files=[
+            EvidenceFile(path="pyproject.toml", kind="build", summary="flask dependency"),
+            EvidenceFile(path="requirements.txt", kind="build", summary="Flask"),
+            EvidenceFile(path="app.py", kind="source", summary="from flask import Flask"),
+            EvidenceFile(path="frontend/package.json", kind="build", summary="react vite typescript"),
+            EvidenceFile(path="frontend/src/App.tsx", kind="source", summary="React component"),
+        ],
+        key_files=[
+            EvidenceFile(path="pyproject.toml", kind="build", summary="flask dependency"),
+            EvidenceFile(path="frontend/package.json", kind="build", summary="react vite typescript"),
+        ],
+        source_samples=[
+            EvidenceFile(path="app.py", kind="source", summary="from flask import Flask"),
+            EvidenceFile(path="frontend/src/App.tsx", kind="source", summary="React component"),
+        ],
+    )
+    proposal = LLMScanProposal(
+        primary_stack="python-flask",
+        stacks=["python", "flask", "react", "typescript", "vite"],
+        modules=[
+            {"name": "api", "path": ".", "kind": "backend"},
+            {"name": "web", "path": "frontend", "kind": "frontend"},
+        ],
+        architecture_signals=["Flask API and React frontend"],
+        risk_areas=[],
+        command_candidates=[
+            LLMCommandCandidate(
+                id="pytest",
+                command="pytest",
+                type="test",
+                gate="hard",
+                source="pyproject.toml",
+                confidence="high",
+            )
+        ],
+        configs=[{"path": "pyproject.toml", "kind": "python"}],
+        ci_files=[],
+        confidence="medium",
+        needs_human_confirmation=True,
+        reasoning_summary="Flask backend and React frontend evidence.",
+    )
+
+    inventory, commands, metadata = reconcile_scan(evidence, proposal)
+
+    assert inventory.primary_stack == "python-flask"
+    assert inventory.modules[0]["kind"] == "backend"
+    assert inventory.modules[1]["kind"] == "frontend"
+    validation = inventory.stack_extensions["scan_validation"]
+    assert validation["checked_claims"] == ["python-flask", "node"]
+    assert validation["supported_claims"] == ["python-flask", "node"]
+    assert validation["unsupported_claims"] == []
+    assert inventory.stack_extensions["stack_profile"]["composition_label"] == "Python Flask 后端 + React / TypeScript 前端"
+    assert commands.commands[0].gate == "hard"
+    assert metadata.warnings == []
+
+
 def test_reconcile_vetoes_impossible_java_claim():
     evidence = EvidenceBundle(
         repo_name="demo",

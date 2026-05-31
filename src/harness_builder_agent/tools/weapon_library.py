@@ -132,13 +132,53 @@ WEAPON_LIBRARY: tuple[WeaponLibraryEntry, ...] = (
         evidence_hints=["PublicApi", "Web", "Infrastructure", "appsettings.json"],
         tags=["publicapi", "config", "infrastructure"],
     ),
+    WeaponLibraryEntry(
+        id="python-flask.guide.api-boundary",
+        stack="python-flask",
+        kind="guide",
+        title="Flask API 边界",
+        guidance="确认 Flask 路由、Service、配置和数据访问边界，避免把接口入口、业务逻辑和运行配置混在同一变更里。",
+        recommended_action="为 Flask 后端入口、配置文件和关键业务模块补充 Guide，并记录模块职责。",
+        evidence_hints=["pyproject.toml", "requirements.txt", "app.py"],
+        tags=["python", "flask", "architecture"],
+    ),
+    WeaponLibraryEntry(
+        id="python-flask.sensor.pytest",
+        stack="python-flask",
+        kind="sensor",
+        title="pytest 验证命令",
+        guidance="Python Flask 项目优先识别 `pytest` 或等价测试入口，作为后端 hard gate 候选。",
+        recommended_action="发现 pytest 入口时纳入验证清单；缺失时记录为待补齐 Sensor。",
+        gate="hard",
+        evidence_hints=["pyproject.toml", "requirements.txt", "tests"],
+        tags=["python", "flask", "test"],
+    ),
+    WeaponLibraryEntry(
+        id="node.guide.frontend-boundary",
+        stack="node",
+        kind="guide",
+        title="前端模块边界",
+        guidance="确认 React / TypeScript 前端入口、组件边界、构建配置和后端 API 协作方式。",
+        recommended_action="为前端目录、构建脚本、状态管理和 API 调用边界补充 Guide。",
+        evidence_hints=["package.json", "src", "vite.config.ts"],
+        tags=["frontend", "react", "typescript"],
+    ),
+    WeaponLibraryEntry(
+        id="node.sensor.npm-test",
+        stack="node",
+        kind="sensor",
+        title="npm 验证命令",
+        guidance="Node / 前端项目优先识别 `npm test`、`npm run lint`、`npm run build` 等验证入口。",
+        recommended_action="发现 npm 验证命令时纳入 Sensor；缺失时记录为前端验证缺口。",
+        gate="hard",
+        evidence_hints=["package.json"],
+        tags=["frontend", "node", "test"],
+    ),
 )
 
 
 def select_weapon_library(inventory: ProjectInventory, commands: CommandCatalog) -> WeaponLibrarySelection:
-    selected_stacks = ["common"]
-    if inventory.primary_stack != "unknown":
-        selected_stacks.append(inventory.primary_stack)
+    selected_stacks = _selected_stack_keys(inventory)
 
     entries = [entry for entry in WEAPON_LIBRARY if entry.stack in selected_stacks]
     guide_weapons = [entry for entry in entries if entry.kind == "guide"]
@@ -157,6 +197,38 @@ def select_weapon_library(inventory: ProjectInventory, commands: CommandCatalog)
     )
 
 
+def _selected_stack_keys(inventory: ProjectInventory) -> list[str]:
+    selected = ["common"]
+    if inventory.primary_stack == "unknown":
+        return selected
+    stack_values = [inventory.primary_stack, *inventory.stacks]
+    aliases = {
+        "java": "java-spring",
+        "spring": "java-spring",
+        "spring-boot": "java-spring",
+        "maven": "java-spring",
+        "dotnet": "dotnet-aspnet",
+        ".net": "dotnet-aspnet",
+        "aspnet": "dotnet-aspnet",
+        "aspnet-core": "dotnet-aspnet",
+        "node": "node",
+        "npm": "node",
+        "javascript": "node",
+        "typescript": "node",
+        "react": "node",
+        "vue": "node",
+        "vite": "node",
+        "python": "python-flask",
+        "flask": "python-flask",
+        "python-flask": "python-flask",
+    }
+    for raw_stack in stack_values:
+        stack = aliases.get(raw_stack.strip().lower(), raw_stack.strip().lower())
+        if stack in {"java-spring", "dotnet-aspnet", "node", "python-flask"} and stack not in selected:
+            selected.append(stack)
+    return selected
+
+
 def _promote_matching_hard_gates(
     sensor_weapons: list[WeaponLibraryEntry], commands: CommandCatalog
 ) -> list[WeaponLibraryEntry]:
@@ -167,6 +239,10 @@ def _promote_matching_hard_gates(
             promoted.append(weapon.model_copy(update={"recommended_action": "已发现 Maven 命令，建议作为 Java 后端 hard gate 候选。"}))
         elif weapon.id == "dotnet-aspnet.sensor.dotnet-test" and "dotnet test" in command_text:
             promoted.append(weapon.model_copy(update={"recommended_action": "已发现 dotnet test，建议作为 .NET solution hard gate 候选。"}))
+        elif weapon.id == "python-flask.sensor.pytest" and "pytest" in command_text:
+            promoted.append(weapon.model_copy(update={"recommended_action": "已发现 pytest，建议作为 Python Flask 后端 hard gate 候选。"}))
+        elif weapon.id == "node.sensor.npm-test" and "npm" in command_text:
+            promoted.append(weapon.model_copy(update={"recommended_action": "已发现 npm 验证命令，建议作为前端 hard gate 候选。"}))
         else:
             promoted.append(weapon)
     return promoted

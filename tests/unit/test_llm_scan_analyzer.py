@@ -40,6 +40,23 @@ def test_parse_llm_scan_response_accepts_json_fence():
     assert proposal.needs_human_confirmation is False
 
 
+def test_parse_llm_scan_response_accepts_python_flask_multistack():
+    payload = json.loads(_proposal_json())
+    payload["primary_stack"] = "python-flask"
+    payload["stacks"] = ["python", "flask", "react", "typescript", "vite"]
+    payload["modules"] = [
+        {"name": "api", "path": ".", "kind": "backend"},
+        {"name": "web", "path": "frontend", "kind": "frontend"},
+    ]
+
+    proposal = parse_llm_scan_response(json.dumps(payload))
+
+    assert proposal.primary_stack == "python-flask"
+    assert proposal.stacks == ["python", "flask", "react", "typescript", "vite"]
+    assert proposal.modules[0]["kind"] == "backend"
+    assert proposal.modules[1]["kind"] == "frontend"
+
+
 def test_parse_llm_scan_response_rejects_bad_json():
     with pytest.raises(ValueError, match="valid JSON"):
         parse_llm_scan_response("not json")
@@ -108,6 +125,7 @@ def test_scan_prompt_asset_exists_and_preserves_machine_contract():
         "java-spring",
         "dotnet-aspnet",
         "node",
+        "python-flask",
         "unknown",
         "command_candidates",
         "build",

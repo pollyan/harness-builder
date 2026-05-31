@@ -30,6 +30,21 @@ STACK_ALIASES = {
     "typescript": "node",
     "react": "node",
     "vue": "node",
+    "vite": "node",
+    "npm": "node",
+    "python-flask": "python-flask",
+    "python": "python-flask",
+    "flask": "python-flask",
+    "pyproject": "python-flask",
+    "requirements": "python-flask",
+}
+
+STACK_LABELS = {
+    "java-spring": "Java Spring 后端",
+    "dotnet-aspnet": ".NET ASP.NET Core 后端",
+    "node": "Node.js / 前端",
+    "python-flask": "Python Flask 后端",
+    "unknown": "未知技术栈",
 }
 
 
@@ -71,6 +86,7 @@ def reconcile_scan(
             "needs_human_confirmation": proposal.needs_human_confirmation,
             "scan_warnings": [warning.model_dump(mode="json") for warning in warnings],
             "scan_validation": scan_validation,
+            "stack_profile": _build_stack_profile(proposal, scan_validation),
             "scan_metadata": metadata.model_dump(mode="json"),
             "llm_scan_proposal": proposal.model_dump(mode="json"),
         },
@@ -237,6 +253,11 @@ def _stack_has_evidence(stack: str, paths: set[str], values: set[str]) -> bool:
         return any(path.endswith((".sln", ".csproj", ".cs")) for path in paths)
     if stack == "node":
         return any(path.endswith(("package.json", ".js", ".ts", ".tsx", ".vue")) for path in paths)
+    if stack == "python-flask":
+        return any(
+            path.endswith((".py", "pyproject.toml", "requirements.txt", "requirements-dev.txt", "pipfile", "poetry.lock"))
+            for path in paths
+        ) or any("flask" in value for value in values)
     return False
 
 
@@ -247,12 +268,59 @@ def _unsupported_stack_reason(stack: str) -> str:
         return "LLM claimed dotnet-aspnet but no .sln, .csproj, or .cs evidence was found"
     if stack == "node":
         return "LLM claimed node but no package.json or JS/TS/Vue evidence was found"
+    if stack == "python-flask":
+        return "LLM claimed python-flask but no Python, pyproject, requirements, or Flask evidence was found"
     return f"LLM claimed {stack} but no supporting evidence was found"
 
 
 def _veto_impossible_stack(evidence: EvidenceBundle, proposal: LLMScanProposal) -> None:
     paths = {item.path.lower() for item in evidence.files + evidence.key_files + evidence.source_samples}
+    values = _all_evidence_values(evidence)
     if proposal.primary_stack == "dotnet-aspnet" and not any(path.endswith((".sln", ".csproj", ".cs")) for path in paths):
         raise ScanConflictError("LLM claimed dotnet-aspnet but no dotnet evidence was found")
     if proposal.primary_stack == "java-spring" and not any(path.endswith((".java", "pom.xml", "build.gradle", "build.gradle.kts")) for path in paths):
         raise ScanConflictError("LLM claimed java-spring but no Java evidence was found")
+    if proposal.primary_stack == "python-flask" and not (
+        any(path.endswith((".py", "pyproject.toml", "requirements.txt", "requirements-dev.txt", "pipfile", "poetry.lock")) for path in paths)
+        or any("flask" in value for value in values)
+    ):
+        raise ScanConflictError("LLM claimed python-flask but no Python or Flask evidence was found")
+
+
+def _build_stack_profile(proposal: LLMScanProposal, scan_validation: dict[str, object]) -> dict[str, object]:
+    supported = [str(item) for item in scan_validation.get("supported_claims", [])]
+    primary_label = STACK_LABELS.get(proposal.primary_stack, proposal.primary_stack)
+    composition_label = _composition_label(proposal, supported)
+    module_roles = [
+        {
+            "path": str(module.get("path", ".")),
+            "kind": str(module.get("kind", "module")),
+            "name": str(module.get("name", "未命名模块")),
+        }
+        for module in proposal.modules
+        if isinstance(module, dict)
+    ]
+    return {
+        "primary_label": primary_label,
+        "composition_label": composition_label,
+        "supported_stacks": supported,
+        "module_roles": module_roles,
+    }
+
+
+def _composition_label(proposal: LLMScanProposal, supported: list[str]) -> str:
+    stack_set = {proposal.primary_stack, *supported, *proposal.stacks}
+    if proposal.primary_stack == "python-flask" and (
+        "node" in supported or stack_set.intersection({"react", "typescript", "vite"})
+    ):
+        frontend_parts = []
+        if "react" in stack_set:
+            frontend_parts.append("React")
+        if "typescript" in stack_set:
+            frontend_parts.append("TypeScript")
+        frontend = " / ".join(frontend_parts) if frontend_parts else "前端"
+        return f"Python Flask 后端 + {frontend} 前端"
+    labels = [STACK_LABELS.get(stack, stack) for stack in supported if stack != "unknown"]
+    if labels:
+        return " + ".join(dict.fromkeys(labels))
+    return STACK_LABELS.get(proposal.primary_stack, proposal.primary_stack)
