@@ -193,6 +193,27 @@ def test_scan_metadata_accepts_evidence_expansion_audit():
     assert metadata.evidence_expansion.read_file_count == 1
 
 
+def test_scan_metadata_accepts_followup_questions():
+    metadata = ScanMetadata(
+        prompt_version="scan-v2",
+        evidence_file_count=42,
+        followup_questions=[
+            {
+                "interaction_id": "confirm:scan-followup:coverage-source-java",
+                "trigger": "coverage_gap",
+                "question": "哪些 Java 目录、入口文件或高风险路径需要补充扫描？",
+                "reason": "source:.java 抽样不足，可能影响模块和风险判断。",
+                "evidence": ["source:.java"],
+                "confidence": "low",
+                "affects": ["maturity", "guides", "sensors"],
+            }
+        ],
+    )
+
+    assert metadata.followup_questions[0].trigger == "coverage_gap"
+    assert metadata.followup_questions[0].interaction_id == "confirm:scan-followup:coverage-source-java"
+
+
 def test_benchmark_report_accepts_quality_scores():
     report = BenchmarkReport(
         repo_name="demo",

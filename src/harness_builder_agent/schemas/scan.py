@@ -8,6 +8,13 @@ from harness_builder_agent.schemas.common import Confidence, Gate
 
 PrimaryStack = Literal["java-spring", "dotnet-aspnet", "node", "python-flask", "unknown"]
 EvidencePriority = Literal["critical", "high", "medium", "low"]
+ScanFollowupTrigger = Literal[
+    "coverage_gap",
+    "stack_claim_without_evidence",
+    "unknown_stack",
+    "module_boundary_unclear",
+    "test_evidence_missing",
+]
 
 
 class EvidenceBucketCoverage(BaseModel):
@@ -108,6 +115,17 @@ class ScanWarning(BaseModel):
     evidence: list[str] = Field(default_factory=list)
 
 
+class ScanFollowupQuestion(BaseModel):
+    schema_version: str = "1.0"
+    interaction_id: str
+    trigger: ScanFollowupTrigger
+    question: str
+    reason: str
+    evidence: list[str] = Field(default_factory=list)
+    confidence: Confidence = "low"
+    affects: list[str] = Field(default_factory=list)
+
+
 class ScanMetadata(BaseModel):
     schema_version: str = "1.0"
     llm_status: Literal["succeeded", "failed"] = "succeeded"
@@ -119,4 +137,5 @@ class ScanMetadata(BaseModel):
     warnings: list[ScanWarning] = Field(default_factory=list)
     coverage: dict[str, Any] | None = None
     evidence_expansion: LLMEvidenceExpansionMetadata | None = None
+    followup_questions: list[ScanFollowupQuestion] = Field(default_factory=list)
     reasoning_summary: str | None = None

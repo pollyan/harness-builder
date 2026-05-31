@@ -263,6 +263,7 @@ def _show_scan_findings(inventory: ProjectInventory, commands: CommandCatalog) -
 
 def _show_scan_attention_summary(inventory: ProjectInventory, commands: CommandCatalog) -> None:
     _show_llm_evidence_expansion(inventory)
+    _show_scan_followup_questions(inventory)
 
     typer.echo("\n风险区域")
     for line in _risk_attention_lines(inventory):
@@ -306,6 +307,31 @@ def _show_llm_evidence_expansion(inventory: ProjectInventory) -> None:
         typer.echo(f"- 置信度：{confidence}")
 
 
+def _show_scan_followup_questions(inventory: ProjectInventory) -> None:
+    questions = _scan_followup_questions(inventory)
+    if not questions:
+        return
+
+    typer.echo("\n深度追问")
+    for question in questions[:5]:
+        text = str(question.get("question") or "是否需要补充扫描不确定性？")
+        reason = str(question.get("reason") or "扫描阶段存在需要补救的不确定性。")
+        affects = _format_affect_labels(question.get("affects"))
+        typer.echo(f"- {text}（原因：{reason}；影响：{affects}）")
+    remaining = len(questions) - 5
+    if remaining > 0:
+        typer.echo(f"- 还有 {remaining} 个深度追问，详见 `.ai/questionnaire.yaml` 和 `.ai/human-input-needed.md`。")
+
+
+def _scan_followup_questions(inventory: ProjectInventory) -> list[dict[str, object]]:
+    extensions = inventory.stack_extensions if isinstance(inventory.stack_extensions, dict) else {}
+    scan_metadata = extensions.get("scan_metadata")
+    if not isinstance(scan_metadata, dict):
+        return []
+    questions = scan_metadata.get("followup_questions")
+    return [item for item in questions if isinstance(item, dict)] if isinstance(questions, list) else []
+
+
 def _evidence_expansion(inventory: ProjectInventory) -> dict[str, object] | None:
     extensions = inventory.stack_extensions if isinstance(inventory.stack_extensions, dict) else {}
     scan_metadata = extensions.get("scan_metadata")
@@ -320,6 +346,27 @@ def _format_cli_items(value: object) -> str:
     if not items:
         return "无"
     return "、".join(f"`{item}`" for item in items[:5])
+
+
+def _format_plain_cli_items(value: object) -> str:
+    items = _list_items(value)
+    if not items:
+        return "无"
+    return ", ".join(items[:5])
+
+
+def _format_affect_labels(value: object) -> str:
+    labels = {
+        "maturity": "成熟度",
+        "guides": "Guides",
+        "sensors": "Sensors",
+        "workflow": "Workflow",
+        "config": "配置",
+    }
+    items = _list_items(value)
+    if not items:
+        return "无"
+    return "、".join(labels.get(item, item) for item in items[:5])
 
 
 def _list_items(value: object) -> list[str]:

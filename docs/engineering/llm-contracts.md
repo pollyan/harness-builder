@@ -97,6 +97,7 @@ Evidence 是 LLM 的输入，也是调和阶段的审计依据。
 - LLM evidence planner 的结构化输出必须进入 `ScanMetadata.evidence_expansion`，记录 planner prompt version、requested paths、risk focus、rationale、confidence、实际读取 paths 和读取文件数量，便于调试和审计深度扫描决策。
 - LLM-guided evidence expansion 不允许读取 `.ai/`、依赖目录、构建产物、仓库外路径或模型发明的路径；非法请求必须显式失败，不能回退成确定性采样成功。
 - 如果 LLM evidence planner 返回低置信度，调和阶段必须保留 warning 和 human confirmation 信号；不能把低置信度规划伪装成完全可信的扫描结果。
+- coverage gap、LLM stack claim 缺少 evidence、primary stack unknown、模块边界不清或测试 evidence 缺失时，调和阶段必须生成结构化 follow-up questions，并写入 `ScanMetadata.followup_questions`。这些问题用于驱动 guided CLI 的 targeted 追问和后续人工确认；它们不能被解释为二次 LLM self-check 已经完成，也不能自动修正 LLM proposal。
 - LLM evidence planner 如果第一次返回 schema 或 allowlist 校验失败，可以带着校验错误进行一次契约修正重试；重试仍失败时必须显式失败。该重试只能要求 LLM 从已提供 `files[].path` 中逐字复制路径或返回空列表，不能由 Python 近似匹配、自动纠正或放宽 allowlist。
 - Prompt 应向 LLM 提供足够 evidence，而不是只给文件名。
 - LLM proposal 应保留 reasoning summary。

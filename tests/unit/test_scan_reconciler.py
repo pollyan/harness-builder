@@ -148,6 +148,57 @@ def test_reconcile_marks_low_confidence_evidence_plan_for_human_confirmation():
     assert inventory.stack_extensions["needs_human_confirmation"] is True
 
 
+def test_reconcile_generates_scan_followup_questions():
+    evidence = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[EvidenceFile(path="README.md", kind="document", summary="legacy project")],
+        documents=[EvidenceFile(path="README.md", kind="document", summary="legacy project")],
+        coverage={
+            "detected_file_count": 90,
+            "selected_evidence_count": 4,
+            "bucket_coverage": [
+                {
+                    "bucket": "source:.java",
+                    "total_count": 80,
+                    "selected_count": 2,
+                    "skipped_count": 78,
+                    "selected_paths": ["src/api/UserController.java"],
+                }
+            ],
+            "warnings": [{"code": "source_sampling_truncated", "message": "source:.java skipped files", "bucket": "source:.java"}],
+        },
+    )
+    proposal = LLMScanProposal(
+        primary_stack="unknown",
+        stacks=["node"],
+        modules=[],
+        architecture_signals=[],
+        risk_areas=[],
+        command_candidates=[],
+        configs=[],
+        ci_files=[],
+        confidence="low",
+        needs_human_confirmation=True,
+        reasoning_summary="Repository shape is unclear.",
+    )
+
+    inventory, _commands, metadata = reconcile_scan(evidence, proposal)
+
+    triggers = {question.trigger for question in metadata.followup_questions}
+    assert {
+        "coverage_gap",
+        "stack_claim_without_evidence",
+        "unknown_stack",
+        "module_boundary_unclear",
+        "test_evidence_missing",
+    }.issubset(triggers)
+    ids = {question.interaction_id for question in metadata.followup_questions}
+    assert "confirm:scan-followup:coverage-source-java" in ids
+    assert "confirm:scan-followup:stack-node" in ids
+    assert inventory.stack_extensions["scan_metadata"]["followup_questions"][0]["interaction_id"].startswith("confirm:scan-followup:")
+
+
 def test_reconcile_vetoes_impossible_dotnet_claim():
     evidence = EvidenceBundle(
         repo_name="demo",

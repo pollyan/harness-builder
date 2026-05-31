@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Scan Follow-up Questions
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：Scanner & Analyzer、CLI Experience、Progressive Collaboration、Maturity & Evolution、智能化闭环。
+- init North Star 旅程阶段：扫描结果友好呈现、成熟度初评前的深度追问、可审计 evidence、human-input-needed。
+- Gap Analysis 摘要：当前 coverage gap、unsupported stack claim、primary stack unknown、模块边界缺失和测试 evidence 缺失已经会产生 warning 或 CLI 文案，但它们没有统一的机器契约，不能稳定进入 targeted 追问、questionnaire 和 human input。子代理建议最小切片是在现有 warning / metadata / questionnaire 链路上增加 scan self-check trigger，而不是直接引入第二次 LLM 调用。
+- 用户故事：作为 Harness Maintainer，当大型或多栈仓库首次 guided `init` 存在源码覆盖不足、LLM 栈判断缺少证据、主要技术栈未知或模块边界不清时，我可以在 CLI、`.ai/scan-metadata.yaml`、`.ai/questionnaire.yaml` 和 `.ai/human-input-needed.md` 中看到明确的补救追问，从而知道应该补充哪些关键路径、技术栈、模块边界或验证线索。
+- 当前代码 gap：`ScanMetadata` 只有 warnings、coverage 和 evidence_expansion；`human_confirmation.py` 只把 raw warnings 转成 “接受降级 / 人工修正” 问题；guided CLI 的“不确定性 / 建议补充”缺少稳定、可测试的 follow-up question 契约。
+- 关键决策 / 取舍：新增 `ScanFollowupQuestion` 和 `ScanMetadata.followup_questions`；新增 `scan_followup_confirmation` questionnaire 类型；guided CLI 展示 `深度追问`。本轮不新增二次 LLM self-check、不扩大读取预算、不自动修正 proposal、不调整 benchmark scoring。
+- Assumptions / risks：follow-up 与原始 scan warning confirmation 会有一定重叠；当前保留原始 warning 作为审计问题，follow-up 用于面向用户的补救追问，后续可以做去重或优先级排序。
+- Sub agent 使用情况：使用 explorer 子代理只读调研 coverage warning、planner low confidence、stack conflict / unknown 的产生和消费路径；采纳其“最小切片先加 scan self-check trigger / targeted follow-up”的建议。
+- 价值切分说明：本轮完成“warning / validation -> metadata follow-up -> CLI 深度追问 -> questionnaire / human-input”的纵向闭环，不把二次 LLM self-check 和 claim-level validation 扩展混入同一 milestone。
+- 验收标准及验证方式：schema unit 覆盖 `followup_questions`；reconciler unit 覆盖 coverage gap、unsupported stack、unknown stack、module boundary 和 test evidence follow-up；human confirmation unit 覆盖 `scan_followup_confirmation`；guided integration 覆盖 CLI `深度追问`、questionnaire 和 human-input。
+- 完成内容：新增 `ScanFollowupQuestion` schema；`reconcile_scan()` 根据 warnings / stack validation / proposal 状态生成 follow-up；`interactive_init.py` 展示深度追问；`build_questionnaire()` 写入 scan follow-up confirmation；同步 spec、plan、工程文档和 todo。
+- Self-Harness Gate：剩余 LLM-planned deep scan 仍 open。下一轮候选 gap 优先考虑二次 LLM self-check 或 targeted scan 对 `followup_questions` 的消费，其次是 module / risk / config / CI 的 claim-level support / conflict / unknown validation。
+
 ## 2026-06-01 Guided Init LLM Evidence Plan 可见化
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

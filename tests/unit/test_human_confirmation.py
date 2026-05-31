@@ -62,3 +62,89 @@ def test_build_questionnaire_includes_low_confidence_evidence_expansion():
     assert "src/auth/AuthService.py" in question["question"]
     assert "Auth code was not sampled." in question["reason"]
     Questionnaire.model_validate(questionnaire)
+
+
+def test_build_questionnaire_includes_scan_followup_questions():
+    questionnaire = build_questionnaire(
+        context_inputs={"schema_version": "1.0", "contexts": []},
+        scan_metadata={
+            "warnings": [],
+            "followup_questions": [
+                {
+                    "interaction_id": "confirm:scan-followup:coverage-source-java",
+                    "trigger": "coverage_gap",
+                    "question": "哪些 Java 目录、入口文件或高风险路径需要补充扫描？",
+                    "reason": "source:.java 抽样不足，可能影响模块和风险判断。",
+                    "evidence": ["source:.java"],
+                    "confidence": "low",
+                    "affects": ["maturity", "guides", "sensors"],
+                }
+            ],
+        },
+    )
+
+    question = next(
+        item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:coverage-source-java"
+    )
+    assert question["interaction_type"] == "scan_followup_confirmation"
+    assert "哪些 Java 目录" in question["question"]
+    assert "maturity" in question["reason"]
+    Questionnaire.model_validate(questionnaire)
+
+
+def test_build_questionnaire_skips_raw_warnings_represented_by_targeted_followups():
+    questionnaire = build_questionnaire(
+        context_inputs={"schema_version": "1.0", "contexts": []},
+        scan_metadata={
+            "warnings": [
+                {"code": "source_sampling_truncated", "message": "source:.java skipped files"},
+                {"code": "test_evidence_not_found", "message": "No dedicated test evidence bucket was found."},
+                {"code": "llm_stack_claim_without_evidence", "message": "node claim is unsupported."},
+                {"code": "llm_evidence_plan_low_confidence", "message": "planner low confidence."},
+            ],
+            "evidence_expansion": {
+                "requested_paths": [],
+                "risk_focus": ["unclear modules"],
+                "rationale": "Planner could not identify enough source evidence.",
+                "confidence": "low",
+                "read_paths": [],
+                "read_file_count": 0,
+            },
+            "followup_questions": [
+                {
+                    "interaction_id": "confirm:scan-followup:coverage-source-java",
+                    "trigger": "coverage_gap",
+                    "question": "哪些 Java 目录需要补充扫描？",
+                    "reason": "source:.java 抽样不足。",
+                    "confidence": "low",
+                    "affects": ["maturity", "guides"],
+                },
+                {
+                    "interaction_id": "confirm:scan-followup:test-evidence",
+                    "trigger": "test_evidence_missing",
+                    "question": "真实测试入口是什么？",
+                    "reason": "缺少测试 evidence。",
+                    "confidence": "low",
+                    "affects": ["sensors"],
+                },
+                {
+                    "interaction_id": "confirm:scan-followup:stack-node",
+                    "trigger": "stack_claim_without_evidence",
+                    "question": "是否存在 Node 子模块？",
+                    "reason": "node claim 缺少 evidence。",
+                    "confidence": "low",
+                    "affects": ["workflow"],
+                },
+            ],
+        },
+    )
+
+    ids = {item["interaction_id"] for item in questionnaire["questions"]}
+    assert "confirm:scan-followup:coverage-source-java" in ids
+    assert "confirm:scan-followup:test-evidence" in ids
+    assert "confirm:scan-followup:stack-node" in ids
+    assert "confirm:evidence-expansion" in ids
+    assert "confirm:scan-warning:source_sampling_truncated" not in ids
+    assert "confirm:scan-warning:test_evidence_not_found" not in ids
+    assert "confirm:scan-warning:llm_stack_claim_without_evidence" not in ids
+    assert "confirm:scan-warning:llm_evidence_plan_low_confidence" not in ids

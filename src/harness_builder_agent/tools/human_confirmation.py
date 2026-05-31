@@ -89,8 +89,28 @@ def build_questionnaire(
                 "reason": f"规划原因：{rationale}；关注点：{focus}；实际读取：{read}",
             }
         )
+    represented_warning_codes: set[str] = set()
+    if isinstance(evidence_expansion, dict) and evidence_expansion.get("confidence") == "low":
+        represented_warning_codes.add("llm_evidence_plan_low_confidence")
+    for followup in scan_metadata.get("followup_questions", []):
+        if not isinstance(followup, dict):
+            continue
+        represented_warning_codes.update(_warning_codes_represented_by_followup(str(followup.get("trigger") or "")))
+        affects = _format_plain_items(followup.get("affects", []))
+        questions.append(
+            {
+                "interaction_type": "scan_followup_confirmation",
+                "interaction_id": str(followup.get("interaction_id") or "confirm:scan-followup:unknown"),
+                "question": str(followup.get("question") or "是否需要补充扫描不确定性？"),
+                "options": ["补充或修正相关信息", "暂时接受当前不确定性"],
+                "confidence": str(followup.get("confidence") or "low"),
+                "reason": f"{followup.get('reason') or '扫描阶段存在需要补救的不确定性。'} 影响：{affects}",
+            }
+        )
     for warning in scan_metadata.get("warnings", []):
         code = warning.get("code", "unknown")
+        if code in represented_warning_codes:
+            continue
         questions.append(
             {
                 "interaction_type": "scan_warning_confirmation",
@@ -108,6 +128,20 @@ def _format_items(value: Any) -> str:
     if not isinstance(value, list) or not value:
         return "无"
     return "、".join(f"`{item}`" for item in value[:5])
+
+
+def _format_plain_items(value: Any) -> str:
+    if not isinstance(value, list) or not value:
+        return "无"
+    return ", ".join(str(item) for item in value[:5])
+
+
+def _warning_codes_represented_by_followup(trigger: str) -> set[str]:
+    return {
+        "coverage_gap": {"source_sampling_truncated"},
+        "test_evidence_missing": {"test_evidence_not_found"},
+        "stack_claim_without_evidence": {"llm_stack_claim_without_evidence"},
+    }.get(trigger, set())
 
 
 def human_input_markdown(context_inputs: dict[str, Any], questionnaire: dict[str, Any], decision_markdown: str = "") -> str:

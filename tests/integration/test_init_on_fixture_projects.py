@@ -774,6 +774,116 @@ def test_guided_init_shows_llm_evidence_expansion_summary_and_confirmation(tmp_p
     assert "src/main/java/com/example/AuthService.java" in human_input
 
 
+def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+
+    def scan_with_followups(repo_path: Path):
+        followups = [
+            {
+                "schema_version": "1.0",
+                "interaction_id": "confirm:scan-followup:coverage-source-java",
+                "trigger": "coverage_gap",
+                "question": "哪些 Java 目录、入口文件或高风险路径需要补充扫描？",
+                "reason": "source:.java 抽样不足，可能影响模块和风险判断。",
+                "evidence": ["source:.java"],
+                "confidence": "low",
+                "affects": ["maturity", "guides", "sensors"],
+            },
+            {
+                "schema_version": "1.0",
+                "interaction_id": "confirm:scan-followup:stack-node",
+                "trigger": "stack_claim_without_evidence",
+                "question": "这个仓库是否存在 Node 子模块？",
+                "reason": "LLM 提到了 node，但当前 evidence 未支持。",
+                "evidence": ["node"],
+                "confidence": "low",
+                "affects": ["workflow"],
+            },
+            {
+                "schema_version": "1.0",
+                "interaction_id": "confirm:scan-followup:unknown-stack",
+                "trigger": "unknown_stack",
+                "question": "这个仓库真实主技术栈是什么？",
+                "reason": "primary stack unknown。",
+                "evidence": ["primary_stack:unknown"],
+                "confidence": "low",
+                "affects": ["maturity"],
+            },
+            {
+                "schema_version": "1.0",
+                "interaction_id": "confirm:scan-followup:module-boundary",
+                "trigger": "module_boundary_unclear",
+                "question": "主要模块路径和职责是什么？",
+                "reason": "模块边界不清。",
+                "evidence": ["modules:empty"],
+                "confidence": "low",
+                "affects": ["guides"],
+            },
+            {
+                "schema_version": "1.0",
+                "interaction_id": "confirm:scan-followup:test-evidence",
+                "trigger": "test_evidence_missing",
+                "question": "真实测试入口是什么？",
+                "reason": "缺少测试 evidence。",
+                "evidence": ["test_evidence_not_found"],
+                "confidence": "low",
+                "affects": ["sensors"],
+            },
+            {
+                "schema_version": "1.0",
+                "interaction_id": "confirm:scan-followup:release-constraint",
+                "trigger": "module_boundary_unclear",
+                "question": "发布约束或高风险变更入口是什么？",
+                "reason": "需要补充发布风险边界。",
+                "evidence": ["release"],
+                "confidence": "low",
+                "affects": ["workflow"],
+            },
+        ]
+        inventory = ProjectInventory(
+            repo_name=repo_path.name,
+            root_path=str(repo_path),
+            primary_stack="unknown",
+            stacks=["node"],
+            modules=[],
+            evidence=[{"path": "README.md", "reason": "project document"}],
+            stack_extensions={
+                "needs_human_confirmation": True,
+                "scan_metadata": {
+                    "followup_questions": followups
+                },
+            },
+        )
+        commands = CommandCatalog(commands=[])
+        return inventory, commands
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", scan_with_followups)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="\n\n\n\n\n\n\nconfirm\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "深度追问" in result.output
+    assert "哪些 Java 目录、入口文件或高风险路径需要补充扫描？" in result.output
+    assert "source:.java 抽样不足" in result.output
+    assert "成熟度、Guides、Sensors" in result.output
+    assert "还有 1 个深度追问" in result.output
+
+    questionnaire = yaml.safe_load((repo / ".ai" / "questionnaire.yaml").read_text(encoding="utf-8"))
+    Questionnaire.model_validate(questionnaire)
+    question = next(
+        item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:coverage-source-java"
+    )
+    assert question["interaction_type"] == "scan_followup_confirmation"
+    human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
+    assert "confirm:scan-followup:coverage-source-java" in human_input
+    assert "哪些 Java 目录" in human_input
+
+
 def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

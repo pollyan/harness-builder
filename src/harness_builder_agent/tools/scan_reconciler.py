@@ -8,6 +8,7 @@ from harness_builder_agent.schemas.scan import (
     LLMEvidencePlan,
     LLMCommandCandidate,
     LLMScanProposal,
+    ScanFollowupQuestion,
     ScanMetadata,
     ScanWarning,
 )
@@ -80,6 +81,7 @@ def reconcile_scan(
     warnings.extend(_stack_validation_warnings(scan_validation))
     commands = [_command_from_candidate(candidate, evidence, warnings) for candidate in proposal.command_candidates]
     evidence_expansion = _evidence_expansion_metadata(evidence, evidence_plan)
+    followup_questions = _build_followup_questions(proposal, warnings, scan_validation)
     metadata = ScanMetadata(
         prompt_version=SCAN_PROMPT_VERSION,
         model=model,
@@ -89,6 +91,7 @@ def reconcile_scan(
         warnings=warnings,
         coverage=evidence.coverage.model_dump(mode="json") if evidence.coverage else None,
         evidence_expansion=evidence_expansion,
+        followup_questions=followup_questions,
         reasoning_summary=proposal.reasoning_summary,
     )
     needs_human_confirmation = proposal.needs_human_confirmation or (evidence_plan is not None and evidence_plan.confidence == "low")
@@ -114,6 +117,95 @@ def reconcile_scan(
         },
     )
     return inventory, CommandCatalog(commands=commands), metadata
+
+
+def _build_followup_questions(
+    proposal: LLMScanProposal,
+    warnings: list[ScanWarning],
+    scan_validation: dict[str, object],
+) -> list[ScanFollowupQuestion]:
+    questions: list[ScanFollowupQuestion] = []
+    seen: set[str] = set()
+
+    def add(question: ScanFollowupQuestion) -> None:
+        if question.interaction_id in seen:
+            return
+        seen.add(question.interaction_id)
+        questions.append(question)
+
+    for warning in warnings:
+        if warning.code == "source_sampling_truncated":
+            bucket = warning.evidence[0] if warning.evidence else "source"
+            add(
+                ScanFollowupQuestion(
+                    interaction_id=f"confirm:scan-followup:coverage-{_slug(bucket)}",
+                    trigger="coverage_gap",
+                    question=f"`{bucket}` 抽样覆盖不足时，哪些目录、入口文件或高风险路径需要补充扫描？",
+                    reason=f"{bucket} 存在源码抽样截断，可能影响技术栈、模块边界、风险区域和成熟度判断。",
+                    evidence=[bucket],
+                    affects=["maturity", "guides", "sensors", "workflow"],
+                )
+            )
+        elif warning.code == "test_evidence_not_found":
+            add(
+                ScanFollowupQuestion(
+                    interaction_id="confirm:scan-followup:test-evidence",
+                    trigger="test_evidence_missing",
+                    question="这个仓库真实可执行的 test / integration / lint / typecheck 入口是什么？",
+                    reason="当前扫描未发现明确测试证据，Sensors 和成熟度判断需要维护者补充真实验证入口或确认只能先使用 soft gate。",
+                    evidence=["test_evidence_not_found"],
+                    affects=["maturity", "sensors", "workflow"],
+                )
+            )
+
+    for item in scan_validation.get("unsupported_claims", []):
+        if not isinstance(item, dict):
+            continue
+        stack = str(item.get("stack") or "unknown")
+        reason = str(item.get("reason") or "LLM stack claim is without supporting evidence")
+        add(
+            ScanFollowupQuestion(
+                interaction_id=f"confirm:scan-followup:stack-{_slug(stack)}",
+                trigger="stack_claim_without_evidence",
+                question=f"LLM 提到了 `{stack}`，但当前 evidence 未支持；这个仓库是否存在对应技术栈或子模块？",
+                reason=f"{reason}。需要确认该 claim 应补充 evidence 还是从 Harness 推荐中降级。",
+                evidence=[stack],
+                affects=["maturity", "guides", "sensors", "workflow"],
+            )
+        )
+
+    if proposal.primary_stack == "unknown":
+        add(
+            ScanFollowupQuestion(
+                interaction_id="confirm:scan-followup:unknown-stack",
+                trigger="unknown_stack",
+                question="这个仓库真实主技术栈、主应用入口和主要构建配置是什么？",
+                reason="LLM 未能可靠判断 primary stack，后续 Guide / Sensor / Workflow 推荐需要维护者补充主栈和入口目录。",
+                evidence=["primary_stack:unknown"],
+                affects=["maturity", "guides", "sensors", "workflow"],
+            )
+        )
+
+    if not proposal.modules:
+        add(
+            ScanFollowupQuestion(
+                interaction_id="confirm:scan-followup:module-boundary",
+                trigger="module_boundary_unclear",
+                question="这个仓库的主要模块路径、职责和入口文件分别是什么？",
+                reason="当前扫描未识别稳定模块边界，Guides 和风险策略可能过于泛化。",
+                evidence=["modules:empty"],
+                affects=["maturity", "guides", "workflow"],
+            )
+        )
+
+    return questions
+
+
+def _slug(value: str) -> str:
+    normalized = value.lower().strip()
+    chars = [char if char.isalnum() else "-" for char in normalized]
+    slug = "-".join(part for part in "".join(chars).split("-") if part)
+    return slug or "unknown"
 
 
 def _evidence_expansion_metadata(
