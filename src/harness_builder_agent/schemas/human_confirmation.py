@@ -34,6 +34,8 @@ class QuestionnaireQuestion(BaseModel):
     options: list[str] = Field(min_length=1)
     confidence: Confidence
     reason: str
+    response_status: Literal["unaddressed", "partially_addressed_by_current_scan_supplement"] = "unaddressed"
+    response_sources: list[str] = Field(default_factory=list)
 
 
 class Questionnaire(BaseModel):

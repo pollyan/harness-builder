@@ -2,6 +2,7 @@ from pathlib import Path
 
 import yaml
 
+from harness_builder_agent.schemas.human_confirmation import Questionnaire
 from harness_builder_agent.tools.asset_writers.human_confirmation import write_human_confirmation_assets
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 
@@ -46,7 +47,11 @@ def test_write_human_confirmation_assets_writes_context_questionnaire_and_markdo
     trace.finish("completed", {})
 
     assert yaml.safe_load((ai / "context-inputs.yaml").read_text(encoding="utf-8")) == context_inputs
-    assert yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8")) == questionnaire
+    written_questionnaire = yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8"))
+    Questionnaire.model_validate(written_questionnaire)
+    assert written_questionnaire["questions"][0]["response_status"] == "unaddressed"
+    assert written_questionnaire["questions"][0]["response_sources"] == []
+    assert written_questionnaire["questions"][1]["response_status"] == "unaddressed"
     markdown = (ai / "human-input-needed.md").read_text(encoding="utf-8")
     assert "团队规则" in markdown
     assert "## 扫描待确认摘要" in markdown

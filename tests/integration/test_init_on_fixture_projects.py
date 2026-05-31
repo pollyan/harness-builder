@@ -996,11 +996,18 @@ def test_guided_init_marks_scan_followup_partially_addressed_by_current_suppleme
     assert "本轮 scan 补充可能已部分回应该追问" in test_question["reason"]
     assert "command=unit_test:mvn test" in test_question["reason"]
     assert "review_status=pending_harness_maintainer_review" in test_question["reason"]
+    assert test_question["response_status"] == "partially_addressed_by_current_scan_supplement"
+    assert test_question["response_sources"] == ["command=unit_test:mvn test"]
     module_question = next(
         item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:module-boundary"
     )
     assert "module=src/main/java" in module_question["reason"]
     assert "risk=src/main/java/com/example/AuthService.java" in module_question["reason"]
+    assert module_question["response_status"] == "partially_addressed_by_current_scan_supplement"
+    assert module_question["response_sources"] == [
+        "module=src/main/java",
+        "risk=src/main/java/com/example/AuthService.java",
+    ]
 
     human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
     assert "本轮 scan 补充可能已部分回应该追问" in human_input
@@ -1013,6 +1020,11 @@ def test_guided_init_marks_scan_followup_partially_addressed_by_current_suppleme
     ]
     assert decisions["scan_confirmation"]["review_status"] == "pending_harness_maintainer_review"
     assert decisions["scan_confirmation"]["fact_effect"] == "user_supplied_correction_review_required"
+
+    existing_result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="exit\n")
+    assert existing_result.exit_code == 0, existing_result.output
+    assert "human_input_scan_followups_partially_addressed=2" in existing_result.output
+    assert "human_input_scan_followups_unaddressed=0" in existing_result.output
 
 
 def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):

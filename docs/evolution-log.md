@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Questionnaire Follow-up 回应状态契约
+
+- North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、资产生成与审核接管。
+- init North Star 旅程阶段：深度追问、用户补充吸收、已有 Harness 维护入口、机器可读交互状态。
+- Gap Analysis 摘要：当前 open todo 为空。本轮重新读取事实源后，上轮已把 scan follow-up 的“本轮补充可能已部分回应”写入 reason，但机器仍只能解析自然语言；已有 Harness 维护入口只能统计 scan confirmation 总数，不能区分 partially addressed / unaddressed follow-up。候选还包括 Workflow note review-only routing candidate 和 push 前 full regression；本轮选择先补 questionnaire 的机器回应状态契约。
+- 工程信任故事：作为 Harness Maintainer，当我再次运行 guided `init` 查看已有 Harness 的 human-input 信号时，我可以看到 scan follow-up 中有多少项已被上一次 guided `init` 的 scan supplement 部分回应、多少仍待确认；同时后续 Self-Improve / 审计链路可以通过 `questionnaire.yaml` 的结构化字段读取该状态，而不是解析自然语言 reason。
+- 当前代码 gap：`QuestionnaireQuestion` 没有 `response_status` / `response_sources`；`build_questionnaire()` 只把 partial response 写入 reason；`_human_input_needed_status_lines()` 只显示 scan confirmation 总数。
+- 关键决策 / 取舍：新增默认兼容字段 `response_status=unaddressed` 和 `response_sources=[]`；matching scan supplement 时写入 `partially_addressed_by_current_scan_supplement` 和稳定 sources；不新增 resolved 状态，不删除追问，不改变正式扫描事实。
+- Assumptions / risks：partial response 只表示“当前补充可能回应”，不是 Maintainer 已确认解决；自然语言 notes 不进入 `response_sources`，避免机器消费不稳定 source。
+- 边界情况 / 失败模式：旧 questionnaire payload 通过默认值兼容；unrelated risk 不回应 test evidence follow-up；本轮不修改 LLM self-check、workflow policy candidate、Runtime 或 benchmark。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查最小安全路径，但当前返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮将上一轮 human-readable 状态升级为 schema 契约，并把状态带到已有 Harness 维护入口，形成跨首次 init 和再次进入 init 的闭环。
+- 可执行验收标准及验证方式：schema 测试覆盖旧 payload 默认值和 partial 状态；human confirmation unit 覆盖 matching / unrelated supplement；existing Harness preview unit 覆盖 partial / unaddressed 计数；guided integration 覆盖生成的 questionnaire 字段。
+- 完成内容：`QuestionnaireQuestion` 增加 `response_status` / `response_sources`；`build_questionnaire()` 写入结构化 partial response；维护入口输出 scan follow-up partial / unaddressed 计数；本轮 spec / plan 和工程规则已同步。
+- 验证结果：新增目标测试先按 TDD 失败；实现后目标 schema / human confirmation / preview / guided integration 6 passed；相关 writer / schema / human confirmation / preview / guided integration 12 passed；完整 guided init integration 38 passed；`git diff --check` 通过；`scripts/test-fast.sh` 通过，389 passed。
+- Self-Harness Gate：README 暂不需要暴露 schema 细节；`docs/todos/` 暂不新增。下一轮候选 gap：Workflow note review-only routing candidate 安全设计、push 前 full regression / 远端同步，或更完整的 follow-up Maintainer resolved 状态。
+
 ## 2026-06-01 Scan Follow-up 补充状态标注
 
 - North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、资产生成与审核接管。

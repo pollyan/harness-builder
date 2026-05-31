@@ -1511,12 +1511,26 @@ def _human_input_needed_status_lines(ai: Path) -> list[str]:
     questionnaire = Questionnaire.model_validate(yaml.safe_load(questionnaire_path.read_text(encoding="utf-8")) or {})
     questions = questionnaire.questions
     scan_confirmation_count = sum(1 for question in questions if question.interaction_type in SCAN_CONFIRMATION_TYPES)
+    scan_followups = [question for question in questions if question.interaction_type == "scan_followup_confirmation"]
+    scan_followup_partial_count = sum(
+        1
+        for question in scan_followups
+        if question.response_status == "partially_addressed_by_current_scan_supplement"
+    )
+    scan_followup_unaddressed_count = sum(1 for question in scan_followups if question.response_status == "unaddressed")
     lines = [
         "human_input_needed=present",
         "human_input_questionnaire=present",
         f"human_input_confirmations={len(questions)}",
         f"human_input_scan_confirmations={scan_confirmation_count}",
     ]
+    if scan_followups:
+        lines.extend(
+            [
+                f"human_input_scan_followups_partially_addressed={scan_followup_partial_count}",
+                f"human_input_scan_followups_unaddressed={scan_followup_unaddressed_count}",
+            ]
+        )
     for question in questions[:3]:
         lines.append(f"human_input_first={question.interaction_id}")
     omitted = len(questions) - 3

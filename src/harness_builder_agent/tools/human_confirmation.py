@@ -112,7 +112,8 @@ def build_questionnaire(
             action = resolution.get("suggested_next_action") or "请人工确认该追问。"
             rationale = resolution.get("rationale") or "LLM 二次自检未提供理由。"
             reason = f"{reason} LLM 二次自检：{status}；建议：{action}；理由：{rationale}"
-        supplement_note = _scan_supplement_followup_note(followup, interaction_decisions)
+        response_status, response_sources = _scan_supplement_followup_response(followup, interaction_decisions)
+        supplement_note = _scan_supplement_followup_note(response_sources)
         if supplement_note:
             reason = f"{reason} {supplement_note}"
         questions.append(
@@ -123,6 +124,8 @@ def build_questionnaire(
                 "options": ["补充或修正相关信息", "暂时接受当前不确定性"],
                 "confidence": str(followup.get("confidence") or "low"),
                 "reason": reason,
+                "response_status": response_status,
+                "response_sources": response_sources,
             }
         )
     for warning in scan_metadata.get("warnings", []):
@@ -170,16 +173,25 @@ def _self_check_resolutions_by_interaction_id(value: Any) -> dict[str, dict[str,
     return result
 
 
-def _scan_supplement_followup_note(followup: dict[str, Any], interaction_decisions: Any | None) -> str:
+def _scan_supplement_followup_response(
+    followup: dict[str, Any],
+    interaction_decisions: Any | None,
+) -> tuple[str, list[str]]:
     scan = _scan_confirmation_payload(interaction_decisions)
     if not scan or scan.get("review_status") != "pending_harness_maintainer_review":
-        return ""
+        return "unaddressed", []
     snippets = _matching_scan_supplement_snippets(followup, scan)
     if not snippets:
+        return "unaddressed", []
+    return "partially_addressed_by_current_scan_supplement", snippets[:4]
+
+
+def _scan_supplement_followup_note(response_sources: list[str]) -> str:
+    if not response_sources:
         return ""
     return (
         "本轮 scan 补充可能已部分回应该追问："
-        f"{'；'.join(snippets[:4])}；"
+        f"{'；'.join(response_sources)}；"
         "review_status=pending_harness_maintainer_review，仍需 Harness Maintainer 复核是否完全解决。"
     )
 
@@ -227,9 +239,6 @@ def _matching_scan_supplement_snippets(followup: dict[str, Any], scan: dict[str,
     if risk_areas and (trigger in {"coverage_gap", "module_boundary_unclear"} or "workflow" in affects):
         snippets.extend(f"risk={item.get('path', '')}" for item in risk_areas[:2] if item.get("path"))
 
-    notes = [str(item).strip() for item in scan.get("notes", []) if str(item).strip()]
-    if notes and snippets:
-        snippets.append(f"notes={len(notes)}条")
     return list(dict.fromkeys(snippets))
 
 

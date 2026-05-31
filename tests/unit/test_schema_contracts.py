@@ -116,6 +116,50 @@ def test_questionnaire_accepts_evidence_expansion_confirmation():
     assert questionnaire.questions[0].interaction_type == "evidence_expansion_confirmation"
 
 
+def test_questionnaire_defaults_followup_response_status_for_old_payloads():
+    questionnaire = Questionnaire.model_validate(
+        {
+            "schema_version": "1.0",
+            "questions": [
+                {
+                    "interaction_type": "scan_followup_confirmation",
+                    "interaction_id": "confirm:scan-followup:test-evidence",
+                    "question": "真实测试入口是什么？",
+                    "options": ["补充或修正相关信息"],
+                    "confidence": "low",
+                    "reason": "缺少测试 evidence。",
+                }
+            ],
+        }
+    )
+
+    assert questionnaire.questions[0].response_status == "unaddressed"
+    assert questionnaire.questions[0].response_sources == []
+
+
+def test_questionnaire_accepts_partially_addressed_followup_response_status():
+    questionnaire = Questionnaire.model_validate(
+        {
+            "schema_version": "1.0",
+            "questions": [
+                {
+                    "interaction_type": "scan_followup_confirmation",
+                    "interaction_id": "confirm:scan-followup:test-evidence",
+                    "question": "真实测试入口是什么？",
+                    "options": ["补充或修正相关信息"],
+                    "confidence": "low",
+                    "reason": "缺少测试 evidence。",
+                    "response_status": "partially_addressed_by_current_scan_supplement",
+                    "response_sources": ["command=unit_test:mvn test"],
+                }
+            ],
+        }
+    )
+
+    assert questionnaire.questions[0].response_status == "partially_addressed_by_current_scan_supplement"
+    assert questionnaire.questions[0].response_sources == ["command=unit_test:mvn test"]
+
+
 def test_evidence_bundle_records_priority_buckets_and_coverage():
     bundle = EvidenceBundle(
         repo_name="large-repo",

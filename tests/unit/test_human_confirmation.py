@@ -181,6 +181,8 @@ def test_build_questionnaire_marks_followup_partially_addressed_by_scan_suppleme
     assert "本轮 scan 补充可能已部分回应该追问" in question["reason"]
     assert "command=unit_test:mvn test" in question["reason"]
     assert "review_status=pending_harness_maintainer_review" in question["reason"]
+    assert question["response_status"] == "partially_addressed_by_current_scan_supplement"
+    assert question["response_sources"] == ["command=unit_test:mvn test"]
     Questionnaire.model_validate(questionnaire)
 
 
@@ -213,6 +215,8 @@ def test_build_questionnaire_does_not_mark_unrelated_followup_as_addressed():
         item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:test-evidence"
     )
     assert "本轮 scan 补充可能已部分回应该追问" not in question["reason"]
+    assert question["response_status"] == "unaddressed"
+    assert question["response_sources"] == []
     Questionnaire.model_validate(questionnaire)
 
 
