@@ -52,7 +52,9 @@ scripts/test-full.sh
 
 - Codex 的本地 commit message 必须使用中文；`docs/superpowers/specs/`、`docs/superpowers/plans/` 和 `docs/evolution-log.md` 等过程文档也必须用中文撰写。
 - Codex 在创建 git commit 前，必须先主动运行快速回归：`scripts/test-fast.sh`。
-- Codex 在 push 到 GitHub 前，必须先主动运行本地全量回归：`scripts/test-full.sh`。
+- 本地 commit 可以按独立切片或阶段性检查点创建；不要把“每个 commit”自动等同为“必须 push 到 GitHub”。
+- push 到 GitHub 的粒度应以完整 todo、完整工作包或已经产生独立用户价值的功能批次为边界；允许多个本地 commit 累积后再统一 push。
+- Codex 在 push 到 GitHub 前，必须先主动运行本地全量回归：`scripts/test-full.sh`。降低 push 频率不豁免 push 前全量验证，只减少触发次数。
 - 如果本地缺少 `.venv/bin/python`，可以使用当前环境中的 `python -m pytest -q`，但必须在回复中说明。
 - 本地 `.githooks` 只是兜底机制，不是 GitHub hook，也不是 Codex 产品层面的 hook；Codex 仍必须按本文件规则主动执行验证。
 - 推送代码前，本地 Git hook 会运行本地全量回归测试。
