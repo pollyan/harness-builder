@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
+from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.scan_repo import scan_repository
 
@@ -219,6 +220,31 @@ def _latest_init_artifacts(repo: Path) -> dict:
     runs = sorted((repo / ".ai" / "runs").iterdir())
     assert runs
     return yaml.safe_load((runs[-1] / "artifacts.yaml").read_text(encoding="utf-8"))
+
+
+def _formal_asset_snapshot(repo: Path) -> dict[str, str]:
+    ai = repo / ".ai"
+    paths = [
+        ai / "project-inventory.json",
+        ai / "command-catalog.yaml",
+        ai / "harness-config.yaml",
+        ai / "scan-metadata.yaml",
+        ai / "llm-scan-proposal.json",
+        ai / "weapon-library-selection.yaml",
+        ai / "guides" / "project-context.md",
+        ai / "guides" / "coding-rules.md",
+        ai / "sensors" / "verification.md",
+        ai / "sensors" / "test-strategy.md",
+        ai / "skills" / "lightweight" / "SKILL.md",
+        ai / "skills" / "bugfix" / "SKILL.md",
+        ai / "skills" / "standard" / "SKILL.md",
+    ]
+    return {str(path.relative_to(repo)): path.read_text(encoding="utf-8") for path in paths}
+
+
+def _assert_formal_assets_unchanged(repo: Path, snapshot: dict[str, str]) -> None:
+    for relative_path, content in snapshot.items():
+        assert (repo / relative_path).read_text(encoding="utf-8") == content
 
 
 def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
@@ -549,3 +575,112 @@ def test_guided_init_existing_harness_can_assess_without_overwriting_formal_asse
     assert ".ai/maturity-report.md" in artifact_paths
     assert ".ai/maturity-evidence.yaml" in artifact_paths
     assert ".ai/init-summary.md" in artifact_paths
+
+
+def test_guided_init_existing_harness_can_improve_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness improve must reuse existing Harness state, not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.assess_maturity.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="improve\n")
+
+    assert result.exit_code == 0, result.output
+    assert "已存在 Harness" in result.output
+    assert "improve" in result.output
+    assert "改进候选已生成" in result.output
+    assert "优先候选" in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    candidates = ImprovementCandidateReport.model_validate(
+        yaml.safe_load((repo / ".ai" / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+    )
+    assert candidates.candidates
+    assert any(candidate.id in result.output for candidate in candidates.candidates)
+    assert all(candidate.human_confirmation_required is True for candidate in candidates.candidates)
+    assert all(candidate.suggested_target.startswith(".ai/") for candidate in candidates.candidates)
+    assert all(".ai/maturity-evidence.yaml" in candidate.evidence_sources for candidate in candidates.candidates)
+    pending = (repo / ".ai" / "experience" / "pending-improvements.md").read_text(encoding="utf-8")
+    assert "## 待确认改进候选" in pending
+    assert "Acceptance checks" in pending
+    evolution = (repo / ".ai" / "evolution-plan.md").read_text(encoding="utf-8")
+    assert "## 优先级路线图" in evolution
+    experience_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
+    assert experience_index["pending_improvement_count"] >= 1
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert "scan" not in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "improve"
+    artifacts = _latest_init_artifacts(repo)
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/maturity-score.yaml" in artifact_paths
+    assert ".ai/maturity-report.md" in artifact_paths
+    assert ".ai/maturity-evidence.yaml" in artifact_paths
+    assert ".ai/init-summary.md" in artifact_paths
+    assert ".ai/improvement-candidates.yaml" in artifact_paths
+    assert ".ai/evolution-plan.md" in artifact_paths
+    assert ".ai/experience/pending-improvements.md" in artifact_paths
+    assert ".ai/experience/experience-index.yaml" in artifact_paths
+
+
+def test_guided_init_existing_harness_improve_refreshes_stale_experience_evidence(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    review = repo / ".ai" / "review"
+    review.mkdir(parents=True, exist_ok=True)
+    (review / "workflow-routing-recommendation.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "task_id": "manual-task",
+                "task_brief": "修改高风险权限逻辑。",
+                "recommended_workflow": "standard",
+                "matched_rule_ids": ["standard-escalation"],
+                "risk_level": "high",
+                "confidence": "high",
+                "rationale": "权限逻辑需要标准流程。",
+                "required_guides": [".ai/guides/project-context.md"],
+                "required_sensors": [".ai/sensors/verification.md"],
+                "human_confirmation_required": True,
+                "review_status": "pending_harness_maintainer_review",
+                "evidence_sources": [".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    stale_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
+    assert stale_index["workflow_recommendation_count"] == 0
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness improve must not rescan while refreshing evidence")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.assess_maturity.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="improve\n")
+
+    assert result.exit_code == 0, result.output
+    refreshed_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
+    assert refreshed_index["workflow_recommendation_count"] == 1
+    evidence = yaml.safe_load((repo / ".ai" / "maturity-evidence.yaml").read_text(encoding="utf-8"))
+    assert evidence["experience"]["workflow_recommendation_count"] == 1
+    candidates = yaml.safe_load((repo / ".ai" / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+    workflow_candidate = next(item for item in candidates["candidates"] if item["id"] == "experience-workflow-recommendation-review")
+    assert workflow_candidate["candidate_type"] == "workflow_policy_update"
+    assert workflow_candidate["suggested_target"] == ".ai/harness-config.yaml"
+    assert ".ai/review/workflow-routing-recommendation.yaml" in workflow_candidate["evidence_sources"]

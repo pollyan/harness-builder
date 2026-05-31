@@ -168,6 +168,8 @@ def test_improve_generates_reviewable_improvement_candidates(tmp_path: Path, mon
     assert trace["command"] == "improve"
     assert trace["status"] == "completed"
     assert "improvement" in trace["stages"]
+    artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
+    assert {"path": ".ai/experience/experience-index.yaml", "kind": "experience_index"} in artifacts["artifacts"]
 
 
 def test_assess_handles_empty_command_catalog_by_lowering_sensor_maturity(tmp_path: Path, monkeypatch):

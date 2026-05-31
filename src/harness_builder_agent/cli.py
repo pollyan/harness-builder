@@ -98,8 +98,9 @@ def improve_command(repo: Path = typer.Option(..., "--repo", exists=True, file_o
         trace.artifact(output_dir / "improvement-candidates.yaml", "improvement_candidates")
         trace.artifact(output_dir / "evolution-plan.md", "plan")
         trace.artifact(output_dir / "experience" / "pending-improvements.md", "experience")
-        trace.event("improvement", "completed", "Improvement candidate generation completed.", {"artifact_count": 3})
-        trace.finish("completed", {"artifact_count": 3})
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.event("improvement", "completed", "Improvement candidate generation completed.", {"artifact_count": 4})
+        trace.finish("completed", {"artifact_count": 4})
     except Exception as exc:
         trace.event("improvement", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})

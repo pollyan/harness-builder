@@ -9,11 +9,14 @@ import yaml
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.harness_config import HarnessConfig
+from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.interaction_decision import CandidateDecision, WorkflowConfirmation
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.experience_index import write_experience_index
+from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
@@ -188,6 +191,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo("\n可选动作")
     typer.echo("- exit：退出，不覆盖现有 Harness。")
     typer.echo("- assess：重新评估成熟度，只刷新 maturity 和 init summary 产物。")
+    typer.echo("- improve：基于成熟度缺口生成 review-only 改进候选，不覆盖正式 Harness 资产。")
     typer.echo("- reinit：继续重新扫描并进入当前生成向导。")
 
     action = typer.prompt("你的选择", default="exit").strip().lower()
@@ -239,6 +243,46 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         typer.echo("- `.ai/maturity-evidence.yaml`")
         typer.echo("- `.ai/init-summary.md`")
         return output_dir
+    if action in {"improve", "recommendations", "建议", "改进"}:
+        typer.echo("正在生成成熟度驱动的改进候选...")
+        trace.event(
+            "existing-harness",
+            "started",
+            "Existing Harness detected; user chose improvement candidate generation.",
+            {"primary_stack": inventory.primary_stack, "action": "improve"},
+        )
+        write_experience_index(ai)
+        output_dir = assess_maturity(repo)
+        output_dir = generate_improvements(repo)
+        trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        trace.artifact(output_dir / "maturity-report.md", "maturity_report")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.artifact(output_dir / "init-summary.md", "init_summary")
+        trace.artifact(output_dir / "improvement-candidates.yaml", "improvement_candidates")
+        trace.artifact(output_dir / "evolution-plan.md", "plan")
+        trace.artifact(output_dir / "experience" / "pending-improvements.md", "experience")
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.event(
+            "existing-harness",
+            "completed",
+            "Existing Harness improvement candidates generated.",
+            {"primary_stack": inventory.primary_stack, "action": "improve", "artifact_count": 8},
+        )
+        trace.finish(
+            "completed",
+            {
+                "primary_stack": inventory.primary_stack,
+                "existing_harness_action": "improve",
+                "artifact_count": 8,
+            },
+        )
+        typer.echo("改进候选已生成。")
+        typer.echo(_top_improvement_candidate(output_dir / "improvement-candidates.yaml"))
+        typer.echo("- `.ai/improvement-candidates.yaml`")
+        typer.echo("- `.ai/evolution-plan.md`")
+        typer.echo("- `.ai/experience/pending-improvements.md`")
+        typer.echo("- `.ai/experience/experience-index.yaml`")
+        return output_dir
     if action in {"reinit", "重新生成", "regenerate"}:
         trace.event(
             "existing-harness",
@@ -262,6 +306,19 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         },
     )
     return ai
+
+
+def _top_improvement_candidate(path: Path) -> str:
+    report = ImprovementCandidateReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    if not report.candidates:
+        return "优先候选：暂无候选。"
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    candidate = sorted(report.candidates, key=lambda item: (priority_order.get(item.priority, 3), item.id))[0]
+    return (
+        f"优先候选：`{candidate.id}`"
+        f"（priority={candidate.priority}，dimension={candidate.target_dimension or 'unknown'}，"
+        f"target=`{candidate.suggested_target}`）"
+    )
 
 
 def _read_benchmark_status(ai: Path) -> str:

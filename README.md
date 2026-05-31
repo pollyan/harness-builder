@@ -78,7 +78,7 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
 
 `init-summary.md` 是首次初始化后的入口摘要，按成熟度框架说明当前等级、主要阻断项、建议下一步和优先查看的文件。
 
-再次运行默认 guided `init` 时，如果目标仓库已经存在 `.ai/project-inventory.json` 和 `.ai/harness-config.yaml`，CLI 会先进入已有 Harness 维护入口，展示当前成熟度、benchmark 和 Experience / 候选信号。当前可选动作包括 `exit` 只读退出、`assess` 复评成熟度并刷新 maturity / init summary 产物，以及 `reinit` 显式重新扫描生成。
+再次运行默认 guided `init` 时，如果目标仓库已经存在 `.ai/project-inventory.json` 和 `.ai/harness-config.yaml`，CLI 会先进入已有 Harness 维护入口，展示当前成熟度、benchmark 和 Experience / 候选信号。当前可选动作包括 `exit` 只读退出、`assess` 复评成熟度并刷新 maturity / init summary 产物、`improve` 基于成熟度缺口生成 review-only 改进候选，以及 `reinit` 显式重新扫描生成。
 
 Harness Builder 不提供任务级 `run` 命令。真实 AI Coding 工具执行 Workflow Skill 时，应按 Skill 中的 runtime artifact contract 生成任务级可观测产物：
 
