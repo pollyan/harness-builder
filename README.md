@@ -102,7 +102,7 @@ Harness Builder 不提供任务级 `run` 命令。真实 AI Coding 工具执行 
 
 `review-candidate` 是 Harness Maintainer 的显式候选治理动作。它读取 `.ai/review/asset-candidates.yaml`，把某个候选记录为 `accepted`、`deferred`、`rejected` 或 `applied`，并写入 `.ai/review/candidate-governance.*`。`applied` 支持 Guide / Sensor Markdown 候选追加到正式 `.ai/**/*.md` 资产；`workflow_policy` 候选必须来自 `support` 或 `revise` 的 maturity review，必须提供结构化 `workflow_policy_patch`，只能通过 schema 校验后更新 `.ai/harness-config.yaml` 的 routing rule，并会保持原 routing rule 顺序、刷新成熟度证据。`defer`、`missing` 或非 `.ai/harness-config.yaml` 目标的 `workflow_policy` 候选不能应用为正式 routing policy。
 
-`benchmark` 会检查 Harness 资产文件存在、schema、内容质量、Workflow Skill 引用、review-only 智能改进产物、candidate governance 产物、可选 Runtime task-run 产物和 hard gate command 证据。
+`benchmark` 会检查 Harness 资产文件存在、schema、内容质量、Workflow Skill 引用、review-only 智能改进产物、candidate governance 产物、可选 Runtime task-run 产物和 hard gate command 证据。hard gate command 不只需要声明 source 和 confidence；source 还必须指向目标仓库内真实存在的文件。source 为空、low confidence、source path 不存在或逃出仓库时，`content:hard-gate-command-evidence` 会失败，并在 `weak_commands.reason` 中标出 `missing_source`、`low_confidence`、`source_path_missing` 或 `source_path_outside_repo`。
 
 `benchmark-report.yaml` 中：
 

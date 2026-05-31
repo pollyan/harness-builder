@@ -657,6 +657,43 @@ def test_benchmark_fails_when_hard_gate_command_lacks_evidence(tmp_path: Path, m
     assert report["status"] == "failed"
     hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-command-evidence")
     assert hard_gate_check["passed"] is False
+    assert hard_gate_check["weak_commands"] == [
+        {"id": "unit_test", "source": "", "confidence": "high", "reason": "missing_source"}
+    ]
+
+
+def test_benchmark_fails_when_hard_gate_command_source_path_is_missing(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    catalog_path = repo / ".ai" / "command-catalog.yaml"
+    catalog = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    catalog["commands"][0]["source"] = "docs/testing.md"
+    catalog_path.write_text(yaml.safe_dump(catalog, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    report = run_benchmark(repo)
+    hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-command-evidence")
+
+    assert report["status"] == "failed"
+    assert hard_gate_check["passed"] is False
+    assert hard_gate_check["weak_commands"] == [
+        {"id": "unit_test", "source": "docs/testing.md", "confidence": "high", "reason": "source_path_missing"}
+    ]
+
+
+def test_benchmark_fails_when_hard_gate_command_source_path_escapes_repo(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    catalog_path = repo / ".ai" / "command-catalog.yaml"
+    catalog = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    catalog["commands"][0]["source"] = "../outside.md"
+    catalog_path.write_text(yaml.safe_dump(catalog, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    report = run_benchmark(repo)
+    hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-command-evidence")
+
+    assert report["status"] == "failed"
+    assert hard_gate_check["passed"] is False
+    assert hard_gate_check["weak_commands"] == [
+        {"id": "unit_test", "source": "../outside.md", "confidence": "high", "reason": "source_path_outside_repo"}
+    ]
 
 
 def test_benchmark_fails_weapon_library_candidates_with_invalid_status(tmp_path: Path, monkeypatch):

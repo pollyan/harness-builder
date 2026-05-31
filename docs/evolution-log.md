@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Hard Gate Source Path Benchmark 迁移
+
+- North Star 模块：Sensor & Quality Gate、Maturity & Evolution、Runtime Boundary。
+- init North Star 旅程阶段：质量门禁解释；写入后通过 benchmark 判断第一版 Harness 是否可信。
+- Gap Analysis 摘要：当前唯一 open todo 仍是本地独有 / 更细能力迁移。对比当前 main 与 `backup/local-61-before-migration` 后，本轮候选包括 hard gate source path 校验、risk context consistency、project-context evidence context gate。当前 main 已能展示 hard gate weak command detail，但 `_hard_gate_command_evidence_check()` 只检查 source 是否为空和 low confidence，不能发现 source 指向不存在文件或逃出目标仓库，因此优先补齐最小的 hard gate 可信来源校验。
+- 工程信任故事：作为 Harness Maintainer，当我运行 `benchmark` 验收已有 Harness 时，如果 hard gate command 的 `source` 指向不存在文件或逃出目标仓库，我可以在 `benchmark-report.yaml` 的 `content:hard-gate-command-evidence` 中看到失败和 `weak_commands.reason`，从而知道该 hard gate 缺少可信来源证据，不能被当作已验证质量门禁。
+- 当前代码 gap：`content:hard-gate-command-evidence` 对 `docs/testing.md` 这类不存在 source 或 `../outside.md` 这类仓库外 source 仍可能通过。
+- 关键决策 / 取舍：复用现有 check id，不新增新 benchmark check；只验证 source path 可追溯，不执行命令；`BenchmarkReport` schema 继续兼容旧报告，但新生成的 weak command 会写 reason。
+- Assumptions / risks：`CommandDefinition.source` 应是目标仓库内 evidence path；旧 Harness 如果写 URL、说明文本或组合路径，会被标记为不可追溯，需要 Maintainer 修正为仓库内文件。
+- Sub agent 使用情况：尝试启动 explorer 做只读方案审查，但当前 agent thread limit reached；本轮由主线程对比旧分支实现。
+- 价值切分说明：本轮只迁移 hard gate source path 校验，不把 risk context consistency 或 project-context evidence context gate 混入同一轮。
+- 可执行验收标准及验证方式：benchmark integration 覆盖 source missing、source outside repo 和 source 为空；正常 Java fixture benchmark 继续通过。
+- 完成内容：`_hard_gate_command_evidence_check()` 新增 `_hard_gate_command_evidence_issue()`，保留 `missing_source`、`low_confidence`、`source_path_missing`、`source_path_outside_repo`；README、sensor/gate 规则、测试策略、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted benchmark integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：长期文档已同步；Runtime 边界未变化，未执行 hard gate command、未创建 `.ai/task-runs`。下一轮候选 gap 继续来自迁移 todo：risk context consistency 或 project-context evidence context gate。
+
 ## 2026-06-01 Init Summary 待确认处理入口迁移
 
 - North Star 模块：Progressive Collaboration、CLI Experience、Maturity & Evolution、Sensor & Quality Gate。

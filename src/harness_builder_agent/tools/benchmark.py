@@ -9,7 +9,7 @@ import yaml
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
-from harness_builder_agent.schemas.command_catalog import CommandCatalog
+from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.harness_config import HarnessConfig
@@ -1055,17 +1055,29 @@ def _hard_gate_command_evidence_check(ai: Path) -> dict[str, Any]:
     except Exception as exc:  # pragma: no cover
         return {"id": "content:hard-gate-command-evidence", "passed": False, "error": str(exc)}
     hard_commands = [command for command in catalog.commands if command.gate == "hard"]
-    weak = [
-        {"id": command.id, "source": command.source, "confidence": command.confidence}
-        for command in hard_commands
-        if not command.source or command.confidence == "low"
-    ]
+    weak = [_hard_gate_command_evidence_issue(ai.parent, command) for command in hard_commands]
+    weak = [item for item in weak if item is not None]
     return {
         "id": "content:hard-gate-command-evidence",
         "passed": bool(hard_commands) and not weak,
         "hard_gate_count": len(hard_commands),
         "weak_commands": weak,
     }
+
+
+def _hard_gate_command_evidence_issue(root: Path, command: CommandDefinition) -> dict[str, str] | None:
+    if not command.source:
+        return {"id": command.id, "source": command.source, "confidence": command.confidence, "reason": "missing_source"}
+    if command.confidence == "low":
+        return {"id": command.id, "source": command.source, "confidence": command.confidence, "reason": "low_confidence"}
+    source_path = (root / command.source).resolve()
+    try:
+        source_path.relative_to(root)
+    except ValueError:
+        return {"id": command.id, "source": command.source, "confidence": command.confidence, "reason": "source_path_outside_repo"}
+    if not source_path.exists() or not source_path.is_file():
+        return {"id": command.id, "source": command.source, "confidence": command.confidence, "reason": "source_path_missing"}
+    return None
 
 
 def _quality_scores(ai: Path, inventory: ProjectInventory) -> dict[str, dict[str, dict[str, Any]]]:

@@ -83,7 +83,7 @@ Benchmark 应检查：
 - workflow skill 文件存在并被引用。
 - generation trace 存在且包含阶段和 artifact。
 - weapon library selection 与生成 guide/sensor 内容一致。
-- hard gate command 有 source、confidence、type 和 gate 证据。
+- hard gate command 有 source、confidence、type 和 gate 证据；source 必须指向目标仓库内真实存在的文件。source 为空、low confidence、source path 不存在或逃出仓库时，benchmark 必须让 `content:hard-gate-command-evidence` 失败，并在 `weak_commands` 中保留 command id、source、confidence 和 reason。
 - 显式 LLM review 命令生成的可选 review artifacts 在存在时必须被校验。它们不是 baseline required files，但 schema 错误、YAML/Markdown 缺少配对、跨文件引用无效或丢失 review-only 状态时，benchmark 应失败。
 - `.ai/review/maturity-review.yaml` 和 `.ai/review/maturity-review.md` 属于可选 LLM review artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、candidate id 引用、`.ai/` evidence 边界、evidence source allowlist 和 `pending_harness_maintainer_review` 状态。
 - `.ai/review/asset-candidates.yaml` 和配套 `asset-candidate-*.md` 属于可选 review-only artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配套章节、source candidate 引用、`.ai/` evidence/suggested path 边界、evidence source allowlist 和 `pending_harness_maintainer_review` 状态。
@@ -146,7 +146,7 @@ Sensor 不是孤立文件。它应该和以下产物一致：
 - Sensor Markdown 包含必需章节。
 - Stack-specific sensor weapon id 出现在输出中。
 - hard gate passed 时 benchmark 可以通过。
-- hard gate command source 缺失或 low confidence 时 benchmark 失败并列出失败摘要。
+- hard gate command source 缺失、source path 不存在、source path 逃出仓库或 low confidence 时 benchmark 失败并列出失败摘要。
 - future runtime 中 skipped 不被当作 passed。
 - command catalog 与 sensor 内容有关联。
 
