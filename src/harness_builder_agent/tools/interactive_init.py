@@ -673,23 +673,23 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     else:
         typer.echo("- 当前成熟度：未发现 `.ai/maturity-score.yaml`，建议先运行 assess。")
     typer.echo(f"- 最近 benchmark：{benchmark}")
-    typer.echo("- Benchmark signals:")
+    typer.echo("- 质量门禁信号（Benchmark signals）:")
     for line in _benchmark_signal_lines(ai):
         typer.echo(f"  - {line}")
-    typer.echo("- Workflow routing signals:")
+    typer.echo("- Workflow 路由信号（Workflow routing signals）:")
     for line in _workflow_routing_status_lines(config):
         typer.echo(f"  - {line}")
-    typer.echo("- Experience / review signals:")
+    typer.echo("- 经验 / 审查信号（Experience / review signals）:")
     for line in experience_lines:
         typer.echo(f"  - {line}")
     maintenance_actions = build_maintenance_triage(ai, score)
-    typer.echo("- Maintenance triage:")
+    typer.echo("- 维护优先级（Maintenance triage）:")
     for line in render_maintenance_triage_lines(maintenance_actions):
         typer.echo(f"  - {line}")
-    typer.echo("- Maintenance triage guidance:")
+    typer.echo("- 维护建议（Maintenance triage guidance）:")
     for line in render_maintenance_triage_guidance_lines(maintenance_actions):
         typer.echo(f"  - {line}")
-    typer.echo("- Maintenance action shortcuts:")
+    typer.echo("- 推荐动作快捷选择（Maintenance action shortcuts）:")
     for line in render_maintenance_triage_menu_hint_lines(maintenance_actions):
         typer.echo(f"  - {line}")
     typer.echo("\n可选动作")

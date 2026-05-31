@@ -1913,16 +1913,16 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert result.exit_code == 0, result.output
     assert "已存在 Harness" in result.output
     assert "当前成熟度" in result.output
-    assert "Benchmark signals" in result.output
+    assert "质量门禁信号（Benchmark signals）" in result.output
     assert "benchmark_failed_checks=not_available" in result.output
-    assert "Workflow routing signals" in result.output
+    assert "Workflow 路由信号（Workflow routing signals）" in result.output
     assert "routing_default=lightweight" in result.output
     assert "routing_rule_count=3" in result.output
     assert "standard_escalation=present" in result.output
     assert "standard_human_confirmation=true" in result.output
     assert "missing_hard_gate_trigger=" in result.output
-    assert "Experience / review signals" in result.output
-    assert "Maintenance triage" in result.output
+    assert "经验 / 审查信号（Experience / review signals）" in result.output
+    assert "维护优先级（Maintenance triage）" in result.output
     assert "top_action_1=benchmark" in result.output
     assert "reason=benchmark_not_run" in result.output
     assert "source=.ai/benchmark-report.yaml" in result.output
@@ -1972,9 +1972,9 @@ def test_guided_init_existing_harness_can_exit_with_numbered_action(tmp_path: Pa
     result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="1\n")
 
     assert result.exit_code == 0, result.output
-    assert "Maintenance triage guidance" in result.output
+    assert "维护建议（Maintenance triage guidance）" in result.output
     assert "建议处理 1：先运行 `benchmark`" in result.output
-    assert "Maintenance action shortcuts" in result.output
+    assert "推荐动作快捷选择（Maintenance action shortcuts）" in result.output
     assert "建议优先选择 1：输入 `4` 运行 `benchmark`" in result.output
     assert "1. exit" in result.output
     assert "2. assess" in result.output

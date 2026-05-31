@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 维护入口分组标题中文化
+
+- North Star 模块：CLI Experience、Maturity-driven Init、审查接管。
+- init North Star 旅程阶段：再次进入已有 Harness 的状态感知维护入口。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo。本轮重新读取事实源后，候选包括 existing Harness 维护入口分组标题中文化、completion summary 视觉紧凑化、existing Harness 维护入口模块拆分。当前维护入口已经有 signals、triage、guidance、shortcuts 和编号菜单，但主要分组标题仍是英文，和 `init-north-star.md` 的“默认中文、CLI 是产品界面”原则不完全一致。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 进入已有 Harness 维护入口时，我可以先看到中文分组标题，再按需识别括号中的英文稳定标记，从而更快理解当前健康信号、维护建议和推荐动作。
+- 当前代码 gap：`_handle_existing_harness_entry()` 输出 `Benchmark signals`、`Workflow routing signals`、`Experience / review signals`、`Maintenance triage`、`Maintenance triage guidance` 和 `Maintenance action shortcuts`，缺少中文主标题。
+- 关键决策 / 取舍：中文标题放在主位置，英文 marker 放在括号中；不翻译每一条 key=value 机器信号，不改变 triage 排序、动作执行、默认 exit、schema、LLM、benchmark 或 Runtime 分工。
+- Assumptions / risks：用户主要依靠 section header 扫读维护入口；中文化标题能降低进入门槛。中英混排略长，但保留英文 marker 有助于测试、文档检索和调试。
+- 边界情况 / 失败模式：本轮只改 CLI section header；正式 Harness 资产不变；existing Harness 只读 exit 仍不触发 scan、不追加首次 init completion summary。
+- Sub agent 使用情况：尝试启动 explorer 做只读调研，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮只补“已有 Harness 状态页导航语言”的小体验切片，不把 completion summary 压缩或维护入口模块拆分混入。
+- 可执行验收标准及验证方式：integration 覆盖 existing Harness 只读 exit transcript 中中文标题与英文 marker 同时存在，并保持正式资产快照不变；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：`interactive_init.py` 的 existing Harness 维护入口标题改为中文优先；新增本轮 spec / plan；更新 transcript 断言。
+- 验证结果：targeted guided existing Harness integration 2 passed；`git diff --check` passed；`scripts/test-fast.sh` 413 passed。
+- Self-Harness Gate：长期规则无需更新，README / init workflow 已描述维护入口分项 signals，当前变更只是中文主标题；不新增 todo。下一轮候选 gap：completion summary 视觉紧凑化、existing Harness 维护入口模块拆分，或 push 前 full regression / 远端同步外部前置。
+
 ## 2026-06-01 Existing Harness 推荐动作编号提示
 
 - North Star 模块：CLI Experience、Maturity-driven Init、审查接管。
