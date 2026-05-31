@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Project Context Evidence Context Gate 迁移
+
+- North Star 模块：Deep Scan Evidence、Sensor & Quality Gate、Maturity & Evolution。
+- init North Star 旅程阶段：扫描理解可解释；写入后质量门禁；Maintainer 审查 project-context 证据链。
+- Gap Analysis 摘要：当前唯一 open todo 仍是本地独有 / 更细能力迁移。本轮候选包括 project-context evidence context gate、scan-report evidence visibility、init-summary evidence audit 和 failed check detail preservation。当前 `ScanMetadata.evidence_expansion` 已记录 LLM 深扫计划和读取结果，但 `project-context.md` 只渲染 `inventory.evidence`，benchmark 没有守住 evidence expansion 审计章节，因此优先补齐 project-context 的用户可见证据闭环。
+- 工程信任故事：作为 Harness Maintainer，当我运行 `init` 或 `benchmark` 审查一个刚生成的 Harness 时，我可以在 `.ai/guides/project-context.md` 看到扫描来源证据和 LLM evidence expansion 的 requested/read paths、risk focus、confidence 与 rationale，并且 benchmark 会防止这些证据上下文从 Guide 中丢失。
+- 当前代码 gap：Guide writer 没有 `## LLM 证据扩展`，来源证据未合并 documents/configs/CI；`benchmark.py` 没有 `content:project-context-evidence-context`；旧分支实现读取旧字段和旧 inventory 顶层 evidence 字段，不能直接 cherry-pick。
+- 关键决策 / 取舍：适配当前 `scan_metadata.evidence_expansion`；只校验 inventory evidence/doc/config/CI 和 expansion requested/read/risk/confidence/rationale；coverage bucket 的 selected paths、scan-report 和 init-summary evidence audit 留作后续。
+- Assumptions / risks：旧 Harness 缺少 `## LLM 证据扩展` 会被 benchmark 显式标记 failed；这是质量门禁而非 fallback。真实 LLM prompt 和 schema 不变。
+- Sub agent 使用情况：尝试启动 explorer 做只读调研，但当前 agent thread limit reached；本轮由主线程完成旧分支对比、TDD 和实现。
+- 价值切分说明：本轮只迁移 project-context evidence context gate，不把 scan-report 和 init-summary 的 evidence visibility 混入，避免一次改变多个交付入口。
+- 可执行验收标准及验证方式：unit 覆盖 writer 正向章节和字段；integration 覆盖 Java fixture check id、完整 context 通过、缺 evidence path、缺 LLM section、缺 requested/read/rationale detail 失败。
+- 完成内容：`project-context.md` 新增 `## LLM 证据扩展`；来源证据合并 evidence/documents/configs/CI；benchmark 新增 `content:project-context-evidence-context`；README、init workflow、LLM contracts、testing strategy、sensor/gate rules、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted unit / integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：长期文档已同步；Runtime 边界未变化，未执行任务、不创建 `.ai/task-runs`。下一轮候选 gap：scan-report evidence visibility，或 init-summary evidence audit，继续从迁移 todo 的 Scan evidence 可审计细节中选择。
+
 ## 2026-06-01 Risk Context Consistency Benchmark 迁移
 
 - North Star 模块：Sensor & Quality Gate、Workflow Toolkit、Maturity & Evolution。

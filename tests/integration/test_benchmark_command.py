@@ -541,6 +541,60 @@ def _add_consistent_risk_context(ai: Path, risk_path: str, reason: str = "核心
     return ProjectInventory.model_validate_json(inventory_path.read_text(encoding="utf-8"))
 
 
+def _add_consistent_project_context_evidence_context(ai: Path) -> ProjectInventory:
+    inventory_path = ai / "project-inventory.json"
+    inventory_payload = json.loads(inventory_path.read_text(encoding="utf-8"))
+    inventory_payload["documents"] = [{"path": "README.md", "kind": "project documentation"}]
+    inventory_payload["configs"] = [{"path": "src/main/resources/application.yml", "kind": "spring configuration"}]
+    inventory_payload["ci_files"] = [{"path": ".github/workflows/ci.yml", "kind": "github actions"}]
+    inventory_payload.setdefault("stack_extensions", {}).setdefault("scan_metadata", {})["evidence_expansion"] = {
+        "schema_version": "1.0",
+        "planner_prompt_version": "llm-evidence-planner-v1",
+        "requested_paths": ["src/main/java/com/example/demo/DemoController.java"],
+        "risk_focus": ["controller routing"],
+        "rationale": "Controller route ownership needed deeper inspection.",
+        "confidence": "medium",
+        "read_paths": ["src/main/java/com/example/demo/DemoController.java"],
+        "read_file_count": 1,
+    }
+    inventory_path.write_text(json.dumps(inventory_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    guide_path = ai / "guides" / "project-context.md"
+    guide_text = guide_path.read_text(encoding="utf-8")
+    source_lines = (
+        "- `README.md`：project documentation\n"
+        "- `src/main/resources/application.yml`：spring configuration\n"
+        "- `.github/workflows/ci.yml`：github actions\n"
+    )
+    if "## LLM 证据扩展" in guide_text:
+        guide_text = guide_text.replace("## LLM 证据扩展", source_lines + "\n## LLM 证据扩展", 1)
+        guide_text = guide_text.replace(
+            "- evidence_expansion=not_run",
+            "- requested_paths=`src/main/java/com/example/demo/DemoController.java`\n"
+            "- read_paths=`src/main/java/com/example/demo/DemoController.java`\n"
+            "- risk_focus=`controller routing`\n"
+            "- confidence=`medium`\n"
+            "- read_file_count=1\n"
+            "- rationale=Controller route ownership needed deeper inspection.",
+            1,
+        )
+    else:
+        guide_text += (
+            "\n\n## 来源证据\n\n"
+            + source_lines
+            + "\n## LLM 证据扩展\n\n"
+            "- requested_paths=`src/main/java/com/example/demo/DemoController.java`\n"
+            "- read_paths=`src/main/java/com/example/demo/DemoController.java`\n"
+            "- risk_focus=`controller routing`\n"
+            "- confidence=`medium`\n"
+            "- read_file_count=1\n"
+            "- rationale=Controller route ownership needed deeper inspection.\n"
+        )
+    guide_path.write_text(guide_text, encoding="utf-8")
+
+    return ProjectInventory.model_validate_json(inventory_path.read_text(encoding="utf-8"))
+
+
 def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture_repo(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
@@ -568,6 +622,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-skill-config-reference" in check_ids
     assert "content:workflow-routing-policy" in check_ids
     assert "content:risk-context-consistency" in check_ids
+    assert "content:project-context-evidence-context" in check_ids
     assert "content:maturity-routing-evidence" in check_ids
     assert "content:workflow-recommendation-review" in check_ids
     assert "content:maturity-review-artifact" in check_ids
@@ -822,6 +877,69 @@ def test_benchmark_fails_when_routing_policy_omits_scan_risk_path_for_consistenc
     check = next(item for item in checks if item["id"] == "content:risk-context-consistency")
     assert check["passed"] is False
     assert f"missing_routing_risk:{risk_path}" in check["errors"]
+
+
+def test_benchmark_passes_when_project_context_preserves_evidence_context(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_project_context_evidence_context(ai)
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:project-context-evidence-context")
+    assert check["passed"] is True
+    assert check["evidence_path_count"] >= 4
+
+
+def test_benchmark_fails_when_project_context_omits_evidence_path(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+    guide_path = ai / "guides" / "project-context.md"
+    guide_path.write_text(guide_path.read_text(encoding="utf-8").replace("pom.xml", "pom-hidden.xml"), encoding="utf-8")
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:project-context-evidence-context")
+    assert check["passed"] is False
+    assert "missing_evidence_path:pom.xml" in check["missing"]
+
+
+def test_benchmark_fails_when_project_context_omits_llm_evidence_expansion_section(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+    guide_path = ai / "guides" / "project-context.md"
+    guide_path.write_text(guide_path.read_text(encoding="utf-8").replace("## LLM 证据扩展", "## LLM 深扫"), encoding="utf-8")
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:project-context-evidence-context")
+    assert check["passed"] is False
+    assert "missing_llm_evidence_expansion_section" in check["missing"]
+
+
+def test_benchmark_fails_when_project_context_omits_llm_evidence_expansion_detail(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_project_context_evidence_context(ai)
+    guide_path = ai / "guides" / "project-context.md"
+    guide_path.write_text(
+        guide_path.read_text(encoding="utf-8")
+        .replace("`src/main/java/com/example/demo/DemoController.java`", "`src/main/java/com/example/demo/OtherController.java`")
+        .replace("read_file_count=1", "read_file_count=0")
+        .replace("Controller route ownership needed deeper inspection.", "rationale removed."),
+        encoding="utf-8",
+    )
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:project-context-evidence-context")
+    assert check["passed"] is False
+    assert "missing_expansion_requested_path:src/main/java/com/example/demo/DemoController.java" in check["missing"]
+    assert "missing_expansion_read_path:src/main/java/com/example/demo/DemoController.java" in check["missing"]
+    assert "missing_expansion_read_file_count:1" in check["missing"]
+    assert "missing_expansion_rationale" in check["missing"]
 
 
 def test_benchmark_fails_weapon_library_candidates_with_invalid_status(tmp_path: Path, monkeypatch):

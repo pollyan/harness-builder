@@ -57,7 +57,12 @@ def _guide(
     interaction_decisions: InteractionDecisions | None = None,
 ) -> str:
     module_lines = "\n".join(f"- `{module['path']}` ({module['kind']})" for module in inventory.modules) or "- No modules detected"
-    evidence_lines = "\n".join(f"- `{item['path']}`：{item['reason']}" for item in inventory.evidence) or "- 暂未发现直接证据"
+    evidence_lines = _source_evidence_lines(inventory)
+    evidence_expansion_section = (
+        "## LLM 证据扩展\n\n" + f"{_llm_evidence_expansion_lines(inventory)}\n\n"
+        if name == "project-context"
+        else ""
+    )
     match_lines = _weapon_match_lines(weapon_selection.guide_weapons)
     recommended_lines = "\n".join(f"- `{item.id}`：{item.recommended_action}" for item in weapon_selection.guide_weapons)
     return (
@@ -85,6 +90,7 @@ def _guide(
         + f"{_validation_entry_lines(commands)}\n\n"
         + "## 来源证据\n\n"
         + f"{evidence_lines}\n\n"
+        + evidence_expansion_section
         + "## 候选规则\n\n"
         + f"{_guide_rule_lines(weapon_selection.guide_weapons)}\n\n"
         + "## Harness Builder 推荐补齐项\n\n"
@@ -128,6 +134,64 @@ def _human_override_section(inventory: ProjectInventory, interaction_decisions: 
         for note in interaction_decisions.workflow_confirmation.notes:
             lines.append(f"- Workflow 补充：{note}")
     return "\n".join(lines) or "- 暂无人工修正。"
+
+
+def _source_evidence_lines(inventory: ProjectInventory) -> str:
+    lines: list[str] = []
+    seen_paths: set[str] = set()
+    for bucket in (inventory.evidence, inventory.documents, inventory.configs, inventory.ci_files):
+        for item in bucket:
+            path = str(item.get("path") or "").strip()
+            if not path or path in seen_paths:
+                continue
+            seen_paths.add(path)
+            reason = str(item.get("reason") or item.get("kind") or "扫描证据").strip()
+            lines.append(f"- `{path}`：{reason}")
+    return "\n".join(lines) or "- 暂未发现直接证据"
+
+
+def _llm_evidence_expansion_lines(inventory: ProjectInventory) -> str:
+    plan = _inventory_evidence_expansion(inventory)
+    if not plan:
+        return "- evidence_expansion=not_run"
+
+    requested_paths = _plan_list_value(plan, "requested_paths")
+    read_paths = _plan_list_value(plan, "read_paths")
+    risk_focus = _plan_list_value(plan, "risk_focus")
+    confidence = _plan_scalar_value(plan, "confidence") or "unknown"
+    rationale = _plan_scalar_value(plan, "rationale") or "未提供 rationale。"
+    read_file_count = _plan_scalar_value(plan, "read_file_count") or str(len(read_paths))
+    return (
+        f"- requested_paths={_inline_code_list(requested_paths)}\n"
+        f"- read_paths={_inline_code_list(read_paths)}\n"
+        f"- risk_focus={_inline_code_list(risk_focus)}\n"
+        f"- confidence=`{confidence}`\n"
+        f"- read_file_count={read_file_count}\n"
+        f"- rationale={rationale}"
+    )
+
+
+def _inventory_evidence_expansion(inventory: ProjectInventory) -> Any:
+    scan_metadata = inventory.stack_extensions.get("scan_metadata", {})
+    if not isinstance(scan_metadata, dict):
+        return None
+    return scan_metadata.get("evidence_expansion") or scan_metadata.get("evidence_expansion_plan")
+
+
+def _inline_code_list(items: list[str]) -> str:
+    return ", ".join(f"`{item}`" for item in items) if items else "none"
+
+
+def _plan_list_value(plan: Any, field: str) -> list[str]:
+    value = plan.get(field) if isinstance(plan, dict) else getattr(plan, field, None)
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
+
+
+def _plan_scalar_value(plan: Any, field: str) -> str:
+    value = plan.get(field) if isinstance(plan, dict) else getattr(plan, field, None)
+    return str(value).strip() if value is not None else ""
 
 
 def _task_template(kind: str) -> str:

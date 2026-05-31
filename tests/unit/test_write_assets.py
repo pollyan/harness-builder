@@ -19,12 +19,25 @@ def _inventory(repo: Path) -> ProjectInventory:
         stacks=["java", "maven", "spring-boot"],
         modules=[{"name": "app", "path": ".", "kind": "backend"}],
         evidence=[{"path": "pom.xml", "reason": "maven build file"}],
+        documents=[{"path": "README.md", "kind": "project documentation"}],
+        configs=[{"path": "src/main/resources/application.yml", "kind": "spring configuration"}],
+        ci_files=[{"path": ".github/workflows/ci.yml", "kind": "github actions"}],
         stack_extensions={
             "scan_metadata": {
                 "schema_version": "1.0",
                 "llm_status": "succeeded",
                 "prompt_version": "test",
                 "evidence_file_count": 1,
+                "evidence_expansion": {
+                    "schema_version": "1.0",
+                    "planner_prompt_version": "llm-evidence-planner-v1",
+                    "requested_paths": ["src/main/java/com/example/demo/DemoController.java"],
+                    "risk_focus": ["controller routing"],
+                    "rationale": "Controller route ownership needed deeper inspection.",
+                    "confidence": "medium",
+                    "read_paths": ["src/main/java/com/example/demo/DemoController.java"],
+                    "read_file_count": 1,
+                },
                 "warnings": [],
             },
             "llm_scan_proposal": {
@@ -99,7 +112,15 @@ def test_write_initial_assets_generates_core_guides_sensors_skills_candidates_an
     assert "## 验证入口" in guide
     assert "## 成熟度缺口关联" in guide
     assert "## 来源证据" in guide
+    assert "## LLM 证据扩展" in guide
     assert "java-spring.guide." in guide
+    assert "README.md" in guide
+    assert ".github/workflows/ci.yml" in guide
+    assert "src/main/java/com/example/demo/DemoController.java" in guide
+    assert "controller routing" in guide
+    assert "confidence=`medium`" in guide
+    assert "read_file_count=1" in guide
+    assert "Controller route ownership needed deeper inspection." in guide
     assert "src/main/resources/application.yml" in guide
     assert "mvn test" in guide
 

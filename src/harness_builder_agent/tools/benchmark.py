@@ -329,6 +329,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _runtime_task_run_artifacts_check(ai),
         _init_summary_check(ai),
         _guide_quality_check(ai),
+        _project_context_evidence_context_check(ai, inventory),
         _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
         _weapon_library_selection_check(ai, inventory),
@@ -1059,6 +1060,93 @@ def _guide_quality_check(ai: Path) -> dict[str, Any]:
     text = guide.read_text(encoding="utf-8") if guide.exists() else ""
     passed = all(section in text for section in required_sections)
     return {"id": "content:guides-quality", "passed": passed}
+
+
+def _project_context_evidence_context_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
+    guide = ai / "guides" / "project-context.md"
+    text = guide.read_text(encoding="utf-8") if guide.exists() else ""
+    missing: list[str] = []
+
+    if "## 来源证据" not in text:
+        missing.append("missing_source_evidence_section")
+        evidence_text = ""
+    else:
+        evidence_text = text.split("## 来源证据", 1)[1]
+        if "## LLM 证据扩展" in evidence_text:
+            evidence_text = evidence_text.split("## LLM 证据扩展", 1)[0]
+
+    evidence_paths = _inventory_evidence_paths(inventory)
+    for path in evidence_paths:
+        if f"`{path}`" not in evidence_text:
+            missing.append(f"missing_evidence_path:{path}")
+
+    if "## LLM 证据扩展" not in text:
+        missing.append("missing_llm_evidence_expansion_section")
+        expansion_text = ""
+    else:
+        expansion_text = text.split("## LLM 证据扩展", 1)[1]
+
+    plan = _inventory_evidence_expansion(inventory)
+    if not plan:
+        if "evidence_expansion=not_run" not in expansion_text:
+            missing.append("missing_evidence_expansion_not_run")
+    else:
+        for path in _plan_list_value(plan, "requested_paths"):
+            if f"`{path}`" not in expansion_text:
+                missing.append(f"missing_expansion_requested_path:{path}")
+        for path in _plan_list_value(plan, "read_paths"):
+            if f"`{path}`" not in expansion_text:
+                missing.append(f"missing_expansion_read_path:{path}")
+        for focus in _plan_list_value(plan, "risk_focus"):
+            if f"`{focus}`" not in expansion_text:
+                missing.append(f"missing_expansion_risk_focus:{focus}")
+        confidence = _plan_scalar_value(plan, "confidence")
+        if confidence and f"confidence=`{confidence}`" not in expansion_text:
+            missing.append(f"missing_expansion_confidence:{confidence}")
+        read_file_count = _plan_scalar_value(plan, "read_file_count")
+        if read_file_count and f"read_file_count={read_file_count}" not in expansion_text:
+            missing.append(f"missing_expansion_read_file_count:{read_file_count}")
+        rationale = _plan_scalar_value(plan, "rationale")
+        if rationale and rationale not in expansion_text:
+            missing.append("missing_expansion_rationale")
+
+    return {
+        "id": "content:project-context-evidence-context",
+        "passed": not missing,
+        "evidence_path_count": len(evidence_paths),
+        "missing": missing,
+    }
+
+
+def _inventory_evidence_paths(inventory: ProjectInventory) -> list[str]:
+    paths: list[str] = []
+    seen: set[str] = set()
+    for bucket in (inventory.evidence, inventory.documents, inventory.configs, inventory.ci_files):
+        for item in bucket:
+            path = str(item.get("path") or "").strip()
+            if path and path not in seen:
+                seen.add(path)
+                paths.append(path)
+    return paths
+
+
+def _inventory_evidence_expansion(inventory: ProjectInventory) -> Any:
+    scan_metadata = inventory.stack_extensions.get("scan_metadata", {})
+    if not isinstance(scan_metadata, dict):
+        return None
+    return scan_metadata.get("evidence_expansion") or scan_metadata.get("evidence_expansion_plan")
+
+
+def _plan_list_value(plan: Any, field: str) -> list[str]:
+    value = plan.get(field) if isinstance(plan, dict) else getattr(plan, field, None)
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
+
+
+def _plan_scalar_value(plan: Any, field: str) -> str:
+    value = plan.get(field) if isinstance(plan, dict) else getattr(plan, field, None)
+    return str(value).strip() if value is not None else ""
 
 
 def _sensor_quality_check(ai: Path) -> dict[str, Any]:
