@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Init Completion User Supplements
+
+- North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
+- init North Star 旅程阶段：首次初始化、写入后的交付摘要、用户补充消费闭环。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo。本轮重新读取事实源后，候选包括 completion message 展示本次吸收的用户补充、existing-Harness 维护入口继续拆模块、push / full regression 外部前置。当前 `init-summary.md` 已有 `## 本次吸收的用户补充`，最终确认前 CLI 也会复述补充，但 `== 初始化完成 ==` 主交付摘要只展示生成资产、成熟度、证据缺口、benchmark、入口和待确认问题，用户需要再打开 Markdown 才能确认自己的输入进入最终交付。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 中提供 scan 修正、团队规则或 Workflow 补充并确认写入后，我可以在终端 `== 初始化完成 ==` 主交付摘要中直接看到“本次吸收的用户补充”及其事实边界，从而不用先打开 Markdown 也能确认自己的输入已经进入 Harness 交付链路。
+- 当前代码 gap：`render_init_completion_message()` 没有读取 `.ai/interaction-decisions.yaml`，也没有展示 scan notes、team rules、workflow notes 或 shown workflows；缺失 interaction decisions 时终端摘要没有显式提示。
+- 关键决策 / 取舍：completion message 直接读取 `InteractionDecisions` schema，不从 Markdown 反向解析；schema 错误继续显式失败，缺文件显示 `interaction_decisions=missing`；不改 `.ai` schema、不改正式资产生成、不改 Runtime 分工。
+- Assumptions / risks：终端展示前几条用户补充足以完成主交付确认；完整细节仍在 `.ai/init-summary.md` 和 `.ai/interaction-decisions.yaml`。CLI 摘要变长是主要风险，已限制为短列表和 source / boundary。
+- 边界情况 / 失败模式：有补充时展示 scan / team / Workflow 摘要；无补充时说明后续可在已有 Harness 维护入口继续补齐；缺少 `.ai/interaction-decisions.yaml` 时显式提示 missing；团队规则和 Workflow note 不被描述为扫描事实或正式 routing policy。
+- Sub agent 使用情况：尝试启动 explorer 做只读审查，但当前会话返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只补“交互输入 -> 写入资产 -> 终端主交付摘要”的可见闭环，不把 completion summary 的样式重排、existing-Harness 模块拆分或 benchmark 变更混入。
+- 可执行验收标准及验证方式：unit 覆盖有补充、无补充和缺 interaction decisions；integration 覆盖真实 guided init completion message；完整 guided init integration 和 fast regression 作为提交前验证。
+- 完成内容：`render_init_completion_message()` 新增 `本次吸收的用户补充` section；README 和 `docs/engineering/init-workflow.md` 同步长期规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：targeted unit 3 passed；`tests/unit/test_init_summary.py` 7 passed；targeted guided integration 2 passed；完整 guided init integration、`git diff --check` 和 `scripts/test-fast.sh` 见提交前验证。
+- Self-Harness Gate：长期文档已同步；不新增 todo。下一轮候选 gap：existing-Harness 维护入口继续拆模块、completion summary 的结构化段落复用 / 视觉紧凑化，或 push 前 full regression / 远端同步外部前置。
+
 ## 2026-06-01 Prewrite Maturity Storyline
 
 - North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。

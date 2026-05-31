@@ -105,6 +105,8 @@ def render_init_completion_message(ai: Path) -> str:
         f"- 下一目标：{score.target_next_level or score.overall_level}\n\n"
         "主要证据 / 缺口：\n"
         f"{evidence_or_gaps}\n\n"
+        "本次吸收的用户补充：\n"
+        f"{_completion_user_supplement_lines(ai)}\n\n"
         "建议下一步：\n"
         f"{next_steps}\n\n"
         "Benchmark 健康度：\n"
@@ -135,6 +137,32 @@ def _completion_evidence_gap_lines(score: MaturityReport) -> str:
     for item in score.blocking_reasons[:3]:
         lines.append(f"- 缺口：{item}")
     return "\n".join(lines) or "- 暂无明确证据或缺口；建议先运行 benchmark 做质量验收。"
+
+
+def _completion_user_supplement_lines(ai: Path) -> str:
+    path = ai / "interaction-decisions.yaml"
+    if not path.exists():
+        return "- interaction_decisions=missing；请检查 `.ai/interaction-decisions.yaml` 是否已生成。"
+
+    decisions = InteractionDecisions.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    lines: list[str] = []
+    for note in decisions.scan_confirmation.notes[:3]:
+        lines.append(f"- 扫描补充：{note}")
+    for item in decisions.context_confirmation.inline_contexts[:3]:
+        lines.append(f"- 团队规则：{item}")
+    for note in decisions.workflow_confirmation.notes[:3]:
+        lines.append(f"- Workflow 补充：{note}")
+
+    if not lines:
+        lines.append("- 本次未提供人工补充；后续可在已有 Harness 维护入口继续补齐团队规则、风险边界和 workflow 约束。")
+
+    if decisions.workflow_confirmation.shown_workflows:
+        workflows = ", ".join(f"`{item}`" for item in decisions.workflow_confirmation.shown_workflows[:3])
+        lines.append(f"- 已展示 Workflow：{workflows}")
+
+    lines.append("- source=`.ai/interaction-decisions.yaml`；完整交付摘要见 `.ai/init-summary.md`。")
+    lines.append("- 事实边界：团队规则和 Workflow 补充不会被伪装成扫描事实或正式 routing policy。")
+    return "\n".join(lines)
 
 
 def _generated_asset_summary(ai: Path) -> str:

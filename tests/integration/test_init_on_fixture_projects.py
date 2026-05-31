@@ -350,6 +350,8 @@ def test_init_generates_ai_assets_for_dotnet_fixture(tmp_path: Path, monkeypatch
     assert "优先查看" in result.output
     assert "仍需人工确认" in result.output
     assert "本终端摘要是本次 init 的主要交付说明" in result.output
+    assert "本次吸收的用户补充" in result.output
+    assert "本次未提供人工补充" in result.output
     assert ".ai/init-summary.md" in result.output
     _assert_init_outputs(repo, "dotnet-aspnet")
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text())
@@ -1142,6 +1144,13 @@ def test_guided_init_restates_user_supplements_before_write_and_persists_them(tm
     assert "影响 Guides 与写入前成熟度预览" in final_summary
     assert "影响团队上下文 Guide 与 human-input-needed" in final_summary
     assert "影响 Workflow 说明与后续人工确认记录" in final_summary
+    completion_summary = result.output[result.output.index("== 初始化完成 ==") :]
+    assert "本次吸收的用户补充" in completion_summary
+    assert "批处理入口" in completion_summary
+    assert "Controller 只能调用 Service" in completion_summary
+    assert "bugfix 工作流适合缺陷修复" in completion_summary
+    assert ".ai/interaction-decisions.yaml" in completion_summary
+    assert "团队规则和 Workflow 补充不会被伪装成扫描事实或正式 routing policy" in completion_summary
 
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert "批处理入口" in decisions["scan_confirmation"]["notes"][0]

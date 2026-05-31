@@ -149,6 +149,20 @@ def test_init_completion_message_is_cli_first_delivery_summary(tmp_path: Path):
         ),
         encoding="utf-8",
     )
+    decisions = accepted_interactive_decisions(
+        str(tmp_path),
+        inline_contexts=["团队规则：Controller 只能调用 Service"],
+        scan_notes=["配置变更必须说明回滚方式"],
+        workflow_confirmation=WorkflowConfirmation(
+            shown_workflows=["bugfix", "standard"],
+            confirmed=True,
+            notes=["权限变更必须走 standard workflow"],
+        ),
+    )
+    (ai / "interaction-decisions.yaml").write_text(
+        yaml.safe_dump(decisions.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
 
     message = render_init_completion_message(ai)
 
@@ -158,12 +172,48 @@ def test_init_completion_message_is_cli_first_delivery_summary(tmp_path: Path):
     assert "主要证据 / 缺口" in message
     assert "Benchmark 健康度" in message
     assert "benchmark_status=not_run" in message
+    assert "本次吸收的用户补充" in message
+    assert "配置变更必须说明回滚方式" in message
+    assert "Controller 只能调用 Service" in message
+    assert "权限变更必须走 standard workflow" in message
+    assert ".ai/interaction-decisions.yaml" in message
+    assert ".ai/init-summary.md" in message
+    assert "团队规则和 Workflow 补充不会被伪装成扫描事实或正式 routing policy" in message
     assert "优先查看" in message
     assert "仍需人工确认" in message
     assert "是否有团队规则需要加入 Harness" in message
     assert "本终端摘要是本次 init 的主要交付说明" in message
     assert ".ai/init-summary.md" in message
     assert ".ai/sensors/verification.md" in message
+
+
+def test_init_completion_message_reports_no_user_supplements(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    (ai / "maturity-score.yaml").write_text(yaml.safe_dump(_score().model_dump(mode="json")), encoding="utf-8")
+    decisions = accepted_interactive_decisions(str(tmp_path), workflow_confirmation=WorkflowConfirmation(shown_workflows=["bugfix"]))
+    (ai / "interaction-decisions.yaml").write_text(
+        yaml.safe_dump(decisions.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    message = render_init_completion_message(ai)
+
+    assert "本次吸收的用户补充" in message
+    assert "本次未提供人工补充" in message
+    assert "后续可在已有 Harness 维护入口继续补齐" in message
+
+
+def test_init_completion_message_reports_missing_interaction_decisions(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    (ai / "maturity-score.yaml").write_text(yaml.safe_dump(_score().model_dump(mode="json")), encoding="utf-8")
+
+    message = render_init_completion_message(ai)
+
+    assert "本次吸收的用户补充" in message
+    assert "interaction_decisions=missing" in message
+    assert ".ai/interaction-decisions.yaml" in message
 
 
 def test_init_summary_links_pending_confirmations_to_action_entry(tmp_path: Path):
