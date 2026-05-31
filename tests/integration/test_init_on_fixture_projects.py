@@ -973,6 +973,19 @@ def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path,
     assert decisions["scan_confirmation"]["status"] == "amended"
     assert "批处理入口" in decisions["scan_confirmation"]["notes"][0]
     assert "Controller 只能调用 Service" in decisions["context_confirmation"]["inline_contexts"][0]
+    assert decisions["context_confirmation"]["impact_scopes"] == [
+        "interaction_decisions",
+        "project_context",
+        "human_input_needed",
+        "guide_context",
+        "review_only_team_context",
+    ]
+    assert decisions["context_confirmation"]["review_status"] == "pending_harness_maintainer_review"
+    assert decisions["context_confirmation"]["policy_effect"] == "context_only_no_direct_policy_change"
+    config = yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8"))
+    routing_text = yaml.safe_dump(config["workflow_routing"], allow_unicode=True)
+    assert "Controller 只能调用 Service" not in routing_text
+    assert "配置变更必须说明回滚方式" not in routing_text
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
     assert "## 人工补充与修正" in project_context
     assert "批处理入口" in project_context
@@ -1028,6 +1041,15 @@ def test_guided_init_restates_user_supplements_before_write_and_persists_them(tm
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert "批处理入口" in decisions["scan_confirmation"]["notes"][0]
     assert "Controller 只能调用 Service" in decisions["context_confirmation"]["inline_contexts"][0]
+    assert decisions["context_confirmation"]["impact_scopes"] == [
+        "interaction_decisions",
+        "project_context",
+        "human_input_needed",
+        "guide_context",
+        "review_only_team_context",
+    ]
+    assert decisions["context_confirmation"]["review_status"] == "pending_harness_maintainer_review"
+    assert decisions["context_confirmation"]["policy_effect"] == "context_only_no_direct_policy_change"
     assert "bugfix 工作流适合缺陷修复" in decisions["workflow_confirmation"]["notes"][0]
     assert decisions["workflow_confirmation"]["impact_scopes"] == [
         "interaction_decisions",

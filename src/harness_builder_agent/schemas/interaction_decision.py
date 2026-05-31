@@ -9,6 +9,15 @@ ScanConfirmationStatus = Literal["accepted", "amended", "needs_review", "not_con
 ContextConfirmationStatus = Literal["confirmed", "partially_confirmed", "not_provided", "not_confirmed"]
 CandidateDecisionStatus = Literal["accepted", "rejected", "kept", "edited"]
 FinalConfirmationStatus = Literal["confirmed", "cancelled", "not_confirmed"]
+ContextImpactScope = Literal[
+    "interaction_decisions",
+    "project_context",
+    "human_input_needed",
+    "guide_context",
+    "review_only_team_context",
+]
+ContextReviewStatus = Literal["pending_harness_maintainer_review", "not_required"]
+ContextPolicyEffect = Literal["context_only_no_direct_policy_change", "not_applicable"]
 WorkflowImpactScope = Literal[
     "interaction_decisions",
     "project_context",
@@ -35,6 +44,9 @@ class ContextConfirmation(BaseModel):
     confirmed_paths: list[str] = Field(default_factory=list)
     rejected_paths: list[str] = Field(default_factory=list)
     inline_contexts: list[str] = Field(default_factory=list)
+    impact_scopes: list[ContextImpactScope] = Field(default_factory=list)
+    review_status: ContextReviewStatus = "not_required"
+    policy_effect: ContextPolicyEffect = "not_applicable"
 
 
 class CandidateDecision(BaseModel):

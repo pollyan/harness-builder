@@ -12,6 +12,14 @@ from harness_builder_agent.schemas.interaction_decision import (
     WorkflowConfirmation,
 )
 
+CONTEXT_IMPACT_SCOPES = [
+    "interaction_decisions",
+    "project_context",
+    "human_input_needed",
+    "guide_context",
+    "review_only_team_context",
+]
+
 
 def default_non_interactive_decisions(repo_path: str, context_paths: list[str] | None = None) -> InteractionDecisions:
     status = "not_confirmed" if context_paths else "not_provided"
@@ -41,8 +49,14 @@ def accepted_interactive_decisions(
     inline_values = [item for item in (inline_contexts or []) if item.strip()]
     if confirmed_paths or inline_values:
         context_status = "confirmed"
+        context_impact_scopes = CONTEXT_IMPACT_SCOPES
+        context_review_status = "pending_harness_maintainer_review"
+        context_policy_effect = "context_only_no_direct_policy_change"
     else:
         context_status = "not_provided"
+        context_impact_scopes = []
+        context_review_status = "not_required"
+        context_policy_effect = "not_applicable"
     decisions = candidate_decisions or [
         CandidateDecision(candidate_id=candidate_id, decision="accepted" if accept_candidates else "kept")
         for candidate_id in (candidate_ids or [])
@@ -60,6 +74,9 @@ def accepted_interactive_decisions(
             status=context_status,
             confirmed_paths=confirmed_paths,
             inline_contexts=inline_values,
+            impact_scopes=context_impact_scopes,
+            review_status=context_review_status,
+            policy_effect=context_policy_effect,
         ),
         candidate_decisions=decisions,
         workflow_confirmation=workflow_confirmation or WorkflowConfirmation(),
@@ -105,6 +122,9 @@ def interaction_decisions_markdown(decisions: InteractionDecisions) -> str:
         f"- scan: {decisions.scan_confirmation.status}\n"
         f"- primary_stack_override: {decisions.scan_confirmation.primary_stack_override or '无'}\n"
         f"- context: {decisions.context_confirmation.status}\n"
+        f"- context_impact_scopes: {', '.join(decisions.context_confirmation.impact_scopes) or '无'}\n"
+        f"- context_review_status: {decisions.context_confirmation.review_status}\n"
+        f"- context_policy_effect: {decisions.context_confirmation.policy_effect}\n"
         f"- workflow_confirmed: {decisions.workflow_confirmation.confirmed}\n"
         f"- shown_workflows: {', '.join(decisions.workflow_confirmation.shown_workflows) or '无'}\n"
         f"- workflow_impact_scopes: {', '.join(decisions.workflow_confirmation.impact_scopes) or '无'}\n"

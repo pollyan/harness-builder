@@ -136,6 +136,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 用户在最终确认阶段返回 scan 且上一版 scan 补充非空时，CLI 必须明确说明新输入会替换上一版补充，直接回车会清空上一版补充；如果用户直接回车清空旧补充，CLI 必须输出可见确认，说明后续预览和正式资产会按扫描基线继续。
 - 团队规则必须说明会进入团队上下文 Guide 和 `human-input-needed.md`。
 - 首次 guided `init` 收到团队规则后，必须在进入候选审查前立即复述这些规则，并说明它们会进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`；CLI 必须明确团队规则是用户提供的约束，不能被当作扫描事实。
+- `interaction-decisions.yaml` 中的 `context_confirmation` 必须在存在 `--context` 文件或交互式团队规则时记录机器可读的 `impact_scopes`、`review_status=pending_harness_maintainer_review` 和 `policy_effect=context_only_no_direct_policy_change`；无团队规则 / 无 context 输入时必须保持 `review_status=not_required` 和 `policy_effect=not_applicable`，避免后续 self-improve 或人工审计把团队规则自由文本误判为已应用的正式 policy。
 - 写入前 Harness 设计预览必须展示团队规则约束；如果没有团队规则输入，也要说明当前按扫描证据和内置 Harness 基线生成。
 - Workflow 补充必须说明会进入 Workflow 说明和人工确认记录；除非经过候选治理或结构化 policy patch，不能直接修改正式 routing policy。
 - 首次 guided `init` 收到 Workflow 补充后，必须在进入写入前 preview / 最终确认前立即复述这些补充，并说明它们会进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`；CLI 必须明确 Workflow 补充是 review-only 的人工说明，不直接修改正式 workflow routing policy。

@@ -13,6 +13,7 @@ from harness_builder_agent.schemas.interaction_decision import (
     WorkflowConfirmation,
 )
 from harness_builder_agent.tools.interaction_decisions import (
+    accepted_interactive_decisions,
     apply_candidate_decisions,
     default_non_interactive_decisions,
     interaction_decisions_markdown,
@@ -28,6 +29,15 @@ def test_interaction_decisions_schema_accepts_interactive_confirmation():
             status="confirmed",
             confirmed_paths=["/repo/team-rules.md"],
             inline_contexts=["所有 Controller 只能调用 Service"],
+            impact_scopes=[
+                "interaction_decisions",
+                "project_context",
+                "human_input_needed",
+                "guide_context",
+                "review_only_team_context",
+            ],
+            review_status="pending_harness_maintainer_review",
+            policy_effect="context_only_no_direct_policy_change",
         ),
         candidate_decisions=[
             CandidateDecision(candidate_id="llm-guide-risk-001", decision="accepted", notes="团队认可"),
@@ -54,6 +64,15 @@ def test_interaction_decisions_schema_accepts_interactive_confirmation():
     assert payload["schema_version"] == "1.0"
     assert payload["mode"] == "interactive"
     assert payload["repo"]["confirmed"] is True
+    assert payload["context_confirmation"]["impact_scopes"] == [
+        "interaction_decisions",
+        "project_context",
+        "human_input_needed",
+        "guide_context",
+        "review_only_team_context",
+    ]
+    assert payload["context_confirmation"]["review_status"] == "pending_harness_maintainer_review"
+    assert payload["context_confirmation"]["policy_effect"] == "context_only_no_direct_policy_change"
     assert payload["candidate_decisions"][0]["decision"] == "accepted"
     assert payload["candidate_decisions"][1]["decision"] == "edited"
     assert payload["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix"]
@@ -73,6 +92,16 @@ def test_interaction_decisions_schema_rejects_invalid_candidate_decision():
         CandidateDecision(candidate_id="candidate-1", decision="promote")
 
 
+def test_context_confirmation_rejects_invalid_impact_contract_values():
+    with pytest.raises(ValidationError):
+        ContextConfirmation(
+            status="confirmed",
+            impact_scopes=["workflow_routing"],
+            review_status="applied",
+            policy_effect="direct_policy_change",
+        )
+
+
 def test_default_non_interactive_decisions_record_missing_human_confirmation():
     decisions = default_non_interactive_decisions("/repo", context_paths=["/repo/team-rules.md"])
 
@@ -81,10 +110,43 @@ def test_default_non_interactive_decisions_record_missing_human_confirmation():
     assert decisions.scan_confirmation.status == "not_confirmed"
     assert decisions.context_confirmation.status == "not_confirmed"
     assert decisions.context_confirmation.confirmed_paths == []
+    assert decisions.context_confirmation.impact_scopes == []
+    assert decisions.context_confirmation.review_status == "not_required"
+    assert decisions.context_confirmation.policy_effect == "not_applicable"
     assert decisions.workflow_confirmation.impact_scopes == []
     assert decisions.workflow_confirmation.review_status == "not_required"
     assert decisions.workflow_confirmation.routing_policy_effect == "not_applicable"
     assert decisions.final_confirmation.status == "not_confirmed"
+
+
+def test_accepted_interactive_decisions_records_context_impact_contract():
+    decisions = accepted_interactive_decisions(
+        "/repo",
+        context_paths=["/repo/team-rules.md"],
+        inline_contexts=["团队规则：Controller 只能调用 Service"],
+    )
+
+    assert decisions.context_confirmation.status == "confirmed"
+    assert decisions.context_confirmation.confirmed_paths == ["/repo/team-rules.md"]
+    assert decisions.context_confirmation.inline_contexts == ["团队规则：Controller 只能调用 Service"]
+    assert decisions.context_confirmation.impact_scopes == [
+        "interaction_decisions",
+        "project_context",
+        "human_input_needed",
+        "guide_context",
+        "review_only_team_context",
+    ]
+    assert decisions.context_confirmation.review_status == "pending_harness_maintainer_review"
+    assert decisions.context_confirmation.policy_effect == "context_only_no_direct_policy_change"
+
+
+def test_accepted_interactive_decisions_without_context_has_no_context_impact_contract():
+    decisions = accepted_interactive_decisions("/repo")
+
+    assert decisions.context_confirmation.status == "not_provided"
+    assert decisions.context_confirmation.impact_scopes == []
+    assert decisions.context_confirmation.review_status == "not_required"
+    assert decisions.context_confirmation.policy_effect == "not_applicable"
 
 
 def test_apply_candidate_decisions_updates_statuses_and_reasons():
@@ -124,7 +186,19 @@ def test_interaction_decisions_markdown_summarizes_decisions():
         mode="interactive",
         repo=RepoConfirmation(path="/repo", confirmed=True),
         scan_confirmation=ScanConfirmation(status="accepted"),
-        context_confirmation=ContextConfirmation(status="confirmed", inline_contexts=["团队测试策略"]),
+        context_confirmation=ContextConfirmation(
+            status="confirmed",
+            inline_contexts=["团队测试策略"],
+            impact_scopes=[
+                "interaction_decisions",
+                "project_context",
+                "human_input_needed",
+                "guide_context",
+                "review_only_team_context",
+            ],
+            review_status="pending_harness_maintainer_review",
+            policy_effect="context_only_no_direct_policy_change",
+        ),
         workflow_confirmation=WorkflowConfirmation(
             shown_workflows=["lightweight", "bugfix"],
             confirmed=True,
@@ -147,6 +221,9 @@ def test_interaction_decisions_markdown_summarizes_decisions():
     assert "mode: interactive" in markdown
     assert "scan: accepted" in markdown
     assert "团队测试策略" in markdown
+    assert "context_impact_scopes: interaction_decisions, project_context, human_input_needed, guide_context, review_only_team_context" in markdown
+    assert "context_review_status: pending_harness_maintainer_review" in markdown
+    assert "context_policy_effect: context_only_no_direct_policy_change" in markdown
     assert "workflow_confirmed: True" in markdown
     assert "workflow_impact_scopes: interaction_decisions, project_context, human_input_needed, review_only_workflow_note" in markdown
     assert "workflow_review_status: pending_harness_maintainer_review" in markdown

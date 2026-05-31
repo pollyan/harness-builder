@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 团队规则结构化影响契约
+
+- North Star 模块：CLI Experience、Maturity & Evolution、Experience & Self-Improve、资产生成与审核接管。
+- init North Star 旅程阶段：团队规则补充、用户输入吸收、写入前 Harness 设计预览、可审计决策记录。
+- Gap Analysis 摘要：当前 open todo 为空，迁移工作包已经归档为 implemented。团队规则已经有即时复述、preview 约束和语义资产写入，但 `ContextConfirmation` 只有路径和自由文本；相比上一轮已增强的 `WorkflowConfirmation`，后续 self-improve / 审计仍无法稳定判断团队规则影响范围、review 状态和是否改变正式 policy。候选还包括 Workflow note review-only routing candidate、scan correction diff preview 和 push 前 full regression；本轮选择先补齐团队规则的机器契约。
+- 工程信任故事：作为后续 Self-Improve / 审计链路维护者，当 Harness Maintainer 在 guided `init` 中输入团队规则、架构约束或测试策略时，我可以在 `interaction-decisions.yaml` 和 `human-input-needed.md` 的 interaction decision 摘要中读取机器可验证的影响范围、review-only 状态和“不直接修改正式 policy”的边界，从而稳定消费团队规则补充，而不是解析自由文本或误以为它已经改变正式 workflow routing。
+- 当前代码 gap：`ContextConfirmation` 没有 `impact_scopes`、`review_status` 或 `policy_effect`；`accepted_interactive_decisions()` 无法把团队规则写成可审计影响契约。
+- 关键决策 / 取舍：在 `ContextConfirmation` 上新增默认兼容字段；有 context path 或 inline 团队规则时写入 `interaction_decisions`、`project_context`、`human_input_needed`、`guide_context`、`review_only_team_context` impact scopes，`pending_harness_maintainer_review` 和 `context_only_no_direct_policy_change`；无 context 输入 / 非交互未确认路径保持默认。当前不生成 team context candidate，不修改正式 `harness-config.yaml`。
+- Assumptions / risks：`--context` 文件和 inline 团队规则都属于 Harness Maintainer 提供的团队上下文，应进入 review-only 审计边界；未来若团队规则需要变成正式 policy，必须另走候选治理或结构化 patch。
+- 边界情况 / 失败模式：无团队规则时不制造 pending review；团队规则自由文本不得进入正式 workflow routing policy；本轮不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查 context contract，但当前返回 `agent thread limit reached`，未能使用子代理；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮把团队规则 CLI 闭环向机器契约推进一步，并与 Workflow note impact contract 对齐；不跨入候选生成或 policy apply。
+- 可执行验收标准及验证方式：unit 测试覆盖 schema 字段、默认值、interactive 写入和 decision-log Markdown；guided init integration 覆盖 `interaction-decisions.yaml` 的结构化字段，并断言正式 routing policy 未被团队规则文本污染。
+- 完成内容：`ContextConfirmation` 增加 `impact_scopes`、`review_status`、`policy_effect`；interactive decisions 有 context 输入时写入结构化 impact；`interaction_decisions_markdown()` 展示 context impact 字段；`docs/engineering/init-workflow.md` 固化契约；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 unit / integration 测试通过；完整 guided init 片段和 fast regression 见本轮提交前验证。
+- Self-Harness Gate：README 当前不需要描述 schema 细节；`docs/todos/` 暂不新增。下一轮候选 gap：Workflow note review-only routing candidate、scan correction diff preview、或 push 前 full regression / 远端同步前置条件。
+
 ## 2026-06-01 Workflow 补充结构化影响契约
 
 - North Star 模块：CLI Experience、Workflow Toolkit、Maturity & Evolution、资产生成与审核接管。
