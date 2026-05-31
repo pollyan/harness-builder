@@ -153,6 +153,26 @@ def test_scan_metadata_accepts_evidence_coverage():
     assert metadata.coverage["selected_evidence_count"] == 10
 
 
+def test_scan_metadata_accepts_evidence_expansion_audit():
+    metadata = ScanMetadata(
+        prompt_version="scan-v2",
+        evidence_file_count=120,
+        evidence_expansion={
+            "planner_prompt_version": "llm-evidence-plan-v1",
+            "requested_paths": ["src/auth/AuthService.py"],
+            "risk_focus": ["auth flow"],
+            "rationale": "Auth code was not in source samples.",
+            "confidence": "low",
+            "read_paths": ["src/auth/AuthService.py"],
+            "read_file_count": 1,
+        },
+    )
+
+    assert metadata.evidence_expansion is not None
+    assert metadata.evidence_expansion.requested_paths == ["src/auth/AuthService.py"]
+    assert metadata.evidence_expansion.read_file_count == 1
+
+
 def test_benchmark_report_accepts_quality_scores():
     report = BenchmarkReport(
         repo_name="demo",

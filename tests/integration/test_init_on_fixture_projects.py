@@ -18,6 +18,7 @@ from harness_builder_agent.schemas.improvement_candidate import ImprovementCandi
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
+from harness_builder_agent.schemas.scan import ScanMetadata
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools import interactive_init
 from harness_builder_agent.tools.experience_index import write_experience_index
@@ -77,7 +78,20 @@ def _fake_scan(repo: Path, expected_stack: str):
             "needs_human_confirmation": False,
             "reasoning_summary": ".NET ASP.NET project.",
         }
-    return scan_repository(repo, llm_caller=lambda _messages: json.dumps(response))
+    evidence_plan_response = json.dumps(
+        {
+            "schema_version": "1.0",
+            "requested_paths": [],
+            "risk_focus": [],
+            "rationale": "Fixture scan did not require additional files.",
+            "confidence": "high",
+        }
+    )
+    return scan_repository(
+        repo,
+        llm_caller=lambda _messages: json.dumps(response),
+        evidence_planner_caller=lambda _messages: evidence_plan_response,
+    )
 
 
 def _fake_scan_with_progress(repo: Path, expected_stack: str, *, progress=None):
@@ -140,7 +154,11 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert standard_routing_rule.human_confirmation_required is True
     assert "security_or_permission" in standard_routing_rule.triggers
     scan_metadata = yaml.safe_load((ai / "scan-metadata.yaml").read_text(encoding="utf-8"))
+    ScanMetadata.model_validate(scan_metadata)
     assert scan_metadata["llm_status"] == "succeeded"
+    assert scan_metadata["evidence_expansion"]["requested_paths"] == []
+    assert scan_metadata["evidence_expansion"]["read_paths"] == []
+    assert scan_metadata["evidence_expansion"]["read_file_count"] == 0
     llm_proposal = json.loads((ai / "llm-scan-proposal.json").read_text(encoding="utf-8"))
     assert llm_proposal["primary_stack"] == expected_stack
 

@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
-from harness_builder_agent.schemas.scan import EvidenceBundle, LLMCommandCandidate, LLMScanProposal, ScanMetadata, ScanWarning
+from harness_builder_agent.schemas.scan import (
+    EvidenceBundle,
+    LLMEvidenceExpansionMetadata,
+    LLMEvidencePlan,
+    LLMCommandCandidate,
+    LLMScanProposal,
+    ScanMetadata,
+    ScanWarning,
+)
+from harness_builder_agent.tools.llm_evidence_planner import EVIDENCE_PLAN_PROMPT_VERSION
 from harness_builder_agent.tools.llm_scan_analyzer import SCAN_PROMPT_VERSION
 
 
@@ -54,12 +63,23 @@ def reconcile_scan(
     *,
     model: str | None = None,
     base_url: str | None = None,
+    evidence_plan: LLMEvidencePlan | None = None,
 ) -> tuple[ProjectInventory, CommandCatalog, ScanMetadata]:
     _veto_impossible_stack(evidence, proposal)
     warnings: list[ScanWarning] = _coverage_warnings(evidence)
+    if evidence_plan and evidence_plan.confidence == "low":
+        warnings.append(
+            ScanWarning(
+                code="llm_evidence_plan_low_confidence",
+                message="LLM evidence planner returned low confidence; scan interpretation needs human confirmation.",
+                severity="warning",
+                evidence=evidence_plan.requested_paths,
+            )
+        )
     scan_validation = _validate_stack_claims(evidence, proposal)
     warnings.extend(_stack_validation_warnings(scan_validation))
     commands = [_command_from_candidate(candidate, evidence, warnings) for candidate in proposal.command_candidates]
+    evidence_expansion = _evidence_expansion_metadata(evidence, evidence_plan)
     metadata = ScanMetadata(
         prompt_version=SCAN_PROMPT_VERSION,
         model=model,
@@ -68,8 +88,10 @@ def reconcile_scan(
         truncated_files=evidence.truncations,
         warnings=warnings,
         coverage=evidence.coverage.model_dump(mode="json") if evidence.coverage else None,
+        evidence_expansion=evidence_expansion,
         reasoning_summary=proposal.reasoning_summary,
     )
+    needs_human_confirmation = proposal.needs_human_confirmation or (evidence_plan is not None and evidence_plan.confidence == "low")
     inventory = ProjectInventory(
         repo_name=evidence.repo_name,
         root_path=evidence.root_path,
@@ -83,7 +105,7 @@ def reconcile_scan(
         stack_extensions={
             "architecture_signals": proposal.architecture_signals,
             "risk_areas": proposal.risk_areas,
-            "needs_human_confirmation": proposal.needs_human_confirmation,
+            "needs_human_confirmation": needs_human_confirmation,
             "scan_warnings": [warning.model_dump(mode="json") for warning in warnings],
             "scan_validation": scan_validation,
             "stack_profile": _build_stack_profile(proposal, scan_validation),
@@ -92,6 +114,24 @@ def reconcile_scan(
         },
     )
     return inventory, CommandCatalog(commands=commands), metadata
+
+
+def _evidence_expansion_metadata(
+    evidence: EvidenceBundle,
+    evidence_plan: LLMEvidencePlan | None,
+) -> LLMEvidenceExpansionMetadata | None:
+    if evidence_plan is None:
+        return None
+    read_paths = [item.path for item in evidence.llm_requested_files]
+    return LLMEvidenceExpansionMetadata(
+        planner_prompt_version=EVIDENCE_PLAN_PROMPT_VERSION,
+        requested_paths=evidence_plan.requested_paths,
+        risk_focus=evidence_plan.risk_focus,
+        rationale=evidence_plan.rationale,
+        confidence=evidence_plan.confidence,
+        read_paths=read_paths,
+        read_file_count=len(read_paths),
+    )
 
 
 def _coverage_warnings(evidence: EvidenceBundle) -> list[ScanWarning]:

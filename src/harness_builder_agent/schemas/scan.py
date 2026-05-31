@@ -66,6 +66,17 @@ class LLMEvidencePlan(BaseModel):
     confidence: Confidence = "medium"
 
 
+class LLMEvidenceExpansionMetadata(BaseModel):
+    schema_version: str = "1.0"
+    planner_prompt_version: str | None = None
+    requested_paths: list[str] = Field(default_factory=list, max_length=8)
+    risk_focus: list[str] = Field(default_factory=list, max_length=8)
+    rationale: str
+    confidence: Confidence = "medium"
+    read_paths: list[str] = Field(default_factory=list, max_length=8)
+    read_file_count: int = 0
+
+
 class LLMCommandCandidate(BaseModel):
     id: str
     command: str
@@ -107,4 +118,5 @@ class ScanMetadata(BaseModel):
     truncated_files: list[dict[str, Any]] = Field(default_factory=list)
     warnings: list[ScanWarning] = Field(default_factory=list)
     coverage: dict[str, Any] | None = None
+    evidence_expansion: LLMEvidenceExpansionMetadata | None = None
     reasoning_summary: str | None = None

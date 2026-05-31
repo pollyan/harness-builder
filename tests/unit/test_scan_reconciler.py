@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceFile, LLMCommandCandidate, LLMScanProposal
+from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceFile, LLMEvidencePlan, LLMCommandCandidate, LLMScanProposal
 from harness_builder_agent.tools.scan_reconciler import ScanConflictError, reconcile_scan
 
 
@@ -92,6 +92,60 @@ def test_reconcile_persists_evidence_coverage_and_warnings():
     assert metadata.coverage["bucket_coverage"][0]["skipped_count"] == 28
     assert any(warning.code == "source_sampling_truncated" for warning in metadata.warnings)
     assert inventory.stack_extensions["scan_metadata"]["coverage"]["selected_evidence_count"] == 3
+
+
+def test_reconcile_persists_llm_evidence_expansion_metadata():
+    evidence = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[EvidenceFile(path="pom.xml", kind="build", priority="critical", bucket="build")],
+        key_files=[EvidenceFile(path="pom.xml", kind="build", priority="critical", bucket="build")],
+        llm_requested_files=[
+            EvidenceFile(
+                path="src/auth/AuthService.py",
+                kind="llm_requested",
+                summary="class AuthService {}",
+                bucket="llm_requested",
+                priority="high",
+            )
+        ],
+    )
+    evidence_plan = LLMEvidencePlan(
+        requested_paths=["src/auth/AuthService.py"],
+        risk_focus=["auth flow"],
+        rationale="Auth code was not sampled.",
+        confidence="medium",
+    )
+
+    inventory, _commands, metadata = reconcile_scan(evidence, _proposal(), evidence_plan=evidence_plan)
+
+    assert metadata.evidence_expansion is not None
+    assert metadata.evidence_expansion.requested_paths == ["src/auth/AuthService.py"]
+    assert metadata.evidence_expansion.read_paths == ["src/auth/AuthService.py"]
+    assert metadata.evidence_expansion.rationale == "Auth code was not sampled."
+    assert inventory.stack_extensions["scan_metadata"]["evidence_expansion"]["read_file_count"] == 1
+
+
+def test_reconcile_marks_low_confidence_evidence_plan_for_human_confirmation():
+    evidence = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[EvidenceFile(path="pom.xml", kind="build", priority="critical", bucket="build")],
+        key_files=[EvidenceFile(path="pom.xml", kind="build", priority="critical", bucket="build")],
+    )
+    evidence_plan = LLMEvidencePlan(
+        requested_paths=[],
+        risk_focus=["unclear modules"],
+        rationale="The manifest did not expose enough meaningful source candidates.",
+        confidence="low",
+    )
+    proposal = _proposal()
+    proposal.needs_human_confirmation = False
+
+    inventory, _commands, metadata = reconcile_scan(evidence, proposal, evidence_plan=evidence_plan)
+
+    assert any(warning.code == "llm_evidence_plan_low_confidence" for warning in metadata.warnings)
+    assert inventory.stack_extensions["needs_human_confirmation"] is True
 
 
 def test_reconcile_vetoes_impossible_dotnet_claim():

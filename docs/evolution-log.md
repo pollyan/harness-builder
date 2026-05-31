@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 LLM Evidence Plan 可审计
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：Scanner & Analyzer、CLI Experience、Maturity & Evolution、智能化闭环。
+- init North Star 旅程阶段：阶段化扫描与进度反馈、扫描结果友好呈现、可审计 evidence、成熟度初评输入。
+- Gap Analysis 摘要：上一轮已让全量轻量 manifest 带 bucket / priority / reason，但 `LLMEvidencePlan` 的 requested paths、risk focus、rationale 和 confidence 只在内存中用于读取补充文件，最终 `.ai/scan-metadata.yaml` 仍无法回答“LLM 为什么补读这些文件、实际读到了哪些文件、planner 是否低置信度”。
+- 用户故事：作为 Harness Maintainer，当大型多栈仓库的首次 `init` 触发 LLM-guided evidence expansion 时，我可以在 `.ai/scan-metadata.yaml` 中审计 planner 计划、实际读取结果和低置信度风险，从而调试扫描结论并判断哪些判断需要人工确认。
+- 当前代码 gap：`scan_repository()` 调用 planner 后没有把 plan 传入 `reconcile_scan()`；`ScanMetadata` 只有 coverage、warnings 和 final scan reasoning summary；planner 低置信度不会改变 `needs_human_confirmation`。
+- 关键决策 / 取舍：新增 `LLMEvidenceExpansionMetadata` 作为 `ScanMetadata.evidence_expansion` 可选字段；不把 planner metadata 写入 `llm-scan-proposal.json`；不扩大读取预算、不新增第二轮 LLM scan；planner 低置信度追加 warning 并置位 human confirmation signal。
+- Assumptions / risks：旧 scan metadata 可以没有 `evidence_expansion`；真实 LLM planner 的 rationale 会进入机器审计产物，应保持短文本并由现有 planner prompt 约束。
+- Sub agent 使用情况：使用一个 explorer 子代理只读调研 scan metadata 数据流、writer、benchmark 和测试落点；采纳其“schema + scan_repo + scan_reconciler 最小切点，writer 大概率透传”的建议。
+- 价值切分说明：本轮完成“LLM 规划 -> Python 安全读取 -> 最终 scan -> metadata 审计 -> low confidence 人工确认信号”的纵向闭环，不把 `modules/risk_areas` schema hardening 或 claim-level validation 混入同一 milestone。
+- 验收标准及验证方式：schema unit 覆盖 `ScanMetadata.evidence_expansion`；reconciler unit 覆盖 planner audit 和 low confidence warning / human confirmation；scan repo unit 覆盖 planner metadata 透传；init fixture integration 覆盖 `.ai/scan-metadata.yaml` schema 和空 requested paths 的 audit 落盘。
+- 完成内容：新增 `LLMEvidenceExpansionMetadata`；`scan_repository()` 向 `reconcile_scan()` 传递 `LLMEvidencePlan`；`reconcile_scan()` 生成 `evidence_expansion` 并处理 low confidence；同步 init workflow、LLM contracts、todo、spec 和 plan。
+- Self-Harness Gate：剩余 LLM-planned deep scan 仍 open。下一轮候选 gap 优先考虑严格化 `LLMScanProposal` 中 modules / risk_areas / configs / ci_files schema，其次是 claim-level support/conflict/unknown 调和和 ai4se-like integration / acceptance。
+
 ## 2026-06-01 LLM 规划式深度扫描 Manifest 语义增强
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

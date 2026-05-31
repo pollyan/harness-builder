@@ -117,6 +117,12 @@ def test_scan_repository_uses_llm_evidence_plan_before_final_scan(tmp_path: Path
 
     assert calls == ["planner", "scan"]
     assert inventory.primary_stack == "java-spring"
+    metadata = inventory.stack_extensions["scan_metadata"]
+    assert metadata["evidence_expansion"]["requested_paths"] == ["src/zz_RefundRiskService.java"]
+    assert metadata["evidence_expansion"]["risk_focus"] == ["refund flow"]
+    assert metadata["evidence_expansion"]["rationale"] == "The planner selected the hidden refund risk file from the full index."
+    assert metadata["evidence_expansion"]["read_paths"] == ["src/zz_RefundRiskService.java"]
+    assert metadata["evidence_expansion"]["read_file_count"] == 1
 
 
 def test_scan_repository_reports_progress_for_each_stage(tmp_path: Path):

@@ -12,6 +12,7 @@ from harness_builder_agent.tools.llm_evidence_planner import plan_evidence_expan
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
 from harness_builder_agent.tools.llm_scan_analyzer import analyze_evidence_with_llm
 from harness_builder_agent.tools.scan_reconciler import reconcile_scan
+from harness_builder_agent.schemas.scan import LLMEvidencePlan
 
 
 @dataclass(frozen=True)
@@ -43,24 +44,25 @@ def scan_repository(
         "Repository evidence collected.",
         {"evidence_file_count": evidence.detected_file_count},
     )
+    evidence_plan: LLMEvidencePlan | None = None
     if evidence_planner_caller is not None or llm_caller is None:
         _emit_progress(progress, "plan-evidence-expansion", "started", "Planning evidence expansion with LLM.")
-        plan = plan_evidence_expansion_with_llm(evidence, caller=evidence_planner_caller, config=config)
+        evidence_plan = plan_evidence_expansion_with_llm(evidence, caller=evidence_planner_caller, config=config)
         _emit_progress(
             progress,
             "plan-evidence-expansion",
             "completed",
             "Evidence expansion plan completed.",
-            {"requested_path_count": len(plan.requested_paths)},
+            {"requested_path_count": len(evidence_plan.requested_paths)},
         )
         _emit_progress(progress, "expand-evidence", "started", "Reading LLM requested evidence files.")
-        evidence = expand_evidence_with_requested_paths(root, evidence, plan.requested_paths)
+        evidence = expand_evidence_with_requested_paths(root, evidence, evidence_plan.requested_paths)
         _emit_progress(
             progress,
             "expand-evidence",
             "completed",
             "LLM requested evidence files read.",
-            {"requested_path_count": len(plan.requested_paths), "llm_requested_file_count": len(evidence.llm_requested_files)},
+            {"requested_path_count": len(evidence_plan.requested_paths), "llm_requested_file_count": len(evidence.llm_requested_files)},
         )
     _emit_progress(progress, "llm-scan", "started", "Requesting structured LLM scan.")
     proposal = analyze_evidence_with_llm(evidence, caller=llm_caller, config=config)
@@ -77,6 +79,7 @@ def scan_repository(
         proposal,
         model=config.model if config else None,
         base_url=config.base_url if config else None,
+        evidence_plan=evidence_plan,
     )
     _emit_progress(
         progress,
