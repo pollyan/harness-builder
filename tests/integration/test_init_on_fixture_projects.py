@@ -21,7 +21,7 @@ from harness_builder_agent.schemas.self_improve_package import SelfImprovePackag
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools import interactive_init
 from harness_builder_agent.tools.experience_index import write_experience_index
-from harness_builder_agent.tools.scan_repo import scan_repository
+from harness_builder_agent.tools.scan_repo import ScanProgressEvent, scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
@@ -78,6 +78,20 @@ def _fake_scan(repo: Path, expected_stack: str):
             "reasoning_summary": ".NET ASP.NET project.",
         }
     return scan_repository(repo, llm_caller=lambda _messages: json.dumps(response))
+
+
+def _fake_scan_with_progress(repo: Path, expected_stack: str, *, progress=None):
+    if progress is not None:
+        for phase in [
+            "collect-evidence",
+            "plan-evidence-expansion",
+            "expand-evidence",
+            "llm-scan",
+            "reconcile-scan",
+        ]:
+            progress(ScanProgressEvent(phase=phase, status="started", message=phase))
+            progress(ScanProgressEvent(phase=phase, status="completed", message=phase))
+    return _fake_scan(repo, expected_stack)
 
 
 def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text: str | None = None) -> None:
@@ -334,12 +348,16 @@ def test_init_non_interactive_generates_existing_assets(tmp_path: Path, monkeypa
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert decisions["mode"] == "non_interactive"
     assert decisions["final_confirmation"]["status"] == "not_confirmed"
+    assert "当前阶段：收集仓库 evidence" not in result.output
 
 
 def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
-    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.interactive_init.scan_repository",
+        lambda repo_path, *, progress=None: _fake_scan_with_progress(repo_path, "java-spring", progress=progress),
+    )
 
     result = CliRunner().invoke(
         app,
@@ -353,6 +371,12 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "正在请求 LLM 做结构化扫描" in result.output
     assert "正在调和 LLM 判断与 evidence" in result.output
     assert "扫描完成" in result.output
+    assert "当前阶段：收集仓库 evidence" in result.output
+    assert "当前阶段：请求 LLM 规划补充 evidence" in result.output
+    assert "当前阶段：读取 LLM 请求的补充 evidence" in result.output
+    assert "当前阶段：请求 LLM 做最终结构化扫描" in result.output
+    assert "当前阶段：调和扫描结果" in result.output
+    assert result.output.index("当前阶段：收集仓库 evidence") < result.output.index("扫描完成")
     assert result.output.index("扫描仓库") < result.output.index("扫描发现")
     assert result.output.index("扫描完成") < result.output.index("扫描发现")
     assert "扫描发现" in result.output

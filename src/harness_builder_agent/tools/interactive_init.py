@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import inspect
 from pathlib import Path
 
 import typer
@@ -31,7 +32,7 @@ from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enh
 from harness_builder_agent.tools.maintenance_triage import build_maintenance_triage, render_maintenance_triage_lines
 from harness_builder_agent.tools.maturity_model import build_maturity_report
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
-from harness_builder_agent.tools.scan_repo import scan_repository
+from harness_builder_agent.tools.scan_repo import ScanProgressEvent, scan_repository
 from harness_builder_agent.tools.self_improve import run_self_improve
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 from harness_builder_agent.tools.write_assets import write_initial_assets
@@ -81,7 +82,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     _show_scan_progress_start(repo)
     trace.event("scan", "started", "Repository scan started.")
     try:
-        inventory, commands = scan_repository(repo)
+        inventory, commands = _scan_repository_for_guided_init(repo)
     except Exception as exc:
         trace.event("scan", "failed", "Repository scan failed before writing formal Harness assets.")
         _show_scan_progress_failed(exc)
@@ -165,6 +166,40 @@ def _show_scan_progress_start(repo: Path) -> None:
     typer.echo("- 正在识别构建、测试、验证命令、源码入口、模块线索和风险区域。")
     typer.echo("- 正在请求 LLM 做结构化扫描，并校验返回 schema。")
     typer.echo("- 正在调和 LLM 判断与 evidence；这个阶段可能需要一些时间。")
+
+
+def _scan_repository_for_guided_init(repo: Path) -> tuple[ProjectInventory, CommandCatalog]:
+    if _scan_repository_accepts_progress(scan_repository):
+        return scan_repository(repo, progress=_guided_scan_progress)
+    return scan_repository(repo)
+
+
+def _scan_repository_accepts_progress(scan_callable) -> bool:
+    try:
+        signature = inspect.signature(scan_callable)
+    except (TypeError, ValueError):
+        return False
+    return any(
+        parameter.name == "progress" or parameter.kind == inspect.Parameter.VAR_KEYWORD
+        for parameter in signature.parameters.values()
+    )
+
+
+def _guided_scan_progress(event: ScanProgressEvent) -> None:
+    label = _SCAN_PROGRESS_LABELS.get(event.phase, event.message)
+    if event.status == "started":
+        typer.echo(f"- 当前阶段：{label}")
+        return
+    typer.echo(f"  已完成：{label}")
+
+
+_SCAN_PROGRESS_LABELS = {
+    "collect-evidence": "收集仓库 evidence",
+    "plan-evidence-expansion": "请求 LLM 规划补充 evidence",
+    "expand-evidence": "读取 LLM 请求的补充 evidence",
+    "llm-scan": "请求 LLM 做最终结构化扫描",
+    "reconcile-scan": "调和扫描结果",
+}
 
 
 def _show_scan_progress_completed(inventory: ProjectInventory, commands: CommandCatalog) -> None:

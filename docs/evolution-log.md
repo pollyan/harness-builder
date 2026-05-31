@@ -1,5 +1,20 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 扫描内部阶段进度
+
+- North Star 模块：CLI Experience、Progressive Collaboration、深度扫描、可解释失败边界。
+- init North Star 旅程阶段：阶段化扫描与进度反馈、扫描结果友好呈现。
+- Gap Analysis 摘要：guided `init` 已有“扫描仓库”和“扫描完成”的粗粒度提示，但 `scan_repository()` 内部的 evidence 收集、LLM evidence plan、补充 evidence 读取、最终 LLM scan 和 reconcile 仍是一个阻塞调用；真实仓库和真实 LLM 场景下，用户无法判断耗时来自哪个内部阶段。
+- 用户故事：作为 Harness Maintainer，当我首次 guided `init` 一个真实遗留仓库且扫描和 LLM 调用需要等待时，我可以看到正在收集 evidence、请求 LLM 规划补充 evidence、读取补充 evidence、请求最终 LLM scan 和调和扫描结果的阶段状态，从而判断程序仍在工作，并能在失败时定位失败发生在哪个阶段。
+- 当前代码 gap：`scan_repository()` 没有可观察的进度事件；guided init 只能在调用前后输出粗粒度文案；非交互路径不应承担这种 UI transcript 契约。
+- 关键决策 / 取舍：给 `scan_repository()` 增加 optional keyword-only progress callback 和 `ScanProgressEvent`，默认 `None`；guided init 通过签名检测兼容旧单参数 fake scan；本轮不改 LLM prompt、schema、reconciler 或正式产物契约。
+- Assumptions / risks：progress event 是过程可观察性接口，不是新的落盘机器产物；事件 id 由 unit test 固定，中文文案由 guided renderer 翻译。
+- Sub agent 使用情况：使用只读子代理审查 scan pipeline、monkeypatch 兼容点和测试策略；结论建议 unit 精确锁定 callback 事件序列，guided integration 只断言关键中文阶段和顺序。
+- 价值切分说明：本轮面向首次 `init` 中最容易长时间等待的用户旅程，不是孤立日志；它让后续更深的交互扫描和智能 evidence expansion 有稳定的阶段可观察性基础。
+- 验收标准及验证方式：unit 覆盖 collect / plan / expand / llm-scan / reconcile 的 started/completed 顺序和 details；guided integration 覆盖阶段文案出现在“扫描仓库”和“扫描完成”之间；非交互测试断言不出现 guided 阶段文案。
+- 完成内容：`scan_repo.py` 新增 `ScanProgressEvent` 与 progress callback；`interactive_init.py` 接入 guided renderer；init workflow、spec/plan 和演进记录同步。
+- Self-Harness Gate：后续循环按用户最新要求优先继续完善 `init` 流程深度、用户交互扫描和产出内容质量。
+
 ## 2026-05-31 Guided Init 推荐项成熟度关联
 
 - North Star 模块：Maturity & Evolution、CLI Experience、Guides / Sensors、Progressive Collaboration。

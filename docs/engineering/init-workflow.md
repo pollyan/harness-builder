@@ -64,6 +64,7 @@ Evidence 收集负责从目标仓库抽取事实，例如：
 - 不应该因为没找到 `tests/` 就断定项目没有测试。
 - 初始 evidence 之后可以执行 LLM-guided evidence expansion：LLM 只能从已发现文件索引中请求少量补充文件，Python 负责路径 allowlist 校验和摘要读取，再把补充文件作为 `llm_requested_files` 提供给最终 LLM scan。
 - 首次 guided `init` 在进入阻塞式仓库扫描前，必须先输出用户可见的“扫描仓库”阶段说明，说明将收集仓库文件、构建配置、CI、测试、文档证据，并会请求 LLM 做结构化扫描和 schema 校验。
+- 首次 guided `init` 必须通过 `scan_repository()` 的 progress callback 展示内部扫描阶段：收集仓库 evidence、请求 LLM 规划补充 evidence、读取 LLM 请求的补充 evidence、请求最终 LLM 结构化扫描、调和扫描结果。内部事件 id 保持英文稳定，CLI 文案负责中文翻译；该进度只用于用户可见状态和测试观察，不改变扫描决策。
 - guided 扫描成功后，必须在“扫描发现”之前输出“扫描完成”，说明 evidence 收集、LLM 结构化分析和扫描调和已经完成。
 - guided 扫描失败时，必须说明失败发生在扫描阶段、原因摘要、未写入正式 Harness 资产，以及建议检查 LLM 配置、网络或扫描错误；随后继续显式失败，不能吞异常或使用确定性 fallback。
 - `--non-interactive` 自动化路径不承担 guided CLI 进度展示契约，避免改变 CI、脚本和 acceptance 的输出语义。

@@ -111,3 +111,47 @@ def test_scan_repository_uses_llm_evidence_plan_before_final_scan(tmp_path: Path
 
     assert calls == ["planner", "scan"]
     assert inventory.primary_stack == "java-spring"
+
+
+def test_scan_repository_reports_progress_for_each_stage(tmp_path: Path):
+    (tmp_path / "pom.xml").write_text("<project><artifactId>demo</artifactId></project>", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "Demo.java").write_text("class Demo {}", encoding="utf-8")
+    events = []
+
+    def planner_caller(_messages):
+        return json.dumps(
+            {
+                "schema_version": "1.0",
+                "requested_paths": ["src/Demo.java"],
+                "risk_focus": [],
+                "rationale": "Read source entry.",
+                "confidence": "high",
+            }
+        )
+
+    def scan_caller(_messages):
+        return _llm_response("java-spring")
+
+    scan_repository(
+        tmp_path,
+        llm_caller=scan_caller,
+        evidence_planner_caller=planner_caller,
+        progress=events.append,
+    )
+
+    assert [(event.phase, event.status) for event in events] == [
+        ("collect-evidence", "started"),
+        ("collect-evidence", "completed"),
+        ("plan-evidence-expansion", "started"),
+        ("plan-evidence-expansion", "completed"),
+        ("expand-evidence", "started"),
+        ("expand-evidence", "completed"),
+        ("llm-scan", "started"),
+        ("llm-scan", "completed"),
+        ("reconcile-scan", "started"),
+        ("reconcile-scan", "completed"),
+    ]
+    assert events[1].details["evidence_file_count"] >= 1
+    assert events[5].details["requested_path_count"] == 1
+    assert events[-1].details["command_count"] == 1
