@@ -13,6 +13,7 @@ from harness_builder_agent.schemas.interaction_decision import CandidateDecision
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
@@ -186,6 +187,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo(f"- 待处理 Experience / 候选信号：{experience}")
     typer.echo("\n可选动作")
     typer.echo("- exit：退出，不覆盖现有 Harness。")
+    typer.echo("- assess：重新评估成熟度，只刷新 maturity 和 init summary 产物。")
     typer.echo("- reinit：继续重新扫描并进入当前生成向导。")
 
     action = typer.prompt("你的选择", default="exit").strip().lower()
@@ -204,6 +206,39 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
             },
         )
         return ai
+    if action in {"assess", "reassess", "复评", "重新评估"}:
+        typer.echo("正在重新评估现有 Harness 成熟度...")
+        trace.event(
+            "existing-harness",
+            "started",
+            "Existing Harness detected; user chose maturity reassessment.",
+            {"primary_stack": inventory.primary_stack, "action": "assess"},
+        )
+        output_dir = assess_maturity(repo)
+        trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        trace.artifact(output_dir / "maturity-report.md", "maturity_report")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.artifact(output_dir / "init-summary.md", "init_summary")
+        trace.event(
+            "existing-harness",
+            "completed",
+            "Existing Harness maturity assessment refreshed.",
+            {"primary_stack": inventory.primary_stack, "action": "assess", "artifact_count": 4},
+        )
+        trace.finish(
+            "completed",
+            {
+                "primary_stack": inventory.primary_stack,
+                "existing_harness_action": "assess",
+                "artifact_count": 4,
+            },
+        )
+        typer.echo("成熟度评估已刷新。")
+        typer.echo("- `.ai/maturity-score.yaml`")
+        typer.echo("- `.ai/maturity-report.md`")
+        typer.echo("- `.ai/maturity-evidence.yaml`")
+        typer.echo("- `.ai/init-summary.md`")
+        return output_dir
     if action in {"reinit", "重新生成", "regenerate"}:
         trace.event(
             "existing-harness",

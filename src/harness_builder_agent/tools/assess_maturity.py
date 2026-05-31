@@ -12,6 +12,7 @@ from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.maturity_evidence import build_maturity_evidence_pack
 from harness_builder_agent.tools.maturity_model import build_maturity_report
+from harness_builder_agent.tools.init_summary import write_init_summary
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
@@ -32,6 +33,7 @@ def assess_maturity(repo: Path) -> Path:
     )
     _write_yaml(ai / "maturity-score.yaml", score.model_dump(mode="json"))
     _write_report(ai / "maturity-report.md", score)
+    write_init_summary(ai, score)
     evidence = build_maturity_evidence_pack(ai=ai, inventory=inventory, commands=commands, config=config)
     _write_yaml(ai / "maturity-evidence.yaml", evidence.model_dump(mode="json"))
     return ai

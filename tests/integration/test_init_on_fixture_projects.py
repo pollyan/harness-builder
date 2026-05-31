@@ -215,6 +215,12 @@ def _latest_init_trace(repo: Path) -> dict:
     return yaml.safe_load((runs[-1] / "trace.yaml").read_text(encoding="utf-8"))
 
 
+def _latest_init_artifacts(repo: Path) -> dict:
+    runs = sorted((repo / ".ai" / "runs").iterdir())
+    assert runs
+    return yaml.safe_load((runs[-1] / "artifacts.yaml").read_text(encoding="utf-8"))
+
+
 def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     context = tmp_path / "team-rules.md"
@@ -487,3 +493,59 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert trace["command"] == "init"
     assert trace["status"] == "completed"
     assert trace["summary"]["existing_harness_action"] == "exit"
+
+
+def test_guided_init_existing_harness_can_assess_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    inventory_before = (repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8")
+    config_before = (repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8")
+    guide_before = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    sensor_before = (repo / ".ai" / "sensors" / "verification.md").read_text(encoding="utf-8")
+    skill_before = (repo / ".ai" / "skills" / "lightweight" / "SKILL.md").read_text(encoding="utf-8")
+    (repo / ".ai" / "maturity-score.yaml").unlink()
+    (repo / ".ai" / "maturity-evidence.yaml").unlink()
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness assess must reuse existing Harness state, not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="assess\n")
+
+    assert result.exit_code == 0, result.output
+    assert "已存在 Harness" in result.output
+    assert "assess" in result.output
+    assert "成熟度评估已刷新" in result.output
+    assert "当前成熟度" in result.output
+    assert (repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8") == inventory_before
+    assert (repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8") == config_before
+    assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == guide_before
+    assert (repo / ".ai" / "sensors" / "verification.md").read_text(encoding="utf-8") == sensor_before
+    assert (repo / ".ai" / "skills" / "lightweight" / "SKILL.md").read_text(encoding="utf-8") == skill_before
+
+    maturity_score = yaml.safe_load((repo / ".ai" / "maturity-score.yaml").read_text(encoding="utf-8"))
+    assert maturity_score["overall_level"].startswith("L")
+    maturity_report = (repo / ".ai" / "maturity-report.md").read_text(encoding="utf-8")
+    assert "## 推荐下一步" in maturity_report
+    maturity_evidence = yaml.safe_load((repo / ".ai" / "maturity-evidence.yaml").read_text(encoding="utf-8"))
+    assert maturity_evidence["primary_stack"] == "java-spring"
+    assert maturity_evidence["inventory_summary"]["module_count"] >= 1
+    init_summary = (repo / ".ai" / "init-summary.md").read_text(encoding="utf-8")
+    assert "## 当前成熟度" in init_summary
+    assert "## 建议下一步" in init_summary
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert trace["summary"]["existing_harness_action"] == "assess"
+    artifacts = _latest_init_artifacts(repo)
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/maturity-score.yaml" in artifact_paths
+    assert ".ai/maturity-report.md" in artifact_paths
+    assert ".ai/maturity-evidence.yaml" in artifact_paths
+    assert ".ai/init-summary.md" in artifact_paths

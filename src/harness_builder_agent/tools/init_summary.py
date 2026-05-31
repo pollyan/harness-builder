@@ -7,6 +7,12 @@ import yaml
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 
 
+def write_init_summary(ai: Path, score: MaturityReport) -> Path:
+    path = ai / "init-summary.md"
+    path.write_text(build_init_summary_markdown(score), encoding="utf-8")
+    return path
+
+
 def build_init_summary_markdown(score: MaturityReport) -> str:
     blockers = _bullet_lines(score.blocking_reasons[:5])
     next_steps = _bullet_lines(score.recommended_next_steps[:5])

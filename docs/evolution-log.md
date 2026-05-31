@@ -1,5 +1,13 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Existing Harness Assess Action
+
+- North Star 模块：CLI Experience、Maturity & Evolution、可观测 Harness 生成。
+- 当前 gap：已有 Harness 再次执行 guided `init` 时只能退出或重建，普通用户仍需知道底层 `assess` 命令才能刷新成熟度。
+- 决策：在已有 Harness 维护入口加入 `assess` 动作，复用成熟度评估能力刷新 `maturity-score.yaml`、`maturity-report.md`、`maturity-evidence.yaml` 和 `init-summary.md`。
+- 决策：`assess` 不重新扫描、不调用 LLM、不覆盖 `project-inventory.json`、`harness-config.yaml`、Guides、Sensors 或 Workflow Skills。
+- 验收方式：integration 覆盖 existing Harness 下 `assess` 可修复缺失 maturity 文件、不调用扫描、不覆盖正式资产，并记录 trace artifacts 和 `existing_harness_action: assess`。
+
 ## 2026-05-31 Existing Harness Init Entry
 
 - North Star 模块：CLI Experience、Maturity & Evolution、资产生成与审核接管。

@@ -7,6 +7,7 @@
 - 发现日期：2026-05-31
 - 已完成切片：首次 `init` 生成 `.ai/init-summary.md`，并在 CLI 完成输出中展示当前成熟度、主要阻断项、建议下一步和推荐入口文件。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时先展示状态摘要，并支持 `exit` 只读退出，不覆盖正式资产。
+- 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `assess` 复评成熟度，刷新 maturity 产物和 `init-summary.md`，不重新扫描或覆盖正式 Harness 资产。
 - 相关命令：`harness-builder-agent init`、`assess`、`improve`、`benchmark`、`recommend-workflow`、`self-improve`
 - 相关工程规则：`docs/engineering/init-workflow.md`、`docs/engineering/testing-strategy.md`、`docs/engineering/architecture.md`
 - 相关产品方向：`docs/strategy/Harness Builder — 面向遗留代码库治理的 AI Coding Harness 生成器.md`
