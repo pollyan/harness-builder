@@ -194,7 +194,7 @@ def _governance_markdown(log: CandidateGovernanceLog) -> str:
         f"{decisions}\n\n"
         "## Review Boundary\n\n"
         "- LLM asset candidates remain review-only unless an explicit governance decision applies them.\n"
-        "- `applied` decisions only support Guide and Sensor Markdown candidates in this MVP.\n"
+        "- Guide and Sensor candidates are appended to Markdown assets; workflow policy candidates require a structured patch.\n"
     )
 
 

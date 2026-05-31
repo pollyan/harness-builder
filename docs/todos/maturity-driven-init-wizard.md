@@ -11,7 +11,7 @@
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `improve` 生成 maturity-driven review-only 改进候选，并在生成前刷新 Experience index 与 maturity evidence。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `benchmark` 运行质量门禁，刷新 benchmark / maturity / improvement 派生产物，输出失败项摘要，不重新扫描或覆盖正式 Harness 资产。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `recommend-workflow` 收集任务说明，生成 review-only Workflow 推荐，并刷新 Experience / Maturity 派生证据，不执行 Runtime 或修改正式 routing policy。
-- 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `review-candidate` 记录候选 `accepted` / `deferred` / `rejected` 治理决策，并刷新 Candidate Governance 与 Experience index；guided 模式不应用正式资产。
+- 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `review-candidate` 记录候选 `accepted` / `deferred` / `rejected` 治理决策；对单个 Guide / Sensor 候选支持显式 `applied`，并刷新 Candidate Governance 与 Experience index。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `self-improve` 显式生成 review-only 自改进审查包，串联 maturity review 和 asset candidates，不执行 Runtime 或应用正式资产。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时展示分项 Experience / review signals，包括 pending improvements、asset candidates、candidate governance、maturity reviews、workflow recommendations、runtime task runs、self-improve package、human-input-needed 和 schema/content failed checks。
 - 相关命令：`harness-builder-agent init`、`assess`、`improve`、`benchmark`、`recommend-workflow`、`self-improve`
@@ -43,7 +43,7 @@
 
 - 用户仍需要理解哪些动作只是 review-only，哪些专家命令可能应用正式资产。
 - 首次 `init` 已有完成摘要，但还没有在写入前后形成完整的 benchmark 健康度解释和下一步治理节奏。
-- 再次执行 `init` 已具备主要维护动作，但还缺少候选列表浏览、guided apply 前 diff / summary、recommendation 历史和更明确的 schema / contract 修复引导。
+- 再次执行 `init` 已具备主要维护动作和单个 Guide / Sensor 候选 applied 闭环，但还缺少更完整的候选列表浏览、guided apply 前 diff / summary、recommendation 历史和更明确的 schema / contract 修复引导。
 - 底层专家命令的能力和普通用户向导旅程之间仍需要进一步压缩认知负担。
 
 ## 产品判断

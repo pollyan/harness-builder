@@ -205,7 +205,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo("- improve：基于成熟度缺口生成 review-only 改进候选，不覆盖正式 Harness 资产。")
     typer.echo("- benchmark：运行 Harness 质量门禁，刷新 benchmark / maturity / improvement 派生产物，不覆盖正式 Harness 资产。")
     typer.echo("- recommend-workflow：输入任务说明，生成 review-only Workflow 推荐，不执行任务或修改正式 routing policy。")
-    typer.echo("- review-candidate：记录候选 accepted / deferred / rejected 决策，不应用正式资产。")
+    typer.echo("- review-candidate：记录候选 accepted / deferred / rejected；Guide/Sensor 可显式 applied，workflow_policy 仍需专家命令。")
     typer.echo("- self-improve：生成 review-only 自改进审查包，不应用正式资产或执行 Runtime。")
     typer.echo("- reinit：继续重新扫描并进入当前生成向导。")
 
@@ -406,14 +406,16 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         typer.echo(_workflow_recommendation_summary(recommendation))
         return output_dir
     if action in {"review-candidate", "candidate", "governance", "候选", "治理"}:
-        _show_asset_candidate_summary(ai / "review" / "asset-candidates.yaml")
+        candidate_report = _show_asset_candidate_summary(ai / "review" / "asset-candidates.yaml")
         candidate_id = typer.prompt("候选 ID", default="", show_default=False).strip()
-        decision = typer.prompt("决策 accepted/deferred/rejected", default="deferred").strip().lower()
-        if decision == "applied":
+        candidate = _find_asset_candidate(candidate_report, candidate_id)
+        typer.echo(_asset_candidate_detail(candidate))
+        decision = typer.prompt("决策 accepted/deferred/rejected/applied", default="deferred").strip().lower()
+        if decision == "applied" and candidate.kind == "workflow_policy":
             trace.event(
                 "existing-harness",
                 "failed",
-                "Guided candidate governance does not apply formal assets.",
+                "Guided candidate governance does not apply workflow policy candidates.",
                 {"primary_stack": inventory.primary_stack, "action": "review-candidate", "candidate_id": candidate_id},
             )
             trace.finish(
@@ -422,11 +424,11 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
                     "primary_stack": inventory.primary_stack,
                     "existing_harness_action": "review-candidate",
                     "candidate_id": candidate_id,
-                    "error": "applied_not_supported_in_guided_init",
+                    "error": "workflow_policy_applied_requires_expert_command",
                 },
             )
-            raise typer.BadParameter("guided review-candidate supports accepted/deferred/rejected only; use the expert command for applied.")
-        if decision not in {"accepted", "deferred", "rejected"}:
+            raise typer.BadParameter("guided workflow_policy applied requires the expert command with structured patch review.")
+        if decision not in {"accepted", "deferred", "rejected", "applied"}:
             trace.event(
                 "existing-harness",
                 "failed",
@@ -443,7 +445,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
                     "error": "unsupported_decision",
                 },
             )
-            raise typer.BadParameter("decision must be accepted, deferred, or rejected.")
+            raise typer.BadParameter("decision must be accepted, deferred, rejected, or applied.")
         rationale = typer.prompt("决策理由", default="", show_default=False).strip()
         reviewer = typer.prompt("Reviewer", default="harness-maintainer").strip() or "harness-maintainer"
         typer.echo("正在记录候选治理决策...")
@@ -484,7 +486,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
                 "applied_path_count": len(latest.applied_paths),
             },
         )
-        typer.echo(_candidate_governance_summary(latest.candidate_id, latest.decision, latest.reviewer))
+        typer.echo(_candidate_governance_summary(latest.candidate_id, latest.decision, latest.reviewer, len(latest.applied_paths)))
         return output_dir
     if action in {"self-improve", "self", "自改进", "智能改进"}:
         typer.echo("正在生成 review-only 自改进审查包...")
@@ -598,14 +600,14 @@ def _workflow_recommendation_summary(recommendation: WorkflowRecommendationRepor
     )
 
 
-def _candidate_governance_summary(candidate_id: str, decision: str, reviewer: str) -> str:
+def _candidate_governance_summary(candidate_id: str, decision: str, reviewer: str, applied_path_count: int) -> str:
     return "\n".join(
         [
             "候选治理决策已记录。",
             f"- candidate_id={candidate_id}",
             f"- decision={decision}",
             f"- reviewer={reviewer}",
-            "- applied_paths=0",
+            f"- applied_paths={applied_path_count}",
             "- `.ai/review/candidate-governance.yaml`",
             "- `.ai/review/candidate-governance.md`",
             "- `.ai/experience/experience-index.yaml`",
@@ -613,7 +615,7 @@ def _candidate_governance_summary(candidate_id: str, decision: str, reviewer: st
     )
 
 
-def _show_asset_candidate_summary(path: Path) -> None:
+def _show_asset_candidate_summary(path: Path) -> AssetCandidateReport:
     report = AssetCandidateReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
     typer.echo("\n待治理候选")
     for candidate in report.candidates[:10]:
@@ -623,7 +625,36 @@ def _show_asset_candidate_summary(path: Path) -> None:
         )
     if len(report.candidates) > 10:
         typer.echo(f"- 还有 {len(report.candidates) - 10} 个候选，请查看 `.ai/review/asset-candidates.yaml`。")
-    typer.echo("guided review-candidate 只记录 accepted/deferred/rejected，不应用正式资产。")
+    typer.echo("guided review-candidate 可记录 accepted/deferred/rejected；Guide/Sensor 候选可显式 applied。")
+    typer.echo("workflow_policy 候选应用仍需使用专家命令。")
+    return report
+
+
+def _find_asset_candidate(report: AssetCandidateReport, candidate_id: str):
+    for candidate in report.candidates:
+        if candidate.id == candidate_id:
+            return candidate
+    raise typer.BadParameter(f"unknown asset candidate id: {candidate_id}")
+
+
+def _asset_candidate_detail(candidate) -> str:
+    evidence = ", ".join(f"`{source}`" for source in candidate.evidence_sources) or "None."
+    checks = "\n".join(f"  - {item}" for item in candidate.acceptance_checks) or "  - None."
+    return "\n".join(
+        [
+            "\n候选详情",
+            f"- id={candidate.id}",
+            f"- kind={candidate.kind}",
+            f"- title={candidate.title}",
+            f"- target={candidate.suggested_path}",
+            f"- risk={candidate.risk_level}",
+            f"- review_status={candidate.review_status}",
+            f"- evidence_sources={evidence}",
+            "- acceptance_checks:",
+            checks,
+            "- apply_boundary=single_candidate_only",
+        ]
+    )
 
 
 def _self_improve_summary(manifest: SelfImprovePackageManifest) -> str:

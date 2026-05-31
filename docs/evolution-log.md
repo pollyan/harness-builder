@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Candidate Apply
+
+- North Star 模块：CLI Experience、Experience & Self-Improve、Maturity & Evolution、Governance & Auditability。
+- Gap Analysis 摘要：已有 Harness 维护入口已支持 `improve`、`self-improve`、`recommend-workflow` 和候选治理；standalone `review-candidate` 已能安全应用 Guide / Sensor Markdown 和结构化 workflow policy patch。但 guided `init` 只能记录 `accepted` / `deferred` / `rejected`，Maintainer 仍需离开主入口使用专家命令才能正式接管低风险 Guide / Sensor 候选。
+- 用户故事：作为 Harness Maintainer，当我在已有 Harness 上再次运行 guided `init` 并查看 self-improve 生成的 Guide / Sensor 候选时，我可以审查单个候选的目标路径、证据、风险和验收检查，并明确选择 `applied` 将它写入正式 Markdown，从而完成一条可审计的自改进接管闭环。
+- 当前代码 gap：`interactive_init.py` 对所有 `applied` 决策一律失败；候选详情只展示列表摘要，没有在决策前展示 evidence sources、acceptance checks 和 apply boundary。
+- 决策：guided 入口复用现有 `review_candidate()`，只放开 Guide / Sensor 单候选 `applied`；workflow policy 在 guided 入口继续失败并提示专家命令，因为它涉及 `.ai/harness-config.yaml` 结构化 patch 审核。
+- Assumptions / risks：Guide / Sensor Markdown 追加式应用是当前最低风险的正式接管动作；错误经验固化仍有风险，因此本轮保持单候选、显式 id、rationale 必填、候选详情展示和底层路径校验。
+- 边界与失败模式：不批量应用，不开放 guided workflow policy apply，不从自由文本推断配置变更，不执行 Runtime，不创建 `.ai/task-runs`。未知 candidate id、空 rationale、非 `.ai/` suggested path 和重复 applied 继续显式失败。
+- Sub agent 使用：使用 explorer 子代理审计 existing-Harness 候选治理闭环，结论建议优先补 guided 单候选安全采纳；另两个 explorer 并行审计 workflow recommendation history 和测试效率脚本，作为后续候选 gap。
+- 价值切分：本轮只补 Guide / Sensor 候选的 guided apply 接管闭环；暂缓 workflow recommendation history、guided apply diff/summary、workflow policy guided apply 和测试脚本分层。
+- 可执行验收标准及验证方式：integration 覆盖 guided `init -> review-candidate -> applied` 成功追加 Guide candidate marker、记录 governance `applied_paths`、刷新 Experience index、trace artifacts、不重新扫描、不创建 `.ai/task-runs`、不覆盖其他正式资产；integration 覆盖 guided workflow policy `applied` 显式失败且不写 governance。
+- 完成内容：guided `review-candidate` 展示候选详情并允许 Guide / Sensor `applied`；candidate governance summary 输出真实 applied path count；README、init workflow 规则、maturity-driven init todo 和演进记录同步更新。
+- 验证结果：targeted regression 9 passed；fast regression 见本轮提交前验证。
+- Self-Harness Gate：本轮只改变 `init` 维护入口和候选治理文档；不需要新增 schema。下一轮候选 gap：workflow recommendation history、guided apply 前 diff/summary、测试脚本分层与 acceptance 分组。
+
 ## 2026-05-31 LLM Evidence Source Whitelist Hardening
 
 - North Star 模块：Benchmark / Review Intelligence、Experience & Self-Improve、Prompt Contract、Maturity & Evolution。

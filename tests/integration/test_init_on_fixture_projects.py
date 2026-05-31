@@ -915,6 +915,180 @@ def test_guided_init_existing_harness_can_record_candidate_governance_without_ap
     assert ".ai/experience/experience-index.yaml" in artifact_paths
 
 
+def test_guided_init_existing_harness_can_apply_guide_candidate_with_review_boundary(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    review_dir = repo / ".ai" / "review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    (review_dir / "asset-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_maturity_review",
+                "candidates": [
+                    {
+                        "id": "guide-project-context-scope",
+                        "kind": "guide",
+                        "source_candidate_id": None,
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/guides/project-context.md",
+                        "title": "Scope project context guide",
+                        "rationale": "Candidate is grounded in maturity evidence.",
+                        "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                        "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                        "risk_level": "medium",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness candidate apply must reuse existing Harness state, not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "review-candidate\n"
+            "guide-project-context-scope\n"
+            "applied\n"
+            "Maintainer reviewed the evidence and accepted this guide addition.\n"
+            "lead-reviewer\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "候选详情" in result.output
+    assert "risk=medium" in result.output
+    assert ".ai/maturity-evidence.yaml" in result.output
+    assert "Benchmark content:guides-quality passes." in result.output
+    assert "候选治理决策已记录" in result.output
+    assert "applied" in result.output
+    assert "applied_paths=1" in result.output
+    assert not (repo / ".ai" / "task-runs").exists()
+
+    target = repo / ".ai" / "guides" / "project-context.md"
+    updated = target.read_text(encoding="utf-8")
+    assert formal_before[".ai/guides/project-context.md"] in updated
+    assert "<!-- harness-builder:candidate-applied id=guide-project-context-scope -->" in updated
+    assert "## Applied Candidate: Scope project context guide" in updated
+    for relative_path, content in formal_before.items():
+        if relative_path == ".ai/guides/project-context.md":
+            continue
+        assert (repo / relative_path).read_text(encoding="utf-8") == content
+
+    governance = CandidateGovernanceLog.model_validate(
+        yaml.safe_load((review_dir / "candidate-governance.yaml").read_text(encoding="utf-8"))
+    )
+    assert governance.decisions[0].candidate_id == "guide-project-context-scope"
+    assert governance.decisions[0].decision == "applied"
+    assert governance.decisions[0].reviewer == "lead-reviewer"
+    assert governance.decisions[0].applied_paths == [".ai/guides/project-context.md"]
+    experience_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
+    assert experience_index["candidate_governance_decision_count"] == 1
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert "scan" not in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "review-candidate"
+    assert trace["summary"]["candidate_id"] == "guide-project-context-scope"
+    assert trace["summary"]["decision"] == "applied"
+    assert trace["summary"]["applied_path_count"] == 1
+    artifacts = _latest_init_artifacts(repo)
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/review/candidate-governance.yaml" in artifact_paths
+    assert ".ai/review/candidate-governance.md" in artifact_paths
+    assert ".ai/experience/experience-index.yaml" in artifact_paths
+
+
+def test_guided_init_existing_harness_rejects_workflow_policy_apply(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    review_dir = repo / ".ai" / "review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    (review_dir / "asset-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_maturity_review",
+                "candidates": [
+                    {
+                        "id": "workflow-standard-domain-policy",
+                        "kind": "workflow_policy",
+                        "source_candidate_id": None,
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/harness-config.yaml",
+                        "title": "Escalate domain policy changes",
+                        "rationale": "Domain policy changes should use the standard workflow.",
+                        "draft_content": "Structured workflow policy patch.",
+                        "workflow_policy_patch": {
+                            "schema_version": "1.0",
+                            "operation": "upsert_routing_rule",
+                            "target": "workflow_routing.rules",
+                            "rule": {
+                                "id": "standard-escalation",
+                                "selected_workflow": "standard",
+                                "rationale": "Escalate high-risk and domain policy changes to the standard workflow.",
+                                "task_type_hints": ["feature", "policy"],
+                                "triggers": [
+                                    "unclear_impact_scope",
+                                    "high_risk_module",
+                                    "cross_module_design",
+                                    "security_or_permission",
+                                    "insufficient_sensor_coverage",
+                                    "domain_policy_change",
+                                ],
+                                "required_guides": [".ai/guides/project-context.md", ".ai/guides/architecture.md"],
+                                "required_sensors": [".ai/sensors/verification.md"],
+                                "human_confirmation_required": True,
+                            },
+                        },
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                        "acceptance_checks": ["Benchmark content:workflow-routing-policy passes."],
+                        "risk_level": "medium",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "review-candidate\n"
+            "workflow-standard-domain-policy\n"
+            "applied\n"
+        ),
+    )
+
+    assert result.exit_code != 0
+    assert "workflow_policy" in result.output
+    assert "expert command" in result.output
+    assert not (review_dir / "candidate-governance.yaml").exists()
+
+
 def test_guided_init_existing_harness_can_self_improve_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
