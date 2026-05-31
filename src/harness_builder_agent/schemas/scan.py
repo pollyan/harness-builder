@@ -15,6 +15,12 @@ ScanFollowupTrigger = Literal[
     "module_boundary_unclear",
     "test_evidence_missing",
 ]
+ScanSelfCheckStatus = Literal[
+    "supported_by_current_evidence",
+    "needs_human_confirmation",
+    "needs_targeted_scan",
+    "conflict_detected",
+]
 
 
 class EvidenceBucketCoverage(BaseModel):
@@ -126,6 +132,26 @@ class ScanFollowupQuestion(BaseModel):
     affects: list[str] = Field(default_factory=list)
 
 
+class ScanSelfCheckResolution(BaseModel):
+    schema_version: str = "1.0"
+    interaction_id: str
+    trigger: ScanFollowupTrigger
+    status: ScanSelfCheckStatus
+    rationale: str
+    evidence_sources: list[str] = Field(default_factory=list, max_length=8)
+    suggested_next_action: str
+    confidence: Confidence = "medium"
+
+
+class ScanSelfCheckReport(BaseModel):
+    schema_version: str = "1.0"
+    prompt_version: str
+    review_status: Literal["pending_harness_maintainer_review"] = "pending_harness_maintainer_review"
+    overall_risk: Literal["low", "medium", "high"] = "medium"
+    summary: str
+    resolutions: list[ScanSelfCheckResolution] = Field(default_factory=list)
+
+
 class ScanMetadata(BaseModel):
     schema_version: str = "1.0"
     llm_status: Literal["succeeded", "failed"] = "succeeded"
@@ -138,4 +164,5 @@ class ScanMetadata(BaseModel):
     coverage: dict[str, Any] | None = None
     evidence_expansion: LLMEvidenceExpansionMetadata | None = None
     followup_questions: list[ScanFollowupQuestion] = Field(default_factory=list)
+    self_check: ScanSelfCheckReport | None = None
     reasoning_summary: str | None = None

@@ -214,6 +214,35 @@ def test_scan_metadata_accepts_followup_questions():
     assert metadata.followup_questions[0].interaction_id == "confirm:scan-followup:coverage-source-java"
 
 
+def test_scan_metadata_accepts_self_check_report():
+    metadata = ScanMetadata(
+        prompt_version="scan-v2",
+        evidence_file_count=42,
+        self_check={
+            "prompt_version": "llm-scan-self-check-v1",
+            "review_status": "pending_harness_maintainer_review",
+            "overall_risk": "medium",
+            "summary": "coverage gap still needs maintainer review.",
+            "resolutions": [
+                {
+                    "interaction_id": "confirm:scan-followup:coverage-source-java",
+                    "trigger": "coverage_gap",
+                    "status": "needs_targeted_scan",
+                    "rationale": "Only one source sample is present.",
+                    "evidence_sources": ["source:.java", "src/App.java"],
+                    "suggested_next_action": "Ask maintainer for core module paths.",
+                    "confidence": "medium",
+                }
+            ],
+        },
+    )
+
+    assert metadata.self_check is not None
+    assert metadata.self_check.review_status == "pending_harness_maintainer_review"
+    assert metadata.self_check.resolutions[0].status == "needs_targeted_scan"
+    assert metadata.self_check.resolutions[0].evidence_sources == ["source:.java", "src/App.java"]
+
+
 def test_benchmark_report_accepts_quality_scores():
     report = BenchmarkReport(
         repo_name="demo",

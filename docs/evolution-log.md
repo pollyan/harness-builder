@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Scan Follow-up Self-check
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：Scanner & Analyzer、CLI Experience、Progressive Collaboration、Maturity & Evolution、智能化闭环。
+- init North Star 旅程阶段：扫描结果友好呈现、深度追问、渐进式深入、人工确认资产。
+- Gap Analysis 摘要：上一轮已把扫描不确定性转成 `followup_questions` 并进入 CLI / questionnaire / human input，但追问仍只是待办项，没有被 LLM 再审查；本轮比较了 follow-up self-check、自然语言补充消费、维护入口浏览和 claim-level validation，选择先做 review-only self-check，因为它能最小纵向消费现有追问契约，同时不自动改正式扫描结论。
+- 用户故事：作为 Harness Maintainer，当大型或多栈仓库首次 guided `init` 生成深度追问时，我可以看到 Builder 基于当前 evidence 对这些追问执行 LLM 二次自检，并把每个追问的 review-only 结论、风险和下一步写入 scan metadata、CLI 和人工确认链路，从而知道哪些问题仍需人工补充或后续 targeted scan。
+- 当前代码 gap：`scan_repo.py` 只在 reconcile 后返回 metadata；`followup_questions` 只被 CLI 和 questionnaire 展示；没有 `ScanSelfCheckReport`、self-check prompt、parser、progress event 或 questionnaire resolution 合并。
+- 关键决策 / 取舍：新增 `ScanSelfCheckReport` / `ScanSelfCheckResolution` 和 `ScanMetadata.self_check`；新增集中 prompt `llm_scan_self_check_v1.md`；真实 LLM 路径或显式 mock caller 才运行 self-check；self-check 只做 review-only 审计，不自动修改 inventory、commands、Guides、Sensors 或 Workflow routing。
+- Assumptions / risks：真实有 follow-up 的 init 会增加一次 LLM 调用；mock scan 测试如果没有显式传 self-check caller 不会被额外调用；后续仍需要 claim-level support/conflict/unknown validation。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行调研 follow-up 消费链路、实现风险和候选排序；两者均建议本轮优先做审计型 self-check，把自动修正和 claim-level validation 留作后续。
+- 价值切分说明：本轮完成“follow-up questions -> LLM self-check -> scan metadata -> CLI -> questionnaire”的纵向闭环，不把 targeted rescan、自动修正或完整 claim map 混入同一 milestone。
+- 验收标准及验证方式：schema unit 覆盖 `ScanMetadata.self_check`；LLM parser unit 覆盖合法 JSON、非法 JSON、未知 interaction id 和未知 evidence source；scan repo unit 覆盖有 follow-up 时调用 self-check、无 follow-up 时不调用；guided integration 覆盖“LLM 二次自检”和 questionnaire reason；prompt registry 测试覆盖集中 prompt 管理。
+- 完成内容：新增 self-check schema、prompt、parser 和 scan repo 阶段；guided CLI 展示 review-only 二次自检；questionnaire 合并对应 resolution；同步 engineering docs、todo、spec 和 plan。
+- 验证结果：targeted suite `25 passed in 0.15s`；commit 前快速回归 `scripts/test-fast.sh` 为 `333 passed in 16.24s`；`git diff --check` 通过。
+- Self-Harness Gate：剩余 LLM-planned deep scan 仍 open。下一轮候选 gap 优先考虑 claim-level support/conflict/unknown validation 的第一切片，其次是用户自然语言补充与 self-check resolution 如何共同影响成熟度预览和 Harness 推荐。
+
 ## 2026-06-01 Scan Follow-up Questions
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

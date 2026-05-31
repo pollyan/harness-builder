@@ -92,11 +92,19 @@ def build_questionnaire(
     represented_warning_codes: set[str] = set()
     if isinstance(evidence_expansion, dict) and evidence_expansion.get("confidence") == "low":
         represented_warning_codes.add("llm_evidence_plan_low_confidence")
+    self_check_resolutions = _self_check_resolutions_by_interaction_id(scan_metadata.get("self_check"))
     for followup in scan_metadata.get("followup_questions", []):
         if not isinstance(followup, dict):
             continue
         represented_warning_codes.update(_warning_codes_represented_by_followup(str(followup.get("trigger") or "")))
         affects = _format_plain_items(followup.get("affects", []))
+        reason = f"{followup.get('reason') or '扫描阶段存在需要补救的不确定性。'} 影响：{affects}"
+        resolution = self_check_resolutions.get(str(followup.get("interaction_id") or ""))
+        if resolution:
+            status = resolution.get("status") or "needs_human_confirmation"
+            action = resolution.get("suggested_next_action") or "请人工确认该追问。"
+            rationale = resolution.get("rationale") or "LLM 二次自检未提供理由。"
+            reason = f"{reason} LLM 二次自检：{status}；建议：{action}；理由：{rationale}"
         questions.append(
             {
                 "interaction_type": "scan_followup_confirmation",
@@ -104,7 +112,7 @@ def build_questionnaire(
                 "question": str(followup.get("question") or "是否需要补充扫描不确定性？"),
                 "options": ["补充或修正相关信息", "暂时接受当前不确定性"],
                 "confidence": str(followup.get("confidence") or "low"),
-                "reason": f"{followup.get('reason') or '扫描阶段存在需要补救的不确定性。'} 影响：{affects}",
+                "reason": reason,
             }
         )
     for warning in scan_metadata.get("warnings", []):
@@ -134,6 +142,22 @@ def _format_plain_items(value: Any) -> str:
     if not isinstance(value, list) or not value:
         return "无"
     return ", ".join(str(item) for item in value[:5])
+
+
+def _self_check_resolutions_by_interaction_id(value: Any) -> dict[str, dict[str, Any]]:
+    if not isinstance(value, dict):
+        return {}
+    resolutions = value.get("resolutions")
+    if not isinstance(resolutions, list):
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for item in resolutions:
+        if not isinstance(item, dict):
+            continue
+        interaction_id = str(item.get("interaction_id") or "")
+        if interaction_id:
+            result[interaction_id] = item
+    return result
 
 
 def _warning_codes_represented_by_followup(trigger: str) -> set[str]:

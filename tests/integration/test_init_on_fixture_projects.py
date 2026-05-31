@@ -851,7 +851,24 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
             stack_extensions={
                 "needs_human_confirmation": True,
                 "scan_metadata": {
-                    "followup_questions": followups
+                    "followup_questions": followups,
+                    "self_check": {
+                        "prompt_version": "llm-scan-self-check-v1",
+                        "review_status": "pending_harness_maintainer_review",
+                        "overall_risk": "high",
+                        "summary": "多个深度追问仍需要 Maintainer 复核。",
+                        "resolutions": [
+                            {
+                                "interaction_id": "confirm:scan-followup:coverage-source-java",
+                                "trigger": "coverage_gap",
+                                "status": "needs_targeted_scan",
+                                "rationale": "当前 evidence 仍不足以确认 Java 核心模块覆盖。",
+                                "evidence_sources": ["source:.java"],
+                                "suggested_next_action": "请补充核心 Java 模块路径。",
+                                "confidence": "medium",
+                            }
+                        ],
+                    },
                 },
             },
         )
@@ -872,6 +889,10 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
     assert "source:.java 抽样不足" in result.output
     assert "成熟度、Guides、Sensors" in result.output
     assert "还有 1 个深度追问" in result.output
+    assert "LLM 二次自检" in result.output
+    assert "pending_harness_maintainer_review" in result.output
+    assert "needs_targeted_scan" in result.output
+    assert "请补充核心 Java 模块路径" in result.output
 
     questionnaire = yaml.safe_load((repo / ".ai" / "questionnaire.yaml").read_text(encoding="utf-8"))
     Questionnaire.model_validate(questionnaire)
@@ -879,6 +900,7 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
         item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:coverage-source-java"
     )
     assert question["interaction_type"] == "scan_followup_confirmation"
+    assert "LLM 二次自检" in question["reason"]
     human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
     assert "confirm:scan-followup:coverage-source-java" in human_input
     assert "哪些 Java 目录" in human_input

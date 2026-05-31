@@ -11,6 +11,7 @@ from harness_builder_agent.tools.evidence_collector import collect_evidence, exp
 from harness_builder_agent.tools.llm_evidence_planner import plan_evidence_expansion_with_llm
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
 from harness_builder_agent.tools.llm_scan_analyzer import analyze_evidence_with_llm
+from harness_builder_agent.tools.llm_scan_self_checker import review_scan_followups_with_llm
 from harness_builder_agent.tools.scan_reconciler import reconcile_scan
 from harness_builder_agent.schemas.scan import LLMEvidencePlan
 
@@ -31,6 +32,7 @@ def scan_repository(
     *,
     llm_caller: Callable[[list[dict[str, str]]], str] | None = None,
     evidence_planner_caller: Callable[[list[dict[str, str]]], str] | None = None,
+    scan_self_check_caller: Callable[[list[dict[str, str]]], str] | None = None,
     config: DeepSeekConfig | None = None,
     progress: ScanProgressCallback | None = None,
 ) -> tuple[ProjectInventory, CommandCatalog]:
@@ -81,6 +83,7 @@ def scan_repository(
         base_url=config.base_url if config else None,
         evidence_plan=evidence_plan,
     )
+    metadata = _metadata
     _emit_progress(
         progress,
         "reconcile-scan",
@@ -88,6 +91,25 @@ def scan_repository(
         "Scan reconciliation completed.",
         {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)},
     )
+    if metadata.followup_questions and (scan_self_check_caller is not None or llm_caller is None):
+        _emit_progress(progress, "scan-self-check", "started", "Requesting LLM scan follow-up self-check.")
+        self_check = review_scan_followups_with_llm(
+            evidence,
+            metadata,
+            caller=scan_self_check_caller,
+            config=config,
+        )
+        metadata = metadata.model_copy(update={"self_check": self_check})
+        extensions = dict(inventory.stack_extensions)
+        extensions["scan_metadata"] = metadata.model_dump(mode="json")
+        inventory = inventory.model_copy(update={"stack_extensions": extensions})
+        _emit_progress(
+            progress,
+            "scan-self-check",
+            "completed",
+            "LLM scan follow-up self-check completed.",
+            {"resolution_count": len(self_check.resolutions), "overall_risk": self_check.overall_risk},
+        )
     return inventory, commands
 
 

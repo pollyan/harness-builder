@@ -19,6 +19,7 @@
   - `2026-06-01 LLM Evidence Plan 可审计`：`.ai/scan-metadata.yaml` 通过 `evidence_expansion` 记录 planner prompt version、requested paths、risk focus、rationale、planner confidence、实际读取 paths 和读取文件数量；planner 低置信度会进入 warning 和 human confirmation 信号。
   - `2026-06-01 Guided Init LLM Evidence Plan 可见化`：首次 guided `init` 在扫描发现阶段展示“LLM 深度补充”，说明 planner 补读路径、关注原因、规划说明、实际读取结果和置信度；planner 低置信度进入 `confirm:evidence-expansion` 待确认项和 `human-input-needed.md`。
   - `2026-06-01 Scan Follow-up Questions`：coverage gap、LLM stack claim 缺少 evidence、primary stack unknown、模块边界不清和测试 evidence 缺失会进入 `ScanMetadata.followup_questions`，guided CLI 展示“深度追问”，并进入 `questionnaire.yaml` / `human-input-needed.md`。
+  - `2026-06-01 Scan Follow-up Self-check`：存在 `followup_questions` 时，真实 LLM 链路或显式 mock caller 会执行 review-only 二次自检，写入 `ScanMetadata.self_check`，guided CLI 展示“LLM 二次自检”，questionnaire 把 resolution 追加到对应追问的 reason；自检不自动修正正式扫描结论。
 - 剩余 LLM-planned deep scan 仍保持 open。
 
 ## 背景

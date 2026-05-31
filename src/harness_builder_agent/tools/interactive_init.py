@@ -212,6 +212,7 @@ _SCAN_PROGRESS_LABELS = {
     "expand-evidence": "读取 LLM 请求的补充 evidence",
     "llm-scan": "请求 LLM 做最终结构化扫描",
     "reconcile-scan": "调和扫描结果",
+    "scan-self-check": "请求 LLM 二次自检深度追问",
 }
 
 
@@ -264,6 +265,7 @@ def _show_scan_findings(inventory: ProjectInventory, commands: CommandCatalog) -
 def _show_scan_attention_summary(inventory: ProjectInventory, commands: CommandCatalog) -> None:
     _show_llm_evidence_expansion(inventory)
     _show_scan_followup_questions(inventory)
+    _show_scan_self_check(inventory)
 
     typer.echo("\n风险区域")
     for line in _risk_attention_lines(inventory):
@@ -330,6 +332,37 @@ def _scan_followup_questions(inventory: ProjectInventory) -> list[dict[str, obje
         return []
     questions = scan_metadata.get("followup_questions")
     return [item for item in questions if isinstance(item, dict)] if isinstance(questions, list) else []
+
+
+def _show_scan_self_check(inventory: ProjectInventory) -> None:
+    self_check = _scan_self_check(inventory)
+    if self_check is None:
+        return
+
+    typer.echo("\nLLM 二次自检")
+    typer.echo("- 结论边界：pending_harness_maintainer_review；这只是 review-only 结论，不会自动修正正式扫描结果。")
+    typer.echo(f"- 整体风险：{self_check.get('overall_risk', 'medium')}")
+    typer.echo(f"- 摘要：{self_check.get('summary') or 'LLM 已对深度追问进行二次审查。'}")
+    resolutions = self_check.get("resolutions")
+    items = [item for item in resolutions if isinstance(item, dict)] if isinstance(resolutions, list) else []
+    for item in items[:5]:
+        status = str(item.get("status") or "needs_human_confirmation")
+        action = str(item.get("suggested_next_action") or "请人工确认该追问。")
+        rationale = str(item.get("rationale") or "当前 evidence 不足以完成确认。")
+        interaction_id = str(item.get("interaction_id") or "unknown")
+        typer.echo(f"- `{interaction_id}`：{status}；建议：{action}；理由：{rationale}")
+    remaining = len(items) - 5
+    if remaining > 0:
+        typer.echo(f"- 还有 {remaining} 条二次自检结论，详见 `.ai/scan-metadata.yaml`。")
+
+
+def _scan_self_check(inventory: ProjectInventory) -> dict[str, object] | None:
+    extensions = inventory.stack_extensions if isinstance(inventory.stack_extensions, dict) else {}
+    scan_metadata = extensions.get("scan_metadata")
+    if not isinstance(scan_metadata, dict):
+        return None
+    self_check = scan_metadata.get("self_check")
+    return self_check if isinstance(self_check, dict) else None
 
 
 def _evidence_expansion(inventory: ProjectInventory) -> dict[str, object] | None:

@@ -92,6 +92,51 @@ def test_build_questionnaire_includes_scan_followup_questions():
     Questionnaire.model_validate(questionnaire)
 
 
+def test_build_questionnaire_includes_scan_self_check_resolution():
+    questionnaire = build_questionnaire(
+        context_inputs={"schema_version": "1.0", "contexts": []},
+        scan_metadata={
+            "warnings": [],
+            "followup_questions": [
+                {
+                    "interaction_id": "confirm:scan-followup:coverage-source-java",
+                    "trigger": "coverage_gap",
+                    "question": "哪些 Java 目录、入口文件或高风险路径需要补充扫描？",
+                    "reason": "source:.java 抽样不足，可能影响模块和风险判断。",
+                    "evidence": ["source:.java"],
+                    "confidence": "low",
+                    "affects": ["maturity", "guides", "sensors"],
+                }
+            ],
+            "self_check": {
+                "prompt_version": "llm-scan-self-check-v1",
+                "review_status": "pending_harness_maintainer_review",
+                "overall_risk": "medium",
+                "summary": "仍需要人工确认源码覆盖。",
+                "resolutions": [
+                    {
+                        "interaction_id": "confirm:scan-followup:coverage-source-java",
+                        "trigger": "coverage_gap",
+                        "status": "needs_targeted_scan",
+                        "rationale": "当前 evidence 只有少量 Java 样本。",
+                        "evidence_sources": ["source:.java"],
+                        "suggested_next_action": "请补充核心 Java 模块路径。",
+                        "confidence": "medium",
+                    }
+                ],
+            },
+        },
+    )
+
+    question = next(
+        item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:coverage-source-java"
+    )
+    assert "LLM 二次自检" in question["reason"]
+    assert "needs_targeted_scan" in question["reason"]
+    assert "请补充核心 Java 模块路径" in question["reason"]
+    Questionnaire.model_validate(questionnaire)
+
+
 def test_build_questionnaire_skips_raw_warnings_represented_by_targeted_followups():
     questionnaire = build_questionnaire(
         context_inputs={"schema_version": "1.0", "contexts": []},

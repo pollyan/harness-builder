@@ -45,6 +45,48 @@ def _llm_response(primary_stack: str) -> str:
     )
 
 
+def _unknown_llm_response() -> str:
+    return json.dumps(
+        {
+            "primary_stack": "unknown",
+            "stacks": [],
+            "modules": [],
+            "architecture_signals": [],
+            "risk_areas": [],
+            "command_candidates": [],
+            "configs": [],
+            "ci_files": [],
+            "confidence": "low",
+            "needs_human_confirmation": True,
+            "reasoning_summary": "Not enough evidence to identify the project.",
+        }
+    )
+
+
+def _self_check_response(interaction_id: str, trigger: str, evidence_source: str) -> str:
+    return json.dumps(
+        {
+            "schema_version": "1.0",
+            "prompt_version": "llm-scan-self-check-v1",
+            "review_status": "pending_harness_maintainer_review",
+            "overall_risk": "high",
+            "summary": "Follow-up questions still need maintainer review.",
+            "resolutions": [
+                {
+                    "schema_version": "1.0",
+                    "interaction_id": interaction_id,
+                    "trigger": trigger,
+                    "status": "needs_human_confirmation",
+                    "rationale": "Current evidence is insufficient to resolve this follow-up.",
+                    "evidence_sources": [evidence_source],
+                    "suggested_next_action": "Ask the maintainer to provide the real stack and module boundary.",
+                    "confidence": "medium",
+                }
+            ],
+        }
+    )
+
+
 def test_scan_repository_uses_llm_for_java_spring_fixture():
     inventory, commands = scan_repository(FIXTURES / "mini-spring-boot", llm_caller=lambda _messages: _llm_response("java-spring"))
 
@@ -167,3 +209,58 @@ def test_scan_repository_reports_progress_for_each_stage(tmp_path: Path):
     assert events[1].details["evidence_file_count"] >= 1
     assert events[5].details["requested_path_count"] == 1
     assert events[-1].details["command_count"] == 1
+
+
+def test_scan_repository_runs_self_check_for_followup_questions(tmp_path: Path):
+    (tmp_path / "README.md").write_text("# Unknown project\n", encoding="utf-8")
+    calls: list[str] = []
+    events = []
+
+    def scan_caller(_messages):
+        calls.append("scan")
+        return _unknown_llm_response()
+
+    def self_check_caller(messages):
+        calls.append("self-check")
+        content = messages[-1]["content"]
+        assert "confirm:scan-followup:unknown-stack" in content
+        return _self_check_response(
+            "confirm:scan-followup:unknown-stack",
+            "unknown_stack",
+            "primary_stack:unknown",
+        )
+
+    inventory, _commands = scan_repository(
+        tmp_path,
+        llm_caller=scan_caller,
+        scan_self_check_caller=self_check_caller,
+        progress=events.append,
+    )
+
+    metadata = inventory.stack_extensions["scan_metadata"]
+    assert calls == ["scan", "self-check"]
+    assert metadata["self_check"]["review_status"] == "pending_harness_maintainer_review"
+    assert metadata["self_check"]["resolutions"][0]["interaction_id"] == "confirm:scan-followup:unknown-stack"
+    assert ("scan-self-check", "started") in [(event.phase, event.status) for event in events]
+    assert ("scan-self-check", "completed") in [(event.phase, event.status) for event in events]
+
+
+def test_scan_repository_skips_self_check_without_followup_questions():
+    calls: list[str] = []
+
+    def scan_caller(_messages):
+        calls.append("scan")
+        return _llm_response("java-spring")
+
+    def self_check_caller(_messages):
+        calls.append("self-check")
+        return _self_check_response("unused", "coverage_gap", "pom.xml")
+
+    inventory, _commands = scan_repository(
+        FIXTURES / "mini-spring-boot",
+        llm_caller=scan_caller,
+        scan_self_check_caller=self_check_caller,
+    )
+
+    assert calls == ["scan"]
+    assert inventory.stack_extensions["scan_metadata"]["self_check"] is None
