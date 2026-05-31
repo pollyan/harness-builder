@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
+from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
@@ -807,6 +808,95 @@ def test_guided_init_existing_harness_can_recommend_workflow_without_overwriting
     benchmark_report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
     recommendation_check = next(check for check in benchmark_report["checks"] if check["id"] == "content:workflow-recommendation-review")
     assert recommendation_check["passed"] is True
+
+
+def test_guided_init_existing_harness_can_record_candidate_governance_without_applying_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    review_dir = repo / ".ai" / "review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    (review_dir / "asset-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_maturity_review",
+                "candidates": [
+                    {
+                        "id": "guide-project-context-scope",
+                        "kind": "guide",
+                        "source_candidate_id": None,
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/guides/project-context.md",
+                        "title": "Scope project context guide",
+                        "rationale": "Candidate is grounded in maturity evidence.",
+                        "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                        "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                        "risk_level": "medium",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness candidate governance must reuse existing Harness state, not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "review-candidate\n"
+            "guide-project-context-scope\n"
+            "accepted\n"
+            "Maintainer accepted the direction but did not apply it yet.\n"
+            "lead-reviewer\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "已存在 Harness" in result.output
+    assert "review-candidate" in result.output
+    assert "待治理候选" in result.output
+    assert "Scope project context guide" in result.output
+    assert "候选治理决策已记录" in result.output
+    assert "accepted" in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    governance = CandidateGovernanceLog.model_validate(
+        yaml.safe_load((review_dir / "candidate-governance.yaml").read_text(encoding="utf-8"))
+    )
+    assert governance.decisions[0].candidate_id == "guide-project-context-scope"
+    assert governance.decisions[0].decision == "accepted"
+    assert governance.decisions[0].reviewer == "lead-reviewer"
+    assert governance.decisions[0].applied_paths == []
+    markdown = (review_dir / "candidate-governance.md").read_text(encoding="utf-8")
+    assert "## Review Boundary" in markdown
+    experience_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
+    assert experience_index["candidate_governance_decision_count"] == 1
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert "scan" not in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "review-candidate"
+    assert trace["summary"]["candidate_id"] == "guide-project-context-scope"
+    assert trace["summary"]["decision"] == "accepted"
+    artifacts = _latest_init_artifacts(repo)
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/review/candidate-governance.yaml" in artifact_paths
+    assert ".ai/review/candidate-governance.md" in artifact_paths
+    assert ".ai/experience/experience-index.yaml" in artifact_paths
 
 
 def test_guided_init_existing_harness_improve_refreshes_stale_experience_evidence(tmp_path: Path, monkeypatch):

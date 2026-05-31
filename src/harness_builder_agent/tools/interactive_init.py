@@ -6,7 +6,9 @@ from pathlib import Path
 import typer
 import yaml
 
+from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
+from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.harness_config import HarnessConfig
@@ -18,6 +20,7 @@ from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.benchmark import run_benchmark
+from harness_builder_agent.tools.candidate_governance import review_candidate
 from harness_builder_agent.tools.experience_index import write_experience_index
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
@@ -198,6 +201,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo("- improve：基于成熟度缺口生成 review-only 改进候选，不覆盖正式 Harness 资产。")
     typer.echo("- benchmark：运行 Harness 质量门禁，刷新 benchmark / maturity / improvement 派生产物，不覆盖正式 Harness 资产。")
     typer.echo("- recommend-workflow：输入任务说明，生成 review-only Workflow 推荐，不执行任务或修改正式 routing policy。")
+    typer.echo("- review-candidate：记录候选 accepted / deferred / rejected 决策，不应用正式资产。")
     typer.echo("- reinit：继续重新扫描并进入当前生成向导。")
 
     action = typer.prompt("你的选择", default="exit").strip().lower()
@@ -396,6 +400,87 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         )
         typer.echo(_workflow_recommendation_summary(recommendation))
         return output_dir
+    if action in {"review-candidate", "candidate", "governance", "候选", "治理"}:
+        _show_asset_candidate_summary(ai / "review" / "asset-candidates.yaml")
+        candidate_id = typer.prompt("候选 ID", default="", show_default=False).strip()
+        decision = typer.prompt("决策 accepted/deferred/rejected", default="deferred").strip().lower()
+        if decision == "applied":
+            trace.event(
+                "existing-harness",
+                "failed",
+                "Guided candidate governance does not apply formal assets.",
+                {"primary_stack": inventory.primary_stack, "action": "review-candidate", "candidate_id": candidate_id},
+            )
+            trace.finish(
+                "failed",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "existing_harness_action": "review-candidate",
+                    "candidate_id": candidate_id,
+                    "error": "applied_not_supported_in_guided_init",
+                },
+            )
+            raise typer.BadParameter("guided review-candidate supports accepted/deferred/rejected only; use the expert command for applied.")
+        if decision not in {"accepted", "deferred", "rejected"}:
+            trace.event(
+                "existing-harness",
+                "failed",
+                "Unsupported guided candidate governance decision.",
+                {"primary_stack": inventory.primary_stack, "action": "review-candidate", "candidate_id": candidate_id, "decision": decision},
+            )
+            trace.finish(
+                "failed",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "existing_harness_action": "review-candidate",
+                    "candidate_id": candidate_id,
+                    "decision": decision,
+                    "error": "unsupported_decision",
+                },
+            )
+            raise typer.BadParameter("decision must be accepted, deferred, or rejected.")
+        rationale = typer.prompt("决策理由", default="", show_default=False).strip()
+        reviewer = typer.prompt("Reviewer", default="harness-maintainer").strip() or "harness-maintainer"
+        typer.echo("正在记录候选治理决策...")
+        trace.event(
+            "existing-harness",
+            "started",
+            "Existing Harness detected; user chose candidate governance.",
+            {"primary_stack": inventory.primary_stack, "action": "review-candidate", "candidate_id": candidate_id, "decision": decision},
+        )
+        output_dir = review_candidate(repo, candidate_id, decision, rationale, reviewer)
+        governance = CandidateGovernanceLog.model_validate(
+            yaml.safe_load((output_dir / "review" / "candidate-governance.yaml").read_text(encoding="utf-8"))
+        )
+        latest = governance.decisions[-1]
+        trace.artifact(output_dir / "review" / "candidate-governance.yaml", "candidate_governance")
+        trace.artifact(output_dir / "review" / "candidate-governance.md", "review")
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.event(
+            "existing-harness",
+            "completed",
+            "Existing Harness candidate governance decision recorded.",
+            {
+                "primary_stack": inventory.primary_stack,
+                "action": "review-candidate",
+                "candidate_id": latest.candidate_id,
+                "decision": latest.decision,
+                "reviewer": latest.reviewer,
+            },
+        )
+        trace.finish(
+            "completed",
+            {
+                "primary_stack": inventory.primary_stack,
+                "existing_harness_action": "review-candidate",
+                "candidate_id": latest.candidate_id,
+                "decision": latest.decision,
+                "reviewer": latest.reviewer,
+                "applied_path_count": len(latest.applied_paths),
+            },
+        )
+        typer.echo(_candidate_governance_summary(latest.candidate_id, latest.decision, latest.reviewer))
+        return output_dir
     if action in {"reinit", "重新生成", "regenerate"}:
         trace.event(
             "existing-harness",
@@ -455,6 +540,34 @@ def _workflow_recommendation_summary(recommendation: WorkflowRecommendationRepor
             "- `.ai/review/workflow-routing-recommendation.md`",
         ]
     )
+
+
+def _candidate_governance_summary(candidate_id: str, decision: str, reviewer: str) -> str:
+    return "\n".join(
+        [
+            "候选治理决策已记录。",
+            f"- candidate_id={candidate_id}",
+            f"- decision={decision}",
+            f"- reviewer={reviewer}",
+            "- applied_paths=0",
+            "- `.ai/review/candidate-governance.yaml`",
+            "- `.ai/review/candidate-governance.md`",
+            "- `.ai/experience/experience-index.yaml`",
+        ]
+    )
+
+
+def _show_asset_candidate_summary(path: Path) -> None:
+    report = AssetCandidateReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    typer.echo("\n待治理候选")
+    for candidate in report.candidates[:10]:
+        typer.echo(
+            f"- `{candidate.id}`：{candidate.title}，kind={candidate.kind}，"
+            f"target=`{candidate.suggested_path}`，risk={candidate.risk_level}"
+        )
+    if len(report.candidates) > 10:
+        typer.echo(f"- 还有 {len(report.candidates) - 10} 个候选，请查看 `.ai/review/asset-candidates.yaml`。")
+    typer.echo("guided review-candidate 只记录 accepted/deferred/rejected，不应用正式资产。")
 
 
 def _top_improvement_candidate(path: Path) -> str:
