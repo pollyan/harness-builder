@@ -15,6 +15,7 @@ from harness_builder_agent.schemas.interaction_decision import CandidateDecision
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.experience_index import write_experience_index
@@ -22,6 +23,7 @@ from harness_builder_agent.tools.generate_improvements import generate_improveme
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
+from harness_builder_agent.tools.recommend_workflow import recommend_workflow
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 from harness_builder_agent.tools.write_assets import write_initial_assets
@@ -195,6 +197,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo("- assess：重新评估成熟度，只刷新 maturity 和 init summary 产物。")
     typer.echo("- improve：基于成熟度缺口生成 review-only 改进候选，不覆盖正式 Harness 资产。")
     typer.echo("- benchmark：运行 Harness 质量门禁，刷新 benchmark / maturity / improvement 派生产物，不覆盖正式 Harness 资产。")
+    typer.echo("- recommend-workflow：输入任务说明，生成 review-only Workflow 推荐，不执行任务或修改正式 routing policy。")
     typer.echo("- reinit：继续重新扫描并进入当前生成向导。")
 
     action = typer.prompt("你的选择", default="exit").strip().lower()
@@ -331,6 +334,68 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         )
         typer.echo(_benchmark_summary(report))
         return output_dir
+    if action in {"recommend-workflow", "recommend", "workflow", "工作流", "路由"}:
+        task_brief = typer.prompt("任务说明", default="", show_default=False).strip()
+        if not task_brief:
+            trace.event(
+                "existing-harness",
+                "failed",
+                "Workflow recommendation requires a task brief.",
+                {"primary_stack": inventory.primary_stack, "action": "recommend-workflow"},
+            )
+            trace.finish(
+                "failed",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "existing_harness_action": "recommend-workflow",
+                    "error": "empty_task_brief",
+                },
+            )
+            raise typer.BadParameter("recommend-workflow requires a non-empty task brief.")
+        task_id = typer.prompt("任务 ID", default="manual-task").strip() or "manual-task"
+        typer.echo("正在生成 review-only Workflow 推荐...")
+        trace.event(
+            "existing-harness",
+            "started",
+            "Existing Harness detected; user chose workflow recommendation.",
+            {"primary_stack": inventory.primary_stack, "action": "recommend-workflow", "task_id": task_id},
+        )
+        output_dir = recommend_workflow(repo, task_brief=task_brief, task_id=task_id)
+        recommendation = WorkflowRecommendationReport.model_validate(
+            yaml.safe_load((output_dir / "review" / "workflow-routing-recommendation.yaml").read_text(encoding="utf-8"))
+        )
+        trace.artifact(output_dir / "review" / "workflow-routing-recommendation.yaml", "workflow_recommendation")
+        trace.artifact(output_dir / "review" / "workflow-routing-recommendation.md", "review")
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.event(
+            "existing-harness",
+            "completed",
+            "Existing Harness workflow recommendation generated.",
+            {
+                "primary_stack": inventory.primary_stack,
+                "action": "recommend-workflow",
+                "task_id": recommendation.task_id,
+                "recommended_workflow": recommendation.recommended_workflow,
+                "risk_level": recommendation.risk_level,
+                "confidence": recommendation.confidence,
+            },
+        )
+        trace.finish(
+            "completed",
+            {
+                "primary_stack": inventory.primary_stack,
+                "existing_harness_action": "recommend-workflow",
+                "task_id": recommendation.task_id,
+                "recommended_workflow": recommendation.recommended_workflow,
+                "risk_level": recommendation.risk_level,
+                "confidence": recommendation.confidence,
+                "human_confirmation_required": recommendation.human_confirmation_required,
+            },
+        )
+        typer.echo(_workflow_recommendation_summary(recommendation))
+        return output_dir
     if action in {"reinit", "重新生成", "regenerate"}:
         trace.event(
             "existing-harness",
@@ -375,6 +440,21 @@ def _benchmark_summary(report: BenchmarkReport) -> str:
             lines.append(f"  - 还有 {len(failed_checks) - 5} 项，查看 `.ai/benchmark-report.yaml`。")
     lines.append("- `.ai/benchmark-report.yaml`")
     return "\n".join(lines)
+
+
+def _workflow_recommendation_summary(recommendation: WorkflowRecommendationReport) -> str:
+    return "\n".join(
+        [
+            "工作流推荐已生成。",
+            f"- recommended_workflow={recommendation.recommended_workflow}",
+            f"- risk={recommendation.risk_level}",
+            f"- confidence={recommendation.confidence}",
+            f"- human_confirmation_required={recommendation.human_confirmation_required}",
+            "- review_status=pending_harness_maintainer_review",
+            "- `.ai/review/workflow-routing-recommendation.yaml`",
+            "- `.ai/review/workflow-routing-recommendation.md`",
+        ]
+    )
 
 
 def _top_improvement_candidate(path: Path) -> str:

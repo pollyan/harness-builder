@@ -14,6 +14,7 @@ from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -722,6 +723,90 @@ def test_guided_init_existing_harness_benchmark_reports_failed_checks(tmp_path: 
     assert trace["summary"]["existing_harness_action"] == "benchmark"
     assert trace["summary"]["benchmark_status"] == "failed"
     assert trace["summary"]["failed_check_count"] == 1
+
+
+def test_guided_init_existing_harness_can_recommend_workflow_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness recommend-workflow must reuse existing Harness state, not rescan")
+
+    def fake_recommendation(task_id, task_brief, config, evidence_pack, caller=None, llm_config=None):
+        assert task_id == "task-1"
+        assert task_brief == "Fix checkout permission bug."
+        assert "bugfix" in config.workflows
+        assert evidence_pack.harness_assets.workflow_routing_rules
+        return WorkflowRecommendationReport(
+            task_id=task_id,
+            task_brief=task_brief,
+            recommended_workflow="bugfix",
+            matched_rule_ids=["bugfix-intent"],
+            risk_level="medium",
+            confidence="high",
+            rationale="Bugfix intent matches the configured bugfix routing rule.",
+            required_guides=[".ai/guides/task-templates/bugfix.md"],
+            required_sensors=[".ai/sensors/verification.md"],
+            human_confirmation_required=False,
+            evidence_sources=[".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+        )
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.assess_maturity.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.recommend_workflow.recommend_workflow_with_llm", fake_recommendation)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="recommend-workflow\nFix checkout permission bug.\ntask-1\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "已存在 Harness" in result.output
+    assert "recommend-workflow" in result.output
+    assert "工作流推荐已生成" in result.output
+    assert "bugfix" in result.output
+    assert ".ai/review/workflow-routing-recommendation.yaml" in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    yaml_path = repo / ".ai" / "review" / "workflow-routing-recommendation.yaml"
+    markdown_path = repo / ".ai" / "review" / "workflow-routing-recommendation.md"
+    recommendation = WorkflowRecommendationReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+    markdown = markdown_path.read_text(encoding="utf-8")
+    assert recommendation.recommended_workflow == "bugfix"
+    assert recommendation.review_status == "pending_harness_maintainer_review"
+    assert "## Review Boundary" in markdown
+    assert "pending_harness_maintainer_review" in markdown
+    assert not (repo / ".ai" / "task-runs").exists()
+
+    experience_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
+    assert experience_index["workflow_recommendation_count"] == 1
+    maturity_evidence = yaml.safe_load((repo / ".ai" / "maturity-evidence.yaml").read_text(encoding="utf-8"))
+    assert maturity_evidence["experience"]["workflow_recommendation_count"] == 1
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert "scan" not in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "recommend-workflow"
+    assert trace["summary"]["recommended_workflow"] == "bugfix"
+    artifacts = _latest_init_artifacts(repo)
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/review/workflow-routing-recommendation.yaml" in artifact_paths
+    assert ".ai/review/workflow-routing-recommendation.md" in artifact_paths
+    assert ".ai/experience/experience-index.yaml" in artifact_paths
+    assert ".ai/maturity-evidence.yaml" in artifact_paths
+
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", fail_scan)
+    benchmark_result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "java-spring"])
+    assert benchmark_result.exit_code == 0, benchmark_result.output
+    benchmark_report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
+    recommendation_check = next(check for check in benchmark_report["checks"] if check["id"] == "content:workflow-recommendation-review")
+    assert recommendation_check["passed"] is True
 
 
 def test_guided_init_existing_harness_improve_refreshes_stale_experience_evidence(tmp_path: Path, monkeypatch):
