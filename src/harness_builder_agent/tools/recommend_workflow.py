@@ -44,6 +44,15 @@ def _write_markdown(path: Path, recommendation: WorkflowRecommendationReport) ->
     matched_rules = "\n".join(f"- `{rule_id}`" for rule_id in recommendation.matched_rule_ids) or "- None."
     guides = "\n".join(f"- `{guide}`" for guide in recommendation.required_guides) or "- None."
     sensors = "\n".join(f"- `{sensor}`" for sensor in recommendation.required_sensors) or "- None."
+    assets = "\n".join(
+        [
+            "Guides:",
+            guides,
+            "",
+            "Sensors:",
+            sensors,
+        ]
+    )
     evidence = "\n".join(f"- `{source}`" for source in recommendation.evidence_sources) or "- None."
     path.write_text(
         "# Workflow Routing Recommendation\n\n"
@@ -54,19 +63,19 @@ def _write_markdown(path: Path, recommendation: WorkflowRecommendationReport) ->
         f"- confidence: `{recommendation.confidence}`\n"
         f"- human confirmation required: `{recommendation.human_confirmation_required}`\n"
         f"- review status: `{recommendation.review_status}`\n\n"
-        "## Task Brief\n\n"
+        "## Task\n\n"
         f"{recommendation.task_brief}\n\n"
+        "## Recommended Workflow\n\n"
+        f"`{recommendation.recommended_workflow}`\n\n"
         "## Rationale\n\n"
         f"{recommendation.rationale}\n\n"
         "## Matched Routing Rules\n\n"
         f"{matched_rules}\n\n"
-        "## Required Guides\n\n"
-        f"{guides}\n\n"
-        "## Required Sensors\n\n"
-        f"{sensors}\n\n"
+        "## Required Harness Assets\n\n"
+        f"{assets}\n\n"
         "## Evidence Sources\n\n"
         f"{evidence}\n\n"
-        "## Boundary\n\n"
+        "## Review Boundary\n\n"
         "This is a review-only workflow recommendation. Harness Builder does not execute the workflow or create `.ai/task-runs`.\n",
         encoding="utf-8",
     )

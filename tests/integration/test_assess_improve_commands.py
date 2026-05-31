@@ -641,6 +641,10 @@ def test_recommend_workflow_writes_review_only_artifacts(tmp_path: Path, monkeyp
     assert recommendation.review_status == "pending_harness_maintainer_review"
     assert "bugfix-intent" in recommendation.matched_rule_ids
     assert "# Workflow Routing Recommendation" in markdown
+    assert "\n## Task\n" in markdown
+    assert "\n## Recommended Workflow\n" in markdown
+    assert "\n## Required Harness Assets\n" in markdown
+    assert "\n## Review Boundary\n" in markdown
     assert "pending_harness_maintainer_review" in markdown
     assert experience_index["workflow_recommendation_count"] == 1
     assert maturity_evidence["experience"]["workflow_recommendation_count"] == 1
@@ -652,6 +656,12 @@ def test_recommend_workflow_writes_review_only_artifacts(tmp_path: Path, monkeyp
     assert {"path": ".ai/experience/experience-index.yaml", "kind": "experience_index"} in artifacts["artifacts"]
     assert {"path": ".ai/maturity-evidence.yaml", "kind": "maturity_evidence"} in artifacts["artifacts"]
     assert {"path": ".ai/maturity-score.yaml", "kind": "maturity_score"} in artifacts["artifacts"]
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    benchmark_result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "java-spring"])
+    assert benchmark_result.exit_code == 0, benchmark_result.output
+    benchmark_report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
+    recommendation_check = next(check for check in benchmark_report["checks"] if check["id"] == "content:workflow-recommendation-review")
+    assert recommendation_check["passed"] is True
 
 
 def test_summarize_experience_writes_review_only_summary(tmp_path: Path, monkeypatch):
