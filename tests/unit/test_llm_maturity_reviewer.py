@@ -4,9 +4,15 @@ import json
 
 import pytest
 
+from harness_builder_agent.schemas.experience_index import ExperienceSource
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidate, ImprovementCandidateReport
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
-from harness_builder_agent.schemas.maturity_evidence import HarnessAssetEvidence, MaturityEvidencePack, WorkflowRoutingRuleEvidence
+from harness_builder_agent.schemas.maturity_evidence import (
+    ExperienceEvidence,
+    HarnessAssetEvidence,
+    MaturityEvidencePack,
+    WorkflowRoutingRuleEvidence,
+)
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.tools.llm_maturity_reviewer import (
     build_maturity_review_messages,
@@ -183,6 +189,27 @@ def test_build_maturity_review_messages_guides_workflow_recommendation_candidate
     assert "review-only workflow recommendation evidence" in content
     assert "support or revise" in content
     assert "must not claim" in content
+
+
+def test_build_maturity_review_messages_guides_experience_source_details():
+    evidence = _evidence_pack()
+    evidence.experience = ExperienceEvidence(
+        has_experience_index=True,
+        sources=[
+            ExperienceSource(path=".ai/review/maturity-review.yaml", kind="maturity_review", item_count=1),
+            ExperienceSource(path=".ai/review/asset-candidates.yaml", kind="asset_candidates", item_count=2),
+            ExperienceSource(path=".ai/review/workflow-routing-recommendation.yaml", kind="workflow_recommendation", item_count=1),
+        ],
+    )
+
+    messages = build_maturity_review_messages(_score(), evidence, _candidates())
+
+    content = messages[-1]["content"]
+    assert "maturity_evidence.experience.sources" in content
+    assert "path, kind, and item_count" in content
+    assert ".ai/review/asset-candidates.yaml" in content
+    assert "review-only source index" in content
+    assert "not applied Harness changes" in content
 
 
 def test_build_maturity_review_messages_uses_null_experience_summary_when_absent():

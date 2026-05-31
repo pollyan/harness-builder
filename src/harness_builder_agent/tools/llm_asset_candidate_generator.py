@@ -69,6 +69,9 @@ Use routing rule ids, selected workflow, triggers, required guides, required sen
 Prefer .ai/harness-config.yaml for workflow_policy suggestions that adjust routing rules or escalation conditions.
 Workflow policy candidates remain review-only and must keep review_status pending_harness_maintainer_review.
 Never claim workflow routing changes were applied.
+Use maturity_evidence.experience.sources as a review-only source index. Inspect each source path, kind, and item_count to locate maturity review, asset candidate, workflow recommendation, pending improvement, or runtime evidence for draft candidates.
+Ground candidate evidence_sources in paths that are present in maturity_evidence.experience.sources or other provided .ai evidence.
+Do not invent missing source paths, and do not treat review-only source entries as applied Harness rules.
 When improvement candidate experience-workflow-recommendation-review is present, inspect review-only workflow recommendation evidence from .ai/review/workflow-routing-recommendation.yaml when available in maturity inputs or candidate evidence sources.
 If maturity review supports or revises that candidate, prefer a workflow_policy draft targeting .ai/harness-config.yaml that explains routing rule, escalation, required guide, required sensor, or human confirmation adjustments.
 The draft must remain pending_harness_maintainer_review and must not claim the recommendation was executed or applied.

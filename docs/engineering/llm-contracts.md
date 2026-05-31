@@ -112,6 +112,7 @@ Prompt 是系统行为的一部分，应当可维护。
 - LLM experience summary 只能输出结构化 Experience findings，必须保持 `pending_harness_maintainer_review`，不能声称已经沉淀为正式 Guides、Sensors、Workflow 或风险策略。
 - LLM workflow recommendation 只能输出结构化 workflow recommendation report，必须保持 `pending_harness_maintainer_review`，不能声称已经执行 Workflow、生成 Harness Map、创建 `.ai/task-runs` 或修改正式 Harness 资产。
 - LLM maturity review 和 asset candidate generation 的 prompt 在 `.ai/experience/experience-summary.yaml` 存在时应注入可选 `experience_summary` 上下文；缺失时显式传入 `null`，不能自动运行 summarizer 或伪造摘要。
+- LLM maturity review 和 asset candidate generation 的 prompt 应显式消费 `maturity_evidence.experience.sources`，把其中的 source path / kind / item_count 作为 review-only source index；可引用这些路径作为 evidence source，但不能把 source entry 当作已经应用的正式 Harness 规则。
 - LLM asset candidate generation 在生成 `workflow_policy` 候选时，应显式消费 `maturity_evidence.harness_assets.workflow_routing_rules`，但这些 routing rules 只能作为 review-only evidence；候选必须保持 `pending_harness_maintainer_review`，不能声称已经修改或应用 `.ai/harness-config.yaml`。
 - LLM asset candidate generation 遇到 `experience-workflow-recommendation-review` 改进候选时，应消费 `.ai/review/workflow-routing-recommendation.yaml` 作为 review-only workflow recommendation evidence，并优先生成指向 `.ai/harness-config.yaml` 的 `workflow_policy` 草案；草案必须保持 `pending_harness_maintainer_review`，不能声称推荐已执行或已应用。
 - LLM experience summary 可以在 `.ai/review/workflow-routing-recommendation.yaml` 存在时把它作为 review-only evidence 消费，用于总结 workflow gap、routing signal 或 improvement signal；不能把该推荐当成已执行 workflow 或已应用的正式 Harness 变更。
