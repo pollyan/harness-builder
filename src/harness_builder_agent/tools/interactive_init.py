@@ -413,6 +413,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         candidate_id = typer.prompt("候选 ID", default="", show_default=False).strip()
         candidate = _find_asset_candidate(candidate_report, candidate_id)
         typer.echo(_asset_candidate_detail(candidate))
+        typer.echo(_asset_candidate_apply_preview(repo, candidate))
         decision = typer.prompt("决策 accepted/deferred/rejected/applied", default="deferred").strip().lower()
         if decision == "applied" and candidate.kind == "workflow_policy":
             trace.event(
@@ -458,7 +459,32 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
             "Existing Harness detected; user chose candidate governance.",
             {"primary_stack": inventory.primary_stack, "action": "review-candidate", "candidate_id": candidate_id, "decision": decision},
         )
-        output_dir = review_candidate(repo, candidate_id, decision, rationale, reviewer)
+        try:
+            output_dir = review_candidate(repo, candidate_id, decision, rationale, reviewer)
+        except (FileNotFoundError, ValueError) as exc:
+            trace.event(
+                "existing-harness",
+                "failed",
+                "Existing Harness candidate governance failed.",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "action": "review-candidate",
+                    "candidate_id": candidate_id,
+                    "decision": decision,
+                    "error": str(exc),
+                },
+            )
+            trace.finish(
+                "failed",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "existing_harness_action": "review-candidate",
+                    "candidate_id": candidate_id,
+                    "decision": decision,
+                    "error": str(exc),
+                },
+            )
+            raise typer.BadParameter(str(exc)) from exc
         governance = CandidateGovernanceLog.model_validate(
             yaml.safe_load((output_dir / "review" / "candidate-governance.yaml").read_text(encoding="utf-8"))
         )
@@ -660,6 +686,64 @@ def _asset_candidate_detail(candidate) -> str:
             "- apply_boundary=single_candidate_only",
         ]
     )
+
+
+def _asset_candidate_apply_preview(repo: Path, candidate) -> str:
+    if candidate.kind == "workflow_policy":
+        return "\n".join(
+            [
+                "\n应用预览",
+                "- apply_preview=expert_command_required",
+                f"- target={candidate.suggested_path}",
+                "- guided_workflow_policy_apply=false",
+                "- reason=workflow_policy candidates require the expert command with structured patch review.",
+                "- source_report=.ai/review/asset-candidates.yaml",
+            ]
+        )
+
+    if candidate.kind not in {"guide", "sensor"} or not candidate.suggested_path.startswith(".ai/"):
+        return "\n".join(
+            [
+                "\n应用预览",
+                "- apply_preview=unavailable",
+                f"- target={candidate.suggested_path}",
+                "- reason=guided apply only supports Guide / Sensor Markdown candidates under .ai/.",
+                "- source_report=.ai/review/asset-candidates.yaml",
+            ]
+        )
+
+    target = repo / candidate.suggested_path
+    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    marker = f"<!-- harness-builder:candidate-applied id={candidate.id} -->"
+    heading = f"## Applied Candidate: {candidate.title}"
+    diff_lines = _candidate_append_diff_lines(candidate, marker, heading)
+    return "\n".join(
+        [
+            "\n应用预览",
+            "- apply_preview=available",
+            f"- target={candidate.suggested_path}",
+            "- apply_mode=append_markdown_candidate_block",
+            f"- target_exists={str(target.exists()).lower()}",
+            f"- duplicate_marker={'present' if marker in existing else 'absent'}",
+            f"- block_heading={heading}",
+            "- source_report=.ai/review/asset-candidates.yaml",
+            "- diff_preview=unified_append",
+            *diff_lines,
+        ]
+    )
+
+
+def _candidate_append_diff_lines(candidate, marker: str, heading: str) -> list[str]:
+    block_lines = [
+        marker,
+        heading,
+        "",
+        f"Rationale: {candidate.rationale}",
+        "",
+        *candidate.draft_content.rstrip().splitlines(),
+        "<!-- /harness-builder:candidate-applied -->",
+    ]
+    return [f"+{line}" if line else "+" for line in block_lines[:24]]
 
 
 def _self_improve_summary(manifest: SelfImprovePackageManifest) -> str:

@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Candidate Apply Preview
+
+- North Star 模块：CLI Experience、Experience & Self-Improve、Maturity & Evolution、Governance & Auditability。
+- Gap Analysis 摘要：已有 Harness 维护入口已支持 `review-candidate` 并允许单个 Guide / Sensor 候选 `applied`，但 Maintainer 在输入决策前只能看到候选字段，看不到正式资产写入影响、重复 marker 状态或即将追加的内容 diff。open todo 仍要求补 guided apply 前 diff / summary。
+- 用户故事：作为 Harness Maintainer，当我在已有 Harness 的 guided `init -> review-candidate` 中审查一个 Guide / Sensor 候选并可能选择 `applied` 时，我可以在输入决策前看到它会写入哪个正式资产、采用什么应用方式、是否已有重复 marker，以及将追加的内容 diff 摘要，从而避免盲目把 review-only 候选固化进正式 Harness。
+- 当前代码 gap：`_asset_candidate_detail()` 展示 id、kind、target、risk、evidence 和 acceptance checks；`review_candidate()` 底层已有 marker 防重和路径边界，但这些信息没有在用户决策前暴露。
+- 决策：新增 CLI-only `_asset_candidate_apply_preview()`，只读目标文件状态并生成 unified append diff 片段；实际写入、重复应用阻断和 governance 仍由 `review_candidate()` 负责。
+- 决策：不新增二次确认；当前 guided 流程已经要求用户显式输入 `applied`，本轮只把 summary / diff 放到 decision prompt 前。workflow policy 继续显示 expert-command preview 并拒绝 guided apply。
+- Assumptions / risks：diff 片段覆盖 marker、heading、rationale 和 candidate draft 关键新增行，足以支持第一步审查；完整候选浏览器和结构化 workflow policy diff 仍留给后续。
+- 边界与失败模式：不新增 LLM / prompt / schema，不批量 apply，不应用 workflow policy，不创建 `.ai/task-runs`。重复 marker 预览为 `present`，实际 `applied` 仍显式失败并不写 governance。
+- Sub agent 使用：使用 explorer 子代理只读审计 review-candidate apply 支持、风险边界和验收建议；主线程采纳 summary + diff 方向，但暂缓二次确认和完整候选浏览器以保持切片小而可验收。
+- 价值切分：本轮保护“正式应用候选前的用户审查决策”，不是单纯增加字段，也不是做泛化 UI。
+- 可执行验收标准及验证方式：integration 覆盖 Guide candidate apply 前输出 target/mode/target_exists/duplicate_marker/block heading/source report/unified append diff；integration 覆盖 duplicate marker preview 后 applied 显式失败且不写 governance；integration 覆盖 workflow policy preview 显示 expert command required 且仍拒绝 guided apply。
+- 完成内容：新增 apply preview helper；guided `review-candidate` 在 decision prompt 前输出 preview；底层治理失败在 guided CLI 中显式记录 trace 并作为 `BadParameter` 暴露；README、init workflow、todo、spec/plan 和演进记录同步。
+- 验证结果：RED targeted integration 3 failed；GREEN targeted integration 3 passed；fast regression 见提交前验证。
+- Self-Harness Gate：本轮无新增机器契约；长期 init workflow 边界已更新。下一轮候选 gap：更完整的候选列表浏览 / 编号选择；首次 `init` 后 benchmark 健康度解释与下一步治理节奏；或拆分 `interactive_init.py` 维护入口降低后续迭代成本。
+
 ## 2026-05-31 Existing Harness Workflow History Status
 
 - North Star 模块：CLI Experience、Workflow Runtime Specification、Experience & Self-Improve、Maturity & Evolution。

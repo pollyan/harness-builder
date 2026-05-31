@@ -1079,6 +1079,19 @@ def test_guided_init_existing_harness_can_apply_guide_candidate_with_review_boun
 
     assert result.exit_code == 0, result.output
     assert "候选详情" in result.output
+    assert "应用预览" in result.output
+    assert "apply_preview=available" in result.output
+    assert "target=.ai/guides/project-context.md" in result.output
+    assert "apply_mode=append_markdown_candidate_block" in result.output
+    assert "target_exists=true" in result.output
+    assert "duplicate_marker=absent" in result.output
+    assert "block_heading=## Applied Candidate: Scope project context guide" in result.output
+    assert "source_report=.ai/review/asset-candidates.yaml" in result.output
+    assert "diff_preview=unified_append" in result.output
+    assert "+<!-- harness-builder:candidate-applied id=guide-project-context-scope -->" in result.output
+    assert "+## Applied Candidate: Scope project context guide" in result.output
+    assert "+## Candidate Addition" in result.output
+    assert "+Add task loading scope." in result.output
     assert "risk=medium" in result.output
     assert ".ai/maturity-evidence.yaml" in result.output
     assert "Benchmark content:guides-quality passes." in result.output
@@ -1120,6 +1133,76 @@ def test_guided_init_existing_harness_can_apply_guide_candidate_with_review_boun
     assert ".ai/review/candidate-governance.yaml" in artifact_paths
     assert ".ai/review/candidate-governance.md" in artifact_paths
     assert ".ai/experience/experience-index.yaml" in artifact_paths
+
+
+def test_guided_init_existing_harness_previews_duplicate_candidate_marker_before_apply_failure(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    review_dir = repo / ".ai" / "review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    (review_dir / "asset-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_maturity_review",
+                "candidates": [
+                    {
+                        "id": "guide-project-context-scope",
+                        "kind": "guide",
+                        "source_candidate_id": None,
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/guides/project-context.md",
+                        "title": "Scope project context guide",
+                        "rationale": "Candidate is grounded in maturity evidence.",
+                        "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                        "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                        "risk_level": "medium",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    target = repo / ".ai" / "guides" / "project-context.md"
+    original = target.read_text(encoding="utf-8")
+    target.write_text(
+        f"{original}\n\n<!-- harness-builder:candidate-applied id=guide-project-context-scope -->\n"
+        "## Applied Candidate: Scope project context guide\n\n"
+        "Already applied.\n"
+        "<!-- /harness-builder:candidate-applied -->\n",
+        encoding="utf-8",
+    )
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness candidate apply must reuse existing Harness state, not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "review-candidate\n"
+            "guide-project-context-scope\n"
+            "applied\n"
+            "Maintainer tried to apply a duplicate candidate.\n"
+            "lead-reviewer\n"
+        ),
+    )
+
+    assert result.exit_code != 0
+    assert "应用预览" in result.output
+    assert "duplicate_marker=present" in result.output
+    assert "candidate already applied" in result.output
+    assert not (review_dir / "candidate-governance.yaml").exists()
+    assert target.read_text(encoding="utf-8").count("<!-- harness-builder:candidate-applied id=guide-project-context-scope -->") == 1
 
 
 def test_guided_init_existing_harness_rejects_workflow_policy_apply(tmp_path: Path, monkeypatch):
@@ -1192,6 +1275,10 @@ def test_guided_init_existing_harness_rejects_workflow_policy_apply(tmp_path: Pa
     )
 
     assert result.exit_code != 0
+    assert "应用预览" in result.output
+    assert "apply_preview=expert_command_required" in result.output
+    assert "target=.ai/harness-config.yaml" in result.output
+    assert "guided_workflow_policy_apply=false" in result.output
     assert "workflow_policy" in result.output
     assert "expert command" in result.output
     assert not (review_dir / "candidate-governance.yaml").exists()
