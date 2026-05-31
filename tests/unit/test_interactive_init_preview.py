@@ -4,10 +4,14 @@ from pathlib import Path
 
 import yaml
 
-from harness_builder_agent.schemas.command_catalog import CommandCatalog
+from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry
+from harness_builder_agent.tools.prewrite_preview import (
+    GuidedScanOverrides,
+    show_prewrite_maturity_preview,
+)
 from harness_builder_agent.tools.interactive_init import (
     _benchmark_signal_lines,
     _human_input_needed_status_lines,
@@ -18,6 +22,94 @@ from harness_builder_agent.tools.interactive_init import (
     _weapon_next_lift_summary,
 )
 from harness_builder_agent.tools.maturity_model import build_maturity_report
+
+
+def test_prewrite_preview_renderer_shows_scan_supplement_constraints(tmp_path: Path, capsys):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    show_prewrite_maturity_preview(
+        repo,
+        ProjectInventory(repo_name="demo", root_path=str(repo), primary_stack="java-spring"),
+        CommandCatalog(commands=[]),
+        _weapon_selection(),
+        GuidedScanOverrides(
+            primary_stack="node",
+            notes=["frontend 还包含批处理入口"],
+            modules=[{"path": "frontend", "kind": "frontend", "name": "frontend"}],
+            commands=[
+                CommandDefinition(
+                    id="frontend_test",
+                    command="npm test",
+                    type="test",
+                    gate="hard",
+                    source="frontend/package.json",
+                    confidence="high",
+                )
+            ],
+            risk_areas=[{"path": "frontend/package.json", "reason": "前端依赖需要单独确认"}],
+        ),
+    )
+
+    output = capsys.readouterr().out
+
+    assert "写入前 Harness 设计预览" in output
+    assert "扫描补充约束" in output
+    assert "技术栈修正：`node`" in output
+    assert "自然语言补充：frontend 还包含批处理入口" in output
+    assert "结构化模块：`frontend`（frontend，frontend）" in output
+    assert "结构化验证命令：`npm test`，gate=hard，source=`frontend/package.json`" in output
+    assert "结构化风险区域：`frontend/package.json`，前端依赖需要单独确认" in output
+    assert "影响 project inventory、command catalog、risk hints、Guides、Sensors、Workflow 升级和人工确认" in output
+    assert "不会被伪装成已验证扫描事实" in output
+
+
+def test_prewrite_preview_renderer_shows_scan_baseline_when_no_supplement(tmp_path: Path, capsys):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    show_prewrite_maturity_preview(
+        repo,
+        ProjectInventory(repo_name="demo", root_path=str(repo), primary_stack="java-spring"),
+        CommandCatalog(commands=[]),
+        _weapon_selection(),
+    )
+
+    output = capsys.readouterr().out
+
+    assert "扫描补充约束" in output
+    assert "暂无扫描补充；当前按扫描基线、团队规则和内置 Harness 基线生成" in output
+    assert "自然语言补充" not in output
+
+
+def _weapon_selection():
+    from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+
+    return WeaponLibrarySelection(
+        primary_stack="common",
+        selected_stacks=["common"],
+        guide_weapons=[
+            WeaponLibraryEntry(
+                id="common.guide.change-risk",
+                stack="common",
+                kind="guide",
+                title="变更风险分级",
+                guidance="风险 Guide。",
+                recommended_action="补充风险说明。",
+                tags=["risk", "review"],
+            )
+        ],
+        sensor_weapons=[
+            WeaponLibraryEntry(
+                id="common.sensor.hard-gate-policy",
+                stack="common",
+                kind="sensor",
+                title="Hard gate 策略",
+                guidance="验证 Sensor。",
+                recommended_action="补充 hard gate。",
+                gate="hard",
+                tags=["verification", "hard-gate"],
+            )
+        ],
+    )
 
 
 def test_guide_weapon_links_to_guides_and_risk_control_blockers():

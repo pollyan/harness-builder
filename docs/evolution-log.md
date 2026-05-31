@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Prewrite Preview Renderer Extraction
+
+- North Star 模块：CLI Experience、Maturity-driven Init、工程架构可维护性。
+- init North Star 旅程阶段：首次初始化、写入前 Harness 设计预览、用户补充吸收后的最终确认。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo；本轮重新读取事实源后，候选包括写入前预览渲染抽模块、push / full regression 外部前置、以及继续强化首次 init maturity preview 叙事。当前 `interactive_init.py` 已承载扫描补充、团队规则、Workflow 补充、Guide / Sensor 推荐和 routing preview 的渲染细节，后续每次打磨 prewrite preview 都要改主向导大文件并依赖较慢 integration 定位。
+- 工程信任故事：作为 Harness Builder 维护者，当我继续打磨首次 guided `init` 的写入前成熟度与设计预览时，我可以在独立的 prewrite preview renderer 模块中修改和单测 scan 补充、团队规则、Workflow 补充、Guide / Sensor 推荐和 routing 预览，从而降低修改主向导编排文件的风险，并让后续体验迭代更快、更可审查。
+- 当前代码 gap：`GuidedScanOverrides`、`_show_prewrite_maturity_preview()`、scan supplement preview、weapon maturity helper 和 partial Harness 判断都在 `interactive_init.py`；预览输出缺少直接 unit，主要依赖完整 guided init transcript。
+- 关键决策 / 取舍：本轮只做行为等价抽取，不调整 CLI 文案、不改 `.ai` schema、不改正式资产生成、不改 Runtime 边界；新模块继续使用 `typer.echo`，保留从 `interactive_init.py` 重新导出的 helper 名称以兼容既有测试。
+- Assumptions / risks：先抽取 prewrite preview 比整体拆分 `interactive_init.py` 更小、更可验收；`interactive_init.py` 仍然偏大，后续可继续拆 existing-Harness 维护入口或 scan supplement 交互。
+- 边界情况 / 失败模式：scan 补充为空时仍输出扫描基线说明；scan 补充存在时必须展示 stack / note / module / command / risk 及事实边界；损坏 schema 或 LLM 行为不在本轮修改范围。
+- Sub agent 使用情况：按目标模式尝试启动 explorer 做只读审查，但当前会话返回 `agent thread limit reached`；主线程完成代码审查、TDD、实现和验证。
+- 价值切分说明：本轮不是用户可见新功能，而是保护“用户补充 -> 设计预览 -> 确认写入”关键旅程的工程信任切片；它为后续 maturity preview 叙事增强和 guided init 体验打磨降低改动风险。
+- 可执行验收标准及验证方式：unit 直接验证新 renderer 有 / 无 scan supplement 的输出；完整 preview helper unit 继续通过；目标 guided init integration 和完整 `test_init_on_fixture_projects.py` 通过证明 transcript 行为等价；`git diff --check` 与 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：新增 `src/harness_builder_agent/tools/prewrite_preview.py`；`interactive_init.py` 删除 prewrite preview 渲染内联实现并改为导入；`tests/unit/test_interactive_init_preview.py` 新增直接 renderer unit；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：新增 targeted unit 2 passed；`tests/unit/test_interactive_init_preview.py` 11 passed；目标 guided init integration 3 passed；完整 guided init integration 42 passed；`git diff --check` 和 `scripts/test-fast.sh` 见提交前验证。
+- Self-Harness Gate：本轮不需要更新 README / engineering 长期规则，因为用户行为和契约未变；不新增 todo。下一轮候选 gap：首次 init maturity preview 叙事收敛、existing-Harness 维护入口继续拆模块、或 push 前 full regression / 远端同步外部前置。
+
 ## 2026-06-01 Scan Supplement Prewrite Preview
 
 - North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
