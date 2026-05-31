@@ -9,6 +9,7 @@ import yaml
 from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
+from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
@@ -631,6 +632,96 @@ def test_guided_init_existing_harness_can_improve_without_overwriting_formal_ass
     assert ".ai/evolution-plan.md" in artifact_paths
     assert ".ai/experience/pending-improvements.md" in artifact_paths
     assert ".ai/experience/experience-index.yaml" in artifact_paths
+
+
+def test_guided_init_existing_harness_can_benchmark_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness benchmark must validate existing assets, not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.assess_maturity.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="benchmark\n")
+
+    assert result.exit_code == 0, result.output
+    assert "已存在 Harness" in result.output
+    assert "benchmark" in result.output
+    assert "Benchmark 已通过" in result.output
+    assert "quality=" in result.output
+    assert ".ai/benchmark-report.yaml" in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    report = BenchmarkReport.model_validate(
+        yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
+    )
+    assert report.status == "passed"
+    assert report.quality_status in {"passed", "degraded"}
+    check_ids = {check.id for check in report.checks}
+    assert "schema:benchmark-report" in check_ids
+    assert "profile_matches_stack" in check_ids
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert "scan" not in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "benchmark"
+    assert trace["summary"]["benchmark_status"] == "passed"
+    artifacts = _latest_init_artifacts(repo)
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/benchmark-report.yaml" in artifact_paths
+    assert ".ai/maturity-score.yaml" in artifact_paths
+    assert ".ai/improvement-candidates.yaml" in artifact_paths
+    assert ".ai/experience/experience-index.yaml" in artifact_paths
+
+
+def test_guided_init_existing_harness_benchmark_reports_failed_checks(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    catalog_path = repo / ".ai" / "command-catalog.yaml"
+    catalog = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    catalog["commands"][0]["confidence"] = "low"
+    catalog_path.write_text(yaml.safe_dump(catalog, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness benchmark failure reporting must not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.assess_maturity.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="bench\n")
+
+    assert result.exit_code == 0, result.output
+    assert "Benchmark 未通过" in result.output
+    assert "content:hard-gate-command-evidence" in result.output
+    assert "failed_checks=1" in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    report = BenchmarkReport.model_validate(
+        yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
+    )
+    assert report.status == "failed"
+    failed_ids = {check.id for check in report.checks if not check.passed}
+    assert failed_ids == {"content:hard-gate-command-evidence"}
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "failed"
+    assert trace["summary"]["existing_harness_action"] == "benchmark"
+    assert trace["summary"]["benchmark_status"] == "failed"
+    assert trace["summary"]["failed_check_count"] == 1
 
 
 def test_guided_init_existing_harness_improve_refreshes_stale_experience_evidence(tmp_path: Path, monkeypatch):

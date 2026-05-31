@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 import yaml
 
+from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.harness_config import HarnessConfig
@@ -15,6 +16,7 @@ from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.experience_index import write_experience_index
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
@@ -192,6 +194,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo("- exit：退出，不覆盖现有 Harness。")
     typer.echo("- assess：重新评估成熟度，只刷新 maturity 和 init summary 产物。")
     typer.echo("- improve：基于成熟度缺口生成 review-only 改进候选，不覆盖正式 Harness 资产。")
+    typer.echo("- benchmark：运行 Harness 质量门禁，刷新 benchmark / maturity / improvement 派生产物，不覆盖正式 Harness 资产。")
     typer.echo("- reinit：继续重新扫描并进入当前生成向导。")
 
     action = typer.prompt("你的选择", default="exit").strip().lower()
@@ -283,6 +286,51 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         typer.echo("- `.ai/experience/pending-improvements.md`")
         typer.echo("- `.ai/experience/experience-index.yaml`")
         return output_dir
+    if action in {"benchmark", "bench", "质量", "验收"}:
+        typer.echo("正在运行 Harness benchmark...")
+        trace.event(
+            "existing-harness",
+            "started",
+            "Existing Harness detected; user chose benchmark validation.",
+            {"primary_stack": inventory.primary_stack, "action": "benchmark"},
+        )
+        report = BenchmarkReport.model_validate(run_benchmark(repo, profile=inventory.primary_stack, trace=trace))
+        failed_checks = [check for check in report.checks if not check.passed]
+        output_dir = ai
+        trace.artifact(output_dir / "benchmark-report.yaml", "benchmark_report")
+        trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        trace.artifact(output_dir / "maturity-report.md", "maturity_report")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.artifact(output_dir / "init-summary.md", "init_summary")
+        trace.artifact(output_dir / "improvement-candidates.yaml", "improvement_candidates")
+        trace.artifact(output_dir / "evolution-plan.md", "plan")
+        trace.artifact(output_dir / "experience" / "pending-improvements.md", "experience")
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.event(
+            "existing-harness",
+            "completed" if report.status == "passed" else "failed",
+            "Existing Harness benchmark validation completed.",
+            {
+                "primary_stack": inventory.primary_stack,
+                "action": "benchmark",
+                "benchmark_status": report.status,
+                "quality_status": report.quality_status,
+                "failed_check_count": len(failed_checks),
+            },
+        )
+        trace.finish(
+            "completed" if report.status == "passed" else "failed",
+            {
+                "primary_stack": inventory.primary_stack,
+                "existing_harness_action": "benchmark",
+                "benchmark_status": report.status,
+                "quality_status": report.quality_status,
+                "check_count": len(report.checks),
+                "failed_check_count": len(failed_checks),
+            },
+        )
+        typer.echo(_benchmark_summary(report))
+        return output_dir
     if action in {"reinit", "重新生成", "regenerate"}:
         trace.event(
             "existing-harness",
@@ -306,6 +354,27 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         },
     )
     return ai
+
+
+def _benchmark_summary(report: BenchmarkReport) -> str:
+    failed_checks = [check for check in report.checks if not check.passed]
+    passed_count = len(report.checks) - len(failed_checks)
+    status_label = "已通过" if report.status == "passed" else "未通过"
+    lines = [
+        f"Benchmark {status_label}。",
+        f"- status={report.status}",
+        f"- quality={report.quality_status}",
+        f"- checks={passed_count}/{len(report.checks)}",
+        f"- failed_checks={len(failed_checks)}",
+    ]
+    if failed_checks:
+        lines.append("- 失败项：")
+        for check in failed_checks[:5]:
+            lines.append(f"  - `{check.id}`")
+        if len(failed_checks) > 5:
+            lines.append(f"  - 还有 {len(failed_checks) - 5} 项，查看 `.ai/benchmark-report.yaml`。")
+    lines.append("- `.ai/benchmark-report.yaml`")
+    return "\n".join(lines)
 
 
 def _top_improvement_candidate(path: Path) -> str:
