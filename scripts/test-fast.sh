@@ -3,12 +3,11 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-if [ -x ".venv/bin/python" ]; then
-  PYTHON=".venv/bin/python"
+. scripts/lib-test-env.sh
+
+if [ "$#" -gt 0 ]; then
+  hb_run_pytest "$@"
 else
-  PYTHON="python"
-  echo "Using fallback python from PATH because .venv/bin/python is not available."
+  hb_run_pytest
+  hb_write_fast_stamp
 fi
-
-"$PYTHON" -m pytest -q
-

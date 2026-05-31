@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Test Loop Slices
+
+- North Star 模块：Benchmark / Review Intelligence、Maturity-driven Evolution、工程验证体系。
+- Gap Analysis 摘要：目标模式连续小步演进依赖快速且可信的验证反馈；当前只有 `scripts/test-fast.sh` / `test-full.sh` / `test-acceptance.sh` 三层入口，开发中常要手写 pytest target，commit hook 还可能重复运行刚刚通过的 fast regression。当前工作树已有脚本切片草稿，但缺少测试、文档和 stamp 安全边界。
+- 工程信任故事：作为 Harness Builder 维护者或目标模式 Codex，当我在一轮小功能中只修改某类能力时，我可以运行命名清晰的测试切片，并让 pre-commit 复用刚刚通过的 fast regression，从而缩短反馈循环，同时不削弱 push 前 full / acceptance 验收边界。
+- 当前代码 gap：`scripts/test-fast.sh` 无 stamp 缓存；没有 unit / integration / guided-init / LLM-contract / acceptance 常用切片入口；脚本行为缺少测试；原草稿把 stamp 写入 `.git`，在 Codex sandbox 中会导致测试已通过但脚本失败。
+- 决策：新增共享 `scripts/lib-test-env.sh` 和常用切片脚本；fast stamp 只在完整 fast 通过后写入 `.pytest_cache/harness-builder-test-fast.stamp`，pre-commit 只在指纹匹配时跳过重复 fast。
+- 决策：切片脚本只服务开发反馈，不替代 `scripts/test-fast.sh`、`scripts/test-full.sh` 或真实 acceptance；Codex 创建 commit 前仍必须主动运行 fast。
+- Assumptions / risks：`.pytest_cache/` 已被 ignore，适合放本地验证缓存；指纹覆盖 HEAD、tracked/staged/untracked 非 ignored 文件，但不覆盖虚拟环境、外部服务或 ignored 文件，因此只表示当前工作树 fast regression 通过。
+- 边界与失败模式：pytest 失败不写 stamp；targeted fast 不写 whole-tree stamp；stamp 损坏或指纹缺失时不跳过；acceptance 缺 key / 缺真实仓库仍显式失败。
+- Sub agent 使用：使用 explorer 子代理只读审计未提交脚本改动、规则一致性、测试缺口和风险，结论要求补脚本测试、文档和 `.git` stamp 风险修正。
+- 价值切分：本轮只优化测试循环入口与 pre-commit 去重，不改变测试覆盖范围、不改变 acceptance 是否进入 CI，也不调整产品功能。
+- 可执行验收标准及验证方式：unit 覆盖脚本 bash 语法、README 切片文档、`.pytest_cache` stamp、stamp 匹配/失配和切片脚本选项；shell targeted checks 覆盖 unit/integration/guided-init/LLM-contract 脚本；fast regression 覆盖全量默认快速测试。
+- 完成内容：新增测试切片脚本和共享 helper；`test-fast.sh` 支持 target passthrough 和 safe stamp；pre-commit 支持 stamp 命中跳过；README、testing strategy、todo、spec/plan 和演进记录同步。
+- 验证结果：targeted regression 见本轮验证；fast regression 见提交前验证。
+- Self-Harness Gate：测试脚本行为已纳入 unit 测试，长期规则已沉淀到 README 和 testing strategy。下一轮候选 gap：existing-Harness 状态展示 latest recommendation id、guided apply 前 diff/summary，或 benchmark/interactive init 大文件拆分。
+
 ## 2026-05-31 Workflow Recommendation History
 
 - North Star 模块：Workflow Runtime Specification、Experience & Self-Improve、Maturity & Evolution、Benchmark / Review Intelligence。

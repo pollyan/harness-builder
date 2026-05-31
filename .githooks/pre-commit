@@ -3,5 +3,11 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-echo "Running regression tests before commit..."
-scripts/test-fast.sh
+. scripts/lib-test-env.sh
+
+if hb_fast_stamp_matches; then
+  echo "Fast regression already passed for this git tree; skipping duplicate pre-commit run."
+else
+  echo "Running regression tests before commit..."
+  scripts/test-fast.sh
+fi

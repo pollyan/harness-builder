@@ -5,8 +5,8 @@ cd "$(git rev-parse --show-toplevel)"
 
 . scripts/lib-test-env.sh
 
-if [ "$#" -gt 0 ]; then
+if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
   hb_run_pytest "$@"
 else
-  hb_run_pytest tests/acceptance
+  hb_run_pytest tests/unit "$@"
 fi

@@ -136,12 +136,21 @@ git clone --depth 1 https://github.com/dotnet-architecture/eShopOnWeb.git .bench
 ## 测试
 
 ```bash
+scripts/test-unit.sh
+scripts/test-integration.sh
+scripts/test-guided-init.sh
+scripts/test-llm-contracts.sh
 scripts/test-fast.sh
 scripts/test-acceptance.sh
+scripts/test-acceptance-llm-smoke.sh
+scripts/test-acceptance-real-repo.sh
+scripts/test-acceptance-self-improve.sh
 scripts/test-full.sh
 ```
 
 `scripts/test-fast.sh` 运行快速回归测试，不包含 `tests/acceptance`，适合本地 Git hook、CI 默认验证和开发过程中的快速反馈。
+
+`scripts/test-unit.sh`、`scripts/test-integration.sh`、`scripts/test-guided-init.sh` 和 `scripts/test-llm-contracts.sh` 是常用开发切片，只用于缩短开发反馈，不能替代 `scripts/test-fast.sh` 或 `scripts/test-full.sh`。
 
 `scripts/test-acceptance.sh` 会实际请求 DeepSeek，并运行真实开源仓库验收；没有 `DEEPSEEK_API_KEY` 或缺少 `.benchmarks/` 真实仓库会失败，不会跳过。
 
@@ -151,7 +160,7 @@ scripts/test-full.sh
 scripts/test-acceptance.sh tests/acceptance/test_real_repositories_e2e.py::test_ruoyi_vue_real_repository_with_self_improve
 ```
 
-targeted acceptance 只用于缩短开发反馈；推送或发布前仍以 `scripts/test-full.sh` 为准。
+也可以使用 `scripts/test-acceptance-llm-smoke.sh`、`scripts/test-acceptance-real-repo.sh` 或 `scripts/test-acceptance-self-improve.sh` 运行命名好的真实验收切片。targeted acceptance 只用于缩短开发反馈；推送或发布前仍以 `scripts/test-full.sh` 为准。
 
 `scripts/test-full.sh` 先运行 fast，再运行 acceptance，适合发布前、目标模式完成前或扫描/LLM/真实仓库验收相关改动后执行。
 

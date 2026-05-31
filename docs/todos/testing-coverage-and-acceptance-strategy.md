@@ -121,7 +121,8 @@ scripts/test-acceptance.sh
 - 已补充 CLI、schema、weapon library、asset writer、benchmark、run task、assess/improve 的关键测试。
 - 默认回归测试从 38 个增加到 61 个。
 - 已新增 `scripts/test-fast.sh`、`scripts/test-acceptance.sh`、`scripts/test-full.sh` 三层本地验证脚本。
-- `pre-commit` 和 `pre-push` 使用 `scripts/test-fast.sh`，保持快速反馈。
+- 已新增 `scripts/test-unit.sh`、`scripts/test-integration.sh`、`scripts/test-guided-init.sh`、`scripts/test-llm-contracts.sh` 和常用 acceptance 切片脚本，用于开发过程中的 targeted feedback。
+- `pre-commit` 使用 `scripts/test-fast.sh`，并可用 `.pytest_cache/harness-builder-test-fast.stamp` 跳过重复 fast regression；`pre-push` 使用 `scripts/test-full.sh`。
 - Acceptance 仍然显式运行，不进入默认 CI；缺少 key、真实仓库、网络或 API 可用性时必须失败。
 - 已验证 `scripts/test-fast.sh` 通过。
 - 已验证 `scripts/test-acceptance.sh` 在提升权限环境下通过，覆盖真实 DeepSeek 和真实开源仓库链路。

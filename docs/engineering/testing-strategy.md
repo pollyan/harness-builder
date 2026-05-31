@@ -30,6 +30,17 @@ Harness Builder 的测试不仅要证明代码能跑，还要证明生成的 Har
 scripts/test-fast.sh
 ```
 
+常用开发切片：
+
+```bash
+scripts/test-unit.sh
+scripts/test-integration.sh
+scripts/test-guided-init.sh
+scripts/test-llm-contracts.sh
+```
+
+这些切片只用于缩短开发反馈，不能替代 commit 前的 `scripts/test-fast.sh`，也不能替代 push / 发布前的 `scripts/test-full.sh`。
+
 真实 acceptance 需要显式运行：
 
 ```bash
@@ -43,6 +54,17 @@ scripts/test-acceptance.sh
 ```bash
 scripts/test-acceptance.sh tests/acceptance/test_real_repositories_e2e.py::test_ruoyi_vue_real_repository_with_self_improve
 ```
+
+常用真实验收切片：
+
+```bash
+scripts/test-acceptance-llm-smoke.sh
+scripts/test-acceptance-real-repo.sh ruoyi
+scripts/test-acceptance-real-repo.sh eshop
+scripts/test-acceptance-self-improve.sh
+```
+
+targeted acceptance 只用于定位真实 LLM / 真实仓库问题，不能替代 `scripts/test-full.sh`。
 
 完整本地验收：
 
@@ -216,7 +238,7 @@ CI 不应默认运行真实 DeepSeek acceptance，原因：
 
 本地 Git hooks 作为兜底保护：
 
-- `pre-commit`：运行 `scripts/test-fast.sh`。
+- `pre-commit`：运行 `scripts/test-fast.sh`；如果当前工作树已有匹配的 `.pytest_cache/harness-builder-test-fast.stamp`，可以跳过重复 fast regression。该 stamp 只表示当前工作树 fast 已通过，不能替代 Codex 主动运行 fast 的规则。
 - `pre-push`：运行 `scripts/test-full.sh`。
 - `post-commit`：提醒 push 后运行 `scripts/check-ci.sh`。
 
