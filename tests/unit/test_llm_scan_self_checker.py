@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceFile, ScanFollowupQuestion, ScanMetadata
+from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceFile, ScanFollowupQuestion, ScanMetadata, ScanWarning
 from harness_builder_agent.tools.llm_scan_self_checker import (
     build_scan_self_check_messages,
     parse_scan_self_check_response,
@@ -126,3 +126,24 @@ def test_review_scan_followups_with_llm_rejects_empty_response():
 
     with pytest.raises(ValueError, match="empty"):
         review_scan_followups_with_llm(_bundle(), _metadata(), caller=caller)
+
+
+def test_review_scan_followups_with_llm_accepts_scan_warning_code_as_evidence_source():
+    metadata = _metadata()
+    metadata.warnings = [
+        ScanWarning(
+            code="source_sampling_truncated",
+            message="source:.java skipped files",
+            evidence=["source:.java"],
+        )
+    ]
+    payload = json.loads(_self_check_json())
+    payload["resolutions"][0]["evidence_sources"] = ["source_sampling_truncated", "source:.java"]
+
+    report = review_scan_followups_with_llm(
+        _bundle(),
+        metadata,
+        caller=lambda _messages: json.dumps(payload),
+    )
+
+    assert report.resolutions[0].evidence_sources == ["source_sampling_truncated", "source:.java"]

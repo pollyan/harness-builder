@@ -17,6 +17,14 @@
 - 验证结果：targeted test `1 passed in 0.20s`；commit 前快速回归见本轮提交前验证。
 - Self-Harness Gate：长期失败边界已沉淀到 `docs/engineering/init-workflow.md`；本轮没有新增 `.ai` 资产契约。下一轮候选 gap：自然语言补充与 self-check resolution 如何影响成熟度预览、推荐解释和最终资产；路径型 claim validation；已有 Harness schema / contract 损坏时的维护入口修复引导。
 
+## 2026-06-01 Push Gate：Scan Self-check Evidence Source 契约修复
+
+- 触发来源：用户要求当前任务完成后统一 push；push 前 `scripts/test-full.sh` 在真实 eShopOnWeb acceptance 中失败。
+- 失败现象：真实 DeepSeek scan self-check 返回 `source_sampling_truncated` 作为 `resolutions[].evidence_sources`，parser 报 `unknown evidence source`，导致非交互 `init` 失败。
+- 根因：`source_sampling_truncated` 是 `ScanMetadata.warnings[].code` 中的稳定扫描审计来源；prompt 文案允许引用 scan warning / scan metadata 中已有 evidence 字符串，但 parser allowlist 只接受 warning 的 `evidence` 值，没有接受 warning code，契约两侧不一致。
+- 决策：将 scan warning code 明确纳入 self-check evidence source allowlist，并同步 prompt / LLM contract；继续拒绝任意未知路径或字符串，不引入 fallback。
+- 验收方式：新增 unit 测试复现 `source_sampling_truncated` 作为 evidence source 的真实 LLM 行为；保留未知 evidence source 失败测试；重新运行 targeted / fast / full regression 后再 push。
+
 ## 2026-06-01 Scan Follow-up Self-check
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

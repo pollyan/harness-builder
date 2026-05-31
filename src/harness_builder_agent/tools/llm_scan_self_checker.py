@@ -88,6 +88,7 @@ def _allowed_evidence_sources(evidence: EvidenceBundle, metadata: ScanMetadata) 
     for question in metadata.followup_questions:
         sources.update(question.evidence)
     for warning in metadata.warnings:
+        sources.add(warning.code)
         sources.update(warning.evidence)
     if metadata.evidence_expansion:
         sources.update(metadata.evidence_expansion.requested_paths)
