@@ -15,6 +15,7 @@ from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
+from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -665,6 +666,74 @@ def test_recommend_workflow_writes_review_only_artifacts(tmp_path: Path, monkeyp
     benchmark_report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
     recommendation_check = next(check for check in benchmark_report["checks"] if check["id"] == "content:workflow-recommendation-review")
     assert recommendation_check["passed"] is True
+
+
+def test_recommend_workflow_preserves_history_across_tasks(tmp_path: Path, monkeypatch):
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+
+    def fake_recommendation(task_id, task_brief, config, evidence_pack, caller=None, llm_config=None):
+        workflow = "bugfix" if task_id == "task-1" else "standard"
+        return WorkflowRecommendationReport(
+            task_id=task_id,
+            task_brief=task_brief,
+            recommended_workflow=workflow,
+            matched_rule_ids=["bugfix-intent"] if workflow == "bugfix" else ["standard-escalation"],
+            risk_level="medium" if workflow == "bugfix" else "high",
+            confidence="high",
+            rationale=f"{workflow} is the configured route for this task.",
+            required_guides=[".ai/guides/task-templates/bugfix.md"] if workflow == "bugfix" else [".ai/guides/architecture.md"],
+            required_sensors=[".ai/sensors/verification.md"],
+            human_confirmation_required=workflow == "standard",
+            evidence_sources=[".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.recommend_workflow.recommend_workflow_with_llm", fake_recommendation)
+    runner = CliRunner()
+
+    first = runner.invoke(
+        app,
+        ["recommend-workflow", "--repo", str(repo), "--task", "Fix checkout permission bug.", "--task-id", "task-1"],
+    )
+    second = runner.invoke(
+        app,
+        ["recommend-workflow", "--repo", str(repo), "--task", "Change settlement approval policy.", "--task-id", "task-2"],
+    )
+
+    assert first.exit_code == 0, first.output
+    assert second.exit_code == 0, second.output
+    history_path = repo / ".ai" / "review" / "workflow-routing-recommendations" / "index.yaml"
+    history = WorkflowRecommendationHistory.model_validate(yaml.safe_load(history_path.read_text(encoding="utf-8")))
+    assert len(history.recommendations) == 2
+    assert [item.task_id for item in history.recommendations] == ["task-1", "task-2"]
+    assert history.latest_recommendation_id == history.recommendations[-1].recommendation_id
+    for item in history.recommendations:
+        assert (repo / item.yaml_path).exists()
+        assert (repo / item.markdown_path).exists()
+        assert item.review_status == "pending_harness_maintainer_review"
+
+    latest = WorkflowRecommendationReport.model_validate(
+        yaml.safe_load((repo / ".ai" / "review" / "workflow-routing-recommendation.yaml").read_text(encoding="utf-8"))
+    )
+    experience_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
+    maturity_evidence = yaml.safe_load((repo / ".ai" / "maturity-evidence.yaml").read_text(encoding="utf-8"))
+    summary = (repo / ".ai" / "review" / "workflow-routing-recommendations.md").read_text(encoding="utf-8")
+    assert latest.task_id == "task-2"
+    assert latest.recommended_workflow == "standard"
+    assert experience_index["workflow_recommendation_count"] == 2
+    assert maturity_evidence["experience"]["workflow_recommendation_count"] == 2
+    assert ".ai/review/workflow-routing-recommendations/index.yaml" in {
+        source["path"] for source in experience_index["sources"] if source["kind"] == "workflow_recommendation"
+    }
+    assert "# Workflow Routing Recommendation History" in summary
+    assert "## Review Boundary" in summary
+    assert "pending_harness_maintainer_review" in summary
+    assert not (repo / ".ai" / "task-runs").exists()
+
+    trace = _latest_trace(repo)
+    artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
+    assert {"path": ".ai/review/workflow-routing-recommendations/index.yaml", "kind": "workflow_recommendation_history"} in artifacts[
+        "artifacts"
+    ]
 
 
 def test_summarize_experience_writes_review_only_summary(tmp_path: Path, monkeypatch):

@@ -20,6 +20,7 @@ from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceBucketCov
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
+from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.schemas.workflow_policy_patch import WorkflowPolicyPatch
 
@@ -890,3 +891,61 @@ def test_self_improve_package_manifest_schema():
     assert manifest.review_status == "pending_harness_maintainer_review"
     assert manifest.candidate_counts.asset_candidates == 2
     assert manifest.maturity.overall_level == "L2"
+
+
+def test_workflow_recommendation_history_schema_tracks_latest_entry():
+    history = WorkflowRecommendationHistory.model_validate(
+        {
+            "latest_recommendation_id": "task-2-20260531T120000Z",
+            "recommendations": [
+                {
+                    "recommendation_id": "task-1-20260531T115900Z",
+                    "task_id": "task-1",
+                    "created_at": "2026-05-31T11:59:00Z",
+                    "yaml_path": ".ai/review/workflow-routing-recommendations/task-1-20260531T115900Z.yaml",
+                    "markdown_path": ".ai/review/workflow-routing-recommendations/task-1-20260531T115900Z.md",
+                    "recommended_workflow": "bugfix",
+                    "risk_level": "medium",
+                    "confidence": "high",
+                    "review_status": "pending_harness_maintainer_review",
+                },
+                {
+                    "recommendation_id": "task-2-20260531T120000Z",
+                    "task_id": "task-2",
+                    "created_at": "2026-05-31T12:00:00Z",
+                    "yaml_path": ".ai/review/workflow-routing-recommendations/task-2-20260531T120000Z.yaml",
+                    "markdown_path": ".ai/review/workflow-routing-recommendations/task-2-20260531T120000Z.md",
+                    "recommended_workflow": "standard",
+                    "risk_level": "high",
+                    "confidence": "medium",
+                    "review_status": "pending_harness_maintainer_review",
+                },
+            ],
+        }
+    )
+
+    assert history.schema_version == "1.0"
+    assert history.latest_recommendation_id == "task-2-20260531T120000Z"
+    assert len(history.recommendations) == 2
+
+
+def test_workflow_recommendation_history_rejects_latest_id_not_in_entries():
+    with pytest.raises(ValidationError):
+        WorkflowRecommendationHistory.model_validate(
+            {
+                "latest_recommendation_id": "missing",
+                "recommendations": [
+                    {
+                        "recommendation_id": "task-1-20260531T115900Z",
+                        "task_id": "task-1",
+                        "created_at": "2026-05-31T11:59:00Z",
+                        "yaml_path": ".ai/review/workflow-routing-recommendations/task-1-20260531T115900Z.yaml",
+                        "markdown_path": ".ai/review/workflow-routing-recommendations/task-1-20260531T115900Z.md",
+                        "recommended_workflow": "bugfix",
+                        "risk_level": "medium",
+                        "confidence": "high",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ],
+            }
+        )

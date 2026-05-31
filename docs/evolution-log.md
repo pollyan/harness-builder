@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Workflow Recommendation History
+
+- North Star 模块：Workflow Runtime Specification、Experience & Self-Improve、Maturity & Evolution、Benchmark / Review Intelligence。
+- Gap Analysis 摘要：`recommend-workflow` 已能生成 review-only 最新推荐并刷新 Experience / Maturity，但每次都会覆盖 `.ai/review/workflow-routing-recommendation.*`；Maintainer 无法审计多次任务路由判断，Experience 也只能把推荐计数为 1，难以识别重复 routing gap。
+- 用户故事：作为 Harness Maintainer，当我在已有 Harness 上为多个真实任务运行 `recommend-workflow` 时，我可以保留每一次 review-only workflow recommendation 的独立记录和索引，从而审计任务路由判断的演进，并让 Experience / Maturity 能识别重复 routing gap。
+- 当前代码 gap：`recommend_workflow()` 只写 latest 文件；`experience_index` 只读取单个 latest YAML；benchmark 只校验单份 workflow recommendation pair。
+- 决策：保留 latest 文件作为兼容出口，同时新增 `.ai/review/workflow-routing-recommendations/<recommendation_id>.*`、`index.yaml` 和摘要 Markdown。Experience index 优先读取 history index，没有 history 时再兼容 legacy latest。
+- 决策：history 是确定性审计层；LLM 仍只输出单次 `WorkflowRecommendationReport`，Python 负责 history id、schema、索引、Markdown 摘要和 benchmark 校验。
+- Assumptions / risks：保留 latest 是最低风险兼容策略；history 目录增加 review 复杂度，因此用机器 index 和稳定 summary 控制可读性。history 缺失条目或 Markdown 章节时 benchmark 必须失败。
+- 边界与失败模式：不实现 Runtime execution history，不创建 `.ai/task-runs`，不应用 routing policy，不改变 LLM router prompt/parser；history index schema 无效或条目 YAML/Markdown 不配对时显式失败。
+- Sub agent 使用：使用 explorer 子代理只读调研 integration / benchmark 既有测试模式和 helper 位置；主线程并行完成 RED 测试、实现、文档和验证。
+- 价值切分：本轮完整覆盖“多任务 workflow recommendation 可审计历史”这一用户故事；不拆成单纯 schema、字段或文件改动，也暂缓 UI 历史浏览、diff 和 Runtime 任务轨迹。
+- 可执行验收标准及验证方式：unit 覆盖 `WorkflowRecommendationHistory` schema 和 Experience history 计数；integration 覆盖两次 CLI recommendation 后 history 有两条、latest 指向第二条、Experience/Maturity 计数为 2、trace 记录 history artifact 且不生成 `.ai/task-runs`；benchmark integration 覆盖 history 缺 Markdown 时失败；README 和 engineering docs 同步。
+- 完成内容：新增 workflow recommendation history schema；`recommend-workflow` 写入历史条目、index 和 summary；Experience / Maturity 消费 history count；benchmark 校验可选 history artifacts；README、architecture、init workflow、sensor/gate rules、spec/plan 同步。
+- 验证结果：targeted regression 见本轮验证；fast regression 见提交前验证。
+- Self-Harness Gate：本轮新增稳定 `.ai/review/workflow-routing-recommendations/` 机器契约，已纳入 schema、integration、benchmark 和长期工程文档。下一轮候选 gap：guided apply 前 diff/summary、测试脚本分层与 fast/full 耗时优化、或 existing-Harness 状态中展示 latest recommendation id。
+
 ## 2026-05-31 Guided Candidate Apply
 
 - North Star 模块：CLI Experience、Experience & Self-Improve、Maturity & Evolution、Governance & Auditability。

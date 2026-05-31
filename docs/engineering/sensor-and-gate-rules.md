@@ -90,7 +90,7 @@ Benchmark 应检查：
 - `.ai/review/candidate-governance.yaml` 和 `.ai/review/candidate-governance.md` 属于可选候选治理 artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、candidate id 引用、`.ai/` evidence/suggested/applied path 边界，以及 applied path 是否存在。对已应用的 `workflow_policy` candidate，还必须校验源候选存在结构化 `workflow_policy_patch`，且 `.ai/harness-config.yaml` 中对应 routing rule 与 patch 一致。
 - `.ai/review/self-improve-package.yaml` 和 `.ai/review/self-improve-package.md` 属于可选 self-improve review package；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配套章节、generated artifact 路径边界和 `pending_harness_maintainer_review` 状态。
 - `.ai/experience/experience-summary.yaml` 和 `.ai/experience/experience-summary.md` 属于可选 review-only Experience artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、`.ai/` evidence 边界、evidence source allowlist 和 `pending_harness_maintainer_review` 状态。
-- `.ai/review/workflow-routing-recommendation.yaml` 和 `.ai/review/workflow-routing-recommendation.md` 属于可选 workflow recommendation artifacts；不存在时 benchmark 不应失败，存在时必须校验 workflow/rule 引用、Markdown 配对章节、review-only 状态、`.ai/` evidence 边界和 evidence source allowlist。
+- `.ai/review/workflow-routing-recommendation.yaml`、`.ai/review/workflow-routing-recommendation.md` 和 `.ai/review/workflow-routing-recommendations/` 历史产物属于可选 workflow recommendation artifacts；不存在时 benchmark 不应失败，存在时必须校验 workflow/rule 引用、Markdown 配对章节、history index schema、每条 history YAML schema、review-only 状态、`.ai/` evidence 边界和 evidence source allowlist。
 - Benchmark 的 evidence source allowlist 必须从结构化上游产物构建，例如 `maturity-evidence.yaml`、`experience-index.yaml`、`improvement-candidates.yaml`、`maturity-review.yaml` 和 experience source inputs；不能用“任意存在的 `.ai/**` 文件”替代。
 
 Benchmark 不应：

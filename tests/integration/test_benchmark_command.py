@@ -116,6 +116,84 @@ def _write_valid_workflow_recommendation(ai: Path) -> None:
     )
 
 
+def _write_valid_workflow_recommendation_history(ai: Path) -> None:
+    history_dir = ai / "review" / "workflow-routing-recommendations"
+    history_dir.mkdir(parents=True, exist_ok=True)
+    recommendations = []
+    for task_id, workflow, rule_id, created_at in [
+        ("task-1", "bugfix", "bugfix-intent", "2026-05-31T11:59:00Z"),
+        ("task-2", "standard", "standard-escalation", "2026-05-31T12:00:00Z"),
+    ]:
+        recommendation_id = f"{task_id}-20260531T120000Z"
+        yaml_path = history_dir / f"{recommendation_id}.yaml"
+        markdown_path = history_dir / f"{recommendation_id}.md"
+        yaml_path.write_text(
+            yaml.safe_dump(
+                {
+                    "schema_version": "1.0",
+                    "task_id": task_id,
+                    "task_brief": f"Task brief for {task_id}.",
+                    "recommended_workflow": workflow,
+                    "matched_rule_ids": [rule_id],
+                    "risk_level": "medium" if workflow == "bugfix" else "high",
+                    "confidence": "high",
+                    "rationale": f"{workflow} matches the configured routing policy.",
+                    "required_guides": [".ai/guides/project-context.md"],
+                    "required_sensors": [".ai/sensors/verification.md"],
+                    "human_confirmation_required": workflow == "standard",
+                    "review_status": "pending_harness_maintainer_review",
+                    "evidence_sources": [".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+                },
+                sort_keys=False,
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        markdown_path.write_text(
+            "# Workflow Routing Recommendation\n\n"
+            f"## Task\n\nTask brief for {task_id}.\n\n"
+            f"## Recommended Workflow\n\n{workflow}\n\n"
+            f"## Matched Routing Rules\n\n- {rule_id}\n\n"
+            "## Required Harness Assets\n\n- .ai/guides/project-context.md\n\n"
+            "## Review Boundary\n\npending_harness_maintainer_review\n",
+            encoding="utf-8",
+        )
+        recommendations.append(
+            {
+                "recommendation_id": recommendation_id,
+                "task_id": task_id,
+                "created_at": created_at,
+                "yaml_path": f".ai/review/workflow-routing-recommendations/{recommendation_id}.yaml",
+                "markdown_path": f".ai/review/workflow-routing-recommendations/{recommendation_id}.md",
+                "recommended_workflow": workflow,
+                "risk_level": "medium" if workflow == "bugfix" else "high",
+                "confidence": "high",
+                "review_status": "pending_harness_maintainer_review",
+            }
+        )
+    (history_dir / "index.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "latest_recommendation_id": recommendations[-1]["recommendation_id"],
+                "recommendations": recommendations,
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (ai / "review" / "workflow-routing-recommendations.md").write_text(
+        "# Workflow Routing Recommendation History\n\n"
+        "## Latest Recommendation\n\n"
+        f"- `{recommendations[-1]['recommendation_id']}`\n\n"
+        "## Recommendations\n\n"
+        + "\n".join(f"- `{item['recommendation_id']}`: `{item['recommended_workflow']}`" for item in recommendations)
+        + "\n\n## Review Boundary\n\npending_harness_maintainer_review\n",
+        encoding="utf-8",
+    )
+
+
 def _write_valid_asset_candidates(ai: Path) -> None:
     review = ai / "review"
     review.mkdir(parents=True, exist_ok=True)
@@ -945,6 +1023,23 @@ def test_benchmark_accepts_valid_workflow_recommendation_review_artifacts(tmp_pa
     assert recommendation["passed"] is True
     assert recommendation["present"] is True
     assert recommendation["recommended_workflow"] == "bugfix"
+    assert recommendation["history_count"] == 0
+
+
+def test_benchmark_fails_workflow_recommendation_history_when_markdown_missing(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_workflow_recommendation(ai)
+    _write_valid_workflow_recommendation_history(ai)
+    missing = next((ai / "review" / "workflow-routing-recommendations").glob("task-1-*.md"))
+    missing.unlink()
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    recommendation = next(check for check in checks if check["id"] == "content:workflow-recommendation-review")
+    assert recommendation["passed"] is False
+    assert "incomplete_recommendation_history_entry" in recommendation["errors"]
 
 
 def test_benchmark_fails_when_workflow_recommendation_references_unknown_workflow(tmp_path: Path, monkeypatch):

@@ -7,6 +7,7 @@ import yaml
 from harness_builder_agent.schemas.experience_index import ExperienceIndex, ExperienceSource
 from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
+from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
 from harness_builder_agent.tools.asset_writers.shared import record_artifact, write_yaml
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 
@@ -42,7 +43,7 @@ def build_experience_index(ai: Path) -> ExperienceIndex:
     asset_candidate_count = _yaml_candidate_count(ai / "review" / "asset-candidates.yaml")
     maturity_review_count = _yaml_candidate_count(ai / "review" / "maturity-review.yaml", key="candidate_reviews")
     candidate_governance_decision_count = _candidate_governance_count(ai / "review" / "candidate-governance.yaml")
-    workflow_recommendation_count = _workflow_recommendation_count(ai / "review" / "workflow-routing-recommendation.yaml")
+    workflow_recommendation_count, workflow_recommendation_source = _workflow_recommendation_signal(ai)
     task_runs = ai / "task-runs"
     runtime_task_run_count = sum(1 for path in task_runs.iterdir() if path.is_dir()) if task_runs.exists() else 0
     sources: list[ExperienceSource] = [
@@ -63,7 +64,7 @@ def build_experience_index(ai: Path) -> ExperienceIndex:
     if workflow_recommendation_count:
         sources.append(
             ExperienceSource(
-                path=".ai/review/workflow-routing-recommendation.yaml",
+                path=workflow_recommendation_source,
                 kind="workflow_recommendation",
                 item_count=workflow_recommendation_count,
             )
@@ -106,6 +107,15 @@ def _workflow_recommendation_count(path: Path) -> int:
         return 0
     WorkflowRecommendationReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
     return 1
+
+
+def _workflow_recommendation_signal(ai: Path) -> tuple[int, str]:
+    history_path = ai / "review" / "workflow-routing-recommendations" / "index.yaml"
+    if history_path.exists():
+        history = WorkflowRecommendationHistory.model_validate(yaml.safe_load(history_path.read_text(encoding="utf-8")) or {})
+        return len(history.recommendations), ".ai/review/workflow-routing-recommendations/index.yaml"
+    latest_path = ai / "review" / "workflow-routing-recommendation.yaml"
+    return _workflow_recommendation_count(latest_path), ".ai/review/workflow-routing-recommendation.yaml"
 
 
 def _candidate_governance_count(path: Path) -> int:

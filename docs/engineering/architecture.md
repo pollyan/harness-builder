@@ -77,7 +77,7 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - 生成 JSON/YAML 必须符合 schema。
 - Workflow Skill 当前来自固定模板，内置模板包括 `lightweight`、`bugfix` 和 `standard`，不做动态 LLM 生成。
 - `harness-config.yaml` 必须包含可被宿主 Runtime 消费的 workflow definitions 和 `workflow_routing` 策略；Builder 只生成策略契约，不执行任务路由。
-- `recommend-workflow` 只能输出 `.ai/review/workflow-routing-recommendation.*` 审查产物，并刷新 `.ai/experience/experience-index.yaml`、`.ai/maturity-score.yaml` 和 `.ai/maturity-evidence.yaml` 等派生证据；正式任务执行、Harness Map、`.ai/task-runs` 和正式 routing policy 应用仍由宿主 Runtime / 后续审核流程承担。
+- `recommend-workflow` 只能输出 `.ai/review/workflow-routing-recommendation.*` 最新审查产物，并追加 `.ai/review/workflow-routing-recommendations/` 历史索引和摘要；随后刷新 `.ai/experience/experience-index.yaml`、`.ai/maturity-score.yaml` 和 `.ai/maturity-evidence.yaml` 等派生证据。正式任务执行、Harness Map、`.ai/task-runs` 和正式 routing policy 应用仍由宿主 Runtime / 后续审核流程承担。
 - `self-improve` 只能输出 `.ai/review/self-improve-package.*` 以及被其串联命令生成的 review-only 改进产物；正式 Guide、Sensor、Workflow Skill 和 routing policy 仍需后续审核流程应用。
 - `review-candidate` 是候选治理层的显式应用入口。它必须把治理决策写入 `.ai/review/candidate-governance.*`，保持原始 LLM candidate report 为 review-only；`workflow_policy` 的 `applied` 只能消费结构化 `WorkflowPolicyPatch`，不得从自由文本 `draft_content` 推断 YAML patch。
 - 如果 writer 文件持续膨胀，应优先按产物类型拆分，而不是继续堆在单文件中。

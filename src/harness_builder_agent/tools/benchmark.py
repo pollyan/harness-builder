@@ -24,6 +24,7 @@ from harness_builder_agent.schemas.self_improve_package import SelfImprovePackag
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
+from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.evidence_sources import (
     CORE_EVIDENCE_SOURCES,
@@ -521,21 +522,65 @@ def _extend_experience_summary_evidence_sources(ai: Path, allowed: set[str], err
 def _workflow_recommendation_review_check(ai: Path) -> dict[str, Any]:
     yaml_path = ai / "review" / "workflow-routing-recommendation.yaml"
     markdown_path = ai / "review" / "workflow-routing-recommendation.md"
-    if not yaml_path.exists() and not markdown_path.exists():
+    history_index_path = ai / "review" / "workflow-routing-recommendations" / "index.yaml"
+    history_summary_path = ai / "review" / "workflow-routing-recommendations.md"
+    latest_present = yaml_path.exists() or markdown_path.exists()
+    history_present = history_index_path.exists() or history_summary_path.exists()
+    if not latest_present and not history_present:
         return {"id": "content:workflow-recommendation-review", "passed": True, "present": False}
 
     errors: list[str] = []
-    if not yaml_path.exists() or not markdown_path.exists():
+    report: WorkflowRecommendationReport | None = None
+    if latest_present and (not yaml_path.exists() or not markdown_path.exists()):
         errors.append("incomplete_recommendation_artifact_pair")
 
     try:
         config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
-        report = WorkflowRecommendationReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
     except Exception as exc:  # pragma: no cover - captured in benchmark report
         return {"id": "content:workflow-recommendation-review", "passed": False, "present": True, "errors": [str(exc)]}
 
     available_workflows = set(config.workflows)
     available_rule_ids = {rule.id for rule in config.workflow_routing.rules}
+    allowed_evidence_sources, allowlist_errors = _base_benchmark_evidence_sources(ai)
+    errors.extend(allowlist_errors)
+    if latest_present and yaml_path.exists():
+        try:
+            report = WorkflowRecommendationReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+        except Exception as exc:  # pragma: no cover - captured in benchmark report
+            return {"id": "content:workflow-recommendation-review", "passed": False, "present": True, "errors": [str(exc)]}
+        errors.extend(_workflow_recommendation_report_errors(report, available_workflows, available_rule_ids, allowed_evidence_sources))
+
+        markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+        if _missing_workflow_recommendation_sections(markdown):
+            errors.append("missing_markdown_sections")
+
+    history_count = 0
+    if history_present:
+        history_errors, history_count = _workflow_recommendation_history_errors(
+            ai,
+            config,
+            allowed_evidence_sources,
+        )
+        errors.extend(history_errors)
+
+    return {
+        "id": "content:workflow-recommendation-review",
+        "passed": not errors,
+        "present": True,
+        "recommended_workflow": report.recommended_workflow if report else None,
+        "matched_rule_count": len(report.matched_rule_ids) if report else 0,
+        "history_count": history_count,
+        "errors": errors,
+    }
+
+
+def _workflow_recommendation_report_errors(
+    report: WorkflowRecommendationReport,
+    available_workflows: set[str],
+    available_rule_ids: set[str],
+    allowed_evidence_sources: set[str],
+) -> list[str]:
+    errors: list[str] = []
     if report.recommended_workflow not in available_workflows:
         errors.append("unknown_recommended_workflow")
     if any(rule_id not in available_rule_ids for rule_id in report.matched_rule_ids):
@@ -544,12 +589,55 @@ def _workflow_recommendation_review_check(ai: Path) -> dict[str, Any]:
         errors.append("recommendation_not_review_only")
     if any(not source.startswith(".ai/") for source in report.evidence_sources):
         errors.append("evidence_source_outside_ai")
-    allowed_evidence_sources, allowlist_errors = _base_benchmark_evidence_sources(ai)
-    errors.extend(allowlist_errors)
     if unknown_evidence_sources(report.evidence_sources, allowed_evidence_sources):
         errors.append("unknown_evidence_source")
+    return errors
 
-    markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+
+def _workflow_recommendation_history_errors(
+    ai: Path,
+    config: HarnessConfig,
+    allowed_evidence_sources: set[str],
+) -> tuple[list[str], int]:
+    history_index_path = ai / "review" / "workflow-routing-recommendations" / "index.yaml"
+    history_summary_path = ai / "review" / "workflow-routing-recommendations.md"
+    errors: list[str] = []
+    if not history_index_path.exists() or not history_summary_path.exists():
+        errors.append("incomplete_recommendation_history_pair")
+        return errors, 0
+
+    try:
+        history = WorkflowRecommendationHistory.model_validate(yaml.safe_load(history_index_path.read_text(encoding="utf-8")) or {})
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return [str(exc)], 0
+
+    summary = history_summary_path.read_text(encoding="utf-8")
+    if "# Workflow Routing Recommendation History" not in summary or "## Review Boundary" not in summary:
+        errors.append("missing_recommendation_history_sections")
+
+    available_workflows = set(config.workflows)
+    available_rule_ids = {rule.id for rule in config.workflow_routing.rules}
+    for item in history.recommendations:
+        recommendation_yaml = ai.parent / item.yaml_path
+        recommendation_markdown = ai.parent / item.markdown_path
+        if not recommendation_yaml.exists() or not recommendation_markdown.exists():
+            errors.append("incomplete_recommendation_history_entry")
+            continue
+        try:
+            report = WorkflowRecommendationReport.model_validate(yaml.safe_load(recommendation_yaml.read_text(encoding="utf-8")))
+        except Exception as exc:  # pragma: no cover - captured in benchmark report
+            errors.append(str(exc))
+            continue
+        if report.task_id != item.task_id or report.recommended_workflow != item.recommended_workflow:
+            errors.append("recommendation_history_entry_mismatch")
+        errors.extend(_workflow_recommendation_report_errors(report, available_workflows, available_rule_ids, allowed_evidence_sources))
+        markdown = recommendation_markdown.read_text(encoding="utf-8")
+        if _missing_workflow_recommendation_sections(markdown):
+            errors.append("missing_recommendation_history_markdown_sections")
+    return errors, len(history.recommendations)
+
+
+def _missing_workflow_recommendation_sections(markdown: str) -> bool:
     required_sections = [
         "# Workflow Routing Recommendation",
         "## Task",
@@ -558,17 +646,7 @@ def _workflow_recommendation_review_check(ai: Path) -> dict[str, Any]:
         "## Required Harness Assets",
         "## Review Boundary",
     ]
-    if any(section not in markdown for section in required_sections):
-        errors.append("missing_markdown_sections")
-
-    return {
-        "id": "content:workflow-recommendation-review",
-        "passed": not errors,
-        "present": True,
-        "recommended_workflow": report.recommended_workflow,
-        "matched_rule_count": len(report.matched_rule_ids),
-        "errors": errors,
-    }
+    return any(section not in markdown for section in required_sections)
 
 
 def _maturity_review_artifact_check(ai: Path) -> dict[str, Any]:
