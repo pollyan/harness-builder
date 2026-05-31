@@ -12,6 +12,7 @@
 - 修改测试、fixture、e2e、acceptance、断言策略或 CI 行为前，阅读 `docs/engineering/testing-strategy.md`。
 - 修改 Sensor、hard gate、benchmark 检查、验证报告或质量门禁前，阅读 `docs/engineering/sensor-and-gate-rules.md`。
 - 修改产品定位、成熟度框架、Experience / Self-Improve、智能改进、Workflow Toolkit 或长期路线图前，阅读 `docs/strategy/README.md`，再按需阅读其中的全景规划或 POC 历史规划。
+- 目标模式循环开始、调整 milestone 粒度、提交 / push 节奏、sub agent 使用或 Self-Harness Gate 规则前，阅读 `docs/strategy/goal-mode-playbook.md`。
 - 只在任务需要时加载对应专题文档，不要把所有工程文档一次性塞进上下文。
 
 ## 目标模式选题规则

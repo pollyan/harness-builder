@@ -16,6 +16,10 @@
   - `init` 专属北极星文档。
   - 定义深度引导式 Harness 生成体验的目标态、用户旅程、CLI 视觉焦点、进度反馈、质量指标和后续迭代切片规则。
   - 后续目标模式如果围绕首次初始化、已有 Harness 维护入口、生成资产质量或 guided init 体验演进，应优先参考。
+- `goal-mode-playbook.md`
+  - 目标模式运行手册。
+  - 沉淀每轮读取顺序、todo 优先、milestone 粒度、Superpowers 使用方式、sub agent 使用、commit / push 节奏和 Self-Harness Gate。
+  - 后续目标模式启动、调整执行节奏、压缩提示词或沉淀稳定执行规则时，应优先更新。
 
 ## 使用原则
 
@@ -28,3 +32,4 @@
 7. milestone 粒度应按完整用户价值切分：同一用户故事下、共享数据流且可以一次验收的相邻小问题应合并推进，避免每个字段、文案或 warning 都单独触发完整 Superpowers 流程。
 8. 合并后的 milestone 仍必须边界清晰、可测试、可审计；跨独立用户旅程、高风险 schema 迁移或不相关模块的大改造应继续拆分。
 9. 目标模式可以为一个完整 todo 或工作包创建多个本地 commit，但不应每个 commit 都 push；只有当该 todo / 工作包已经形成独立可验收价值时，才统一执行 push 前全量验证并同步到 GitHub。
+10. 可复用的目标模式执行经验优先沉淀到 `goal-mode-playbook.md`，目标提示词只保留大目标、授权边界和最新优先级。
