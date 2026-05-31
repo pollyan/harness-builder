@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from harness_builder_agent.schemas.experience_index import ExperienceSource
+
 
 class InventoryEvidenceSummary(BaseModel):
     module_count: int = 0
@@ -50,6 +52,7 @@ class ExperienceEvidence(BaseModel):
     has_pending_improvements: bool = False
     pending_improvement_count: int = 0
     has_experience_index: bool = False
+    sources: list[ExperienceSource] = Field(default_factory=list)
     asset_candidate_count: int = 0
     maturity_review_count: int = 0
     workflow_recommendation_count: int = 0

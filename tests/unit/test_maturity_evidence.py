@@ -48,6 +48,12 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
                 "pending-improvements.md": True,
                 "deprecated-experience.md": False,
             },
+            "sources": [
+                {"path": ".ai/experience/pending-improvements.md", "kind": "pending_improvements", "item_count": 2},
+                {"path": ".ai/review/maturity-review.yaml", "kind": "maturity_review", "item_count": 1},
+                {"path": ".ai/review/asset-candidates.yaml", "kind": "asset_candidates", "item_count": 3},
+                {"path": ".ai/review/workflow-routing-recommendation.yaml", "kind": "workflow_recommendation", "item_count": 1},
+            ],
             "pending_improvement_count": 2,
             "asset_candidate_count": 3,
             "maturity_review_count": 1,
@@ -85,6 +91,14 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
     assert pack.experience.workflow_recommendation_count == 1
     assert pack.experience.runtime_task_run_count == 4
     assert pack.experience.experience_file_count == 5
+    assert [source.path for source in pack.experience.sources] == [
+        ".ai/experience/pending-improvements.md",
+        ".ai/review/maturity-review.yaml",
+        ".ai/review/asset-candidates.yaml",
+        ".ai/review/workflow-routing-recommendation.yaml",
+    ]
+    assert pack.experience.sources[1].kind == "maturity_review"
+    assert pack.experience.sources[2].item_count == 3
     assert pack.experience.has_experience_summary is True
     assert pack.experience.experience_summary_finding_count == 1
     assert pack.harness_assets.workflow_routing_rule_count == 3
@@ -110,3 +124,4 @@ def test_collect_maturity_evidence_keeps_pending_only_legacy_path(tmp_path: Path
     assert pack.experience.has_pending_improvements is True
     assert pack.experience.pending_improvement_count == 2
     assert pack.experience.asset_candidate_count == 0
+    assert pack.experience.sources == []

@@ -169,6 +169,7 @@ def _experience(ai: Path) -> ExperienceEvidence:
             has_pending_improvements=index.pending_improvement_count > 0,
             pending_improvement_count=index.pending_improvement_count,
             has_experience_index=True,
+            sources=index.sources,
             asset_candidate_count=index.asset_candidate_count,
             maturity_review_count=index.maturity_review_count,
             workflow_recommendation_count=index.workflow_recommendation_count,
