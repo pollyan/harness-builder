@@ -17,7 +17,9 @@ from harness_builder_agent.schemas.maturity_report import (
     MaturityReport,
 )
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.schemas.runtime_task_run import RuntimeTaskRunCollectionSummary
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.tools.runtime_task_runs import summarize_runtime_task_runs
 
 MATURITY_DIMENSIONS = [
     "guides",
@@ -42,21 +44,23 @@ def build_maturity_report(
     assessed_at: str | None = None,
 ) -> MaturityReport:
     workflow_ready = _workflow_ready(ai, config)
+    runtime_summary = summarize_runtime_task_runs(ai) if ai is not None else RuntimeTaskRunCollectionSummary()
+    runtime_resolved = _runtime_resolved(runtime_summary)
     dimensions = {
         "guides": _guides_dimension(ai, inventory, weapon_selection),
         "sensors": _sensors_dimension(commands),
-        "workflow": _workflow_dimension(workflow_ready, config),
+        "workflow": _workflow_dimension(workflow_ready, config, runtime_summary, runtime_resolved),
         "risk_control": _risk_control_dimension(inventory),
-        "repair_loop": _repair_loop_dimension(),
-        "observability": _observability_dimension(ai),
+        "repair_loop": _repair_loop_dimension(runtime_summary),
+        "observability": _observability_dimension(ai, runtime_summary),
         "experience": _experience_dimension(ai),
         "verification_sophistication": _verification_dimension(commands),
-        "governance_auditability": _governance_dimension(ai),
+        "governance_auditability": _governance_dimension(ai, runtime_summary),
     }
     dimension_scores = {name: report.level for name, report in dimensions.items()}
-    overall_level = _overall_level(commands, workflow_ready, config)
+    overall_level = _overall_level(commands, workflow_ready, config, runtime_resolved)
     next_steps = _next_steps(dimensions)
-    blocking_caps = _blocking_caps(ai, commands)
+    blocking_caps = _blocking_caps(ai, commands, runtime_summary, runtime_resolved)
     return MaturityReport(
         overall_level=overall_level,
         target_next_level=_next_level(overall_level),
@@ -123,37 +127,66 @@ def _sensors_dimension(commands: CommandCatalog) -> MaturityDimensionReport:
     )
 
 
-def _workflow_dimension(workflow_ready: bool, config: HarnessConfig) -> MaturityDimensionReport:
+def _workflow_dimension(
+    workflow_ready: bool,
+    config: HarnessConfig,
+    runtime_summary: RuntimeTaskRunCollectionSummary,
+    runtime_resolved: bool,
+) -> MaturityDimensionReport:
     routing_rules = config.workflow_routing.rules
     has_standard_escalation = any(
         rule.selected_workflow == "standard" and "high_risk_module" in rule.triggers for rule in routing_rules
     )
-    level: MaturityLevel = "L3" if workflow_ready and has_standard_escalation else ("L2" if workflow_ready else "L1")
-    blockers = [
-        MaturityBlocker(
-            id="workflow-routing-not-validated",
-            reason="Workflow routing policy exists, but runtime task history has not yet validated routing outcomes.",
-            prevents_level="L4",
-        )
-    ] if has_standard_escalation else [
-        MaturityBlocker(
-            id="workflow-not-risk-adaptive",
-            reason="Workflow routing is present but not yet adaptive by maturity, task risk, and historical outcomes.",
-            prevents_level="L3",
-        )
+    if workflow_ready and has_standard_escalation and runtime_resolved:
+        level: MaturityLevel = "L3"
+        blockers = [
+            MaturityBlocker(
+                id="workflow-routing-not-adaptive",
+                reason="Runtime evidence is resolved, but routing has not yet been optimized from repeated task outcomes.",
+                prevents_level="L4",
+            )
+        ]
+        next_level_requirements = ["Use task outcomes to tune routing and escalation rules."]
+    elif workflow_ready and has_standard_escalation:
+        level = "L2"
+        if runtime_summary.task_run_count > 0:
+            blockers = [
+                MaturityBlocker(
+                    id="runtime-sensors-unresolved",
+                    reason="Runtime sensor results are not fully resolved, so workflow-bound L3 is blocked.",
+                    prevents_level="L3",
+                )
+            ]
+        else:
+            blockers = [
+                MaturityBlocker(
+                    id="runtime-workflow-not-observed",
+                    reason="Workflow routing policy exists, but no Runtime task-run has validated the execution protocol.",
+                    prevents_level="L3",
+                )
+            ]
+        next_level_requirements = ["Validate workflow routing with resolved Runtime task-run evidence."]
+    else:
+        level = "L2" if workflow_ready else "L1"
+        blockers = [
+            MaturityBlocker(
+                id="workflow-not-risk-adaptive",
+                reason="Workflow routing is present but not yet adaptive by maturity, task risk, and historical outcomes.",
+                prevents_level="L3",
+            )
+        ]
+        next_level_requirements = ["Add risk-based workflow routing and non-skippable hard gate policy."]
+    runtime_evidence = [
+        MaturityEvidence(source=source, summary="Runtime task-run validates workflow execution evidence.")
+        for source in runtime_summary.source_paths
     ]
-    next_level_requirements = (
-        ["Validate routing outcomes against runtime task history.", "Use task outcomes to tune routing and escalation rules."]
-        if has_standard_escalation
-        else ["Add risk-based workflow routing and non-skippable hard gate policy."]
-    )
     return MaturityDimensionReport(
         level=level,
         evidence=[
             MaturityEvidence(source=".ai/harness-config.yaml", summary=f"Configured workflow count: {len(config.workflows)}."),
             MaturityEvidence(source=".ai/skills/", summary=f"Workflow skill files ready: {workflow_ready}."),
             MaturityEvidence(source=".ai/harness-config.yaml", summary=f"Workflow routing rules configured: {len(routing_rules)}."),
-        ],
+        ] + runtime_evidence,
         blockers=blockers,
         next_level_requirements=next_level_requirements,
         confidence="high" if workflow_ready else "medium",
@@ -177,7 +210,30 @@ def _risk_control_dimension(inventory: ProjectInventory) -> MaturityDimensionRep
     )
 
 
-def _repair_loop_dimension() -> MaturityDimensionReport:
+def _repair_loop_dimension(runtime_summary: RuntimeTaskRunCollectionSummary) -> MaturityDimensionReport:
+    if runtime_summary.task_run_count > 0:
+        level: MaturityLevel = "L2" if runtime_summary.repair_attempt_count > 0 else "L1"
+        repair_summary = (
+            f"Runtime repair attempts observed: {runtime_summary.repair_attempt_count}."
+            if runtime_summary.repair_attempt_count > 0
+            else "Runtime task-runs exist, but no repair attempt has been observed."
+        )
+        return MaturityDimensionReport(
+            level=level,
+            evidence=[
+                MaturityEvidence(source=source, summary=repair_summary)
+                for source in runtime_summary.source_paths
+            ],
+            blockers=[
+                MaturityBlocker(
+                    id="repair-loop-not-history-optimized",
+                    reason="Repair loop evidence is available, but repair policy is not yet optimized from repeated outcomes.",
+                    prevents_level="L3",
+                )
+            ],
+            next_level_requirements=["Use repeated Runtime repair outcomes to tune workflow repair policy."],
+            confidence="medium",
+        )
     return MaturityDimensionReport(
         level="L0",
         evidence=[
@@ -198,8 +254,28 @@ def _repair_loop_dimension() -> MaturityDimensionReport:
     )
 
 
-def _observability_dimension(ai: Path | None) -> MaturityDimensionReport:
+def _observability_dimension(ai: Path | None, runtime_summary: RuntimeTaskRunCollectionSummary) -> MaturityDimensionReport:
     has_generation_runs = ai is None or _has_generation_runs(ai)
+    if runtime_summary.task_run_count > 0:
+        return MaturityDimensionReport(
+            level="L2",
+            evidence=[
+                MaturityEvidence(source=".ai/runs/", summary=f"Generation trace exists: {has_generation_runs}."),
+                *[
+                    MaturityEvidence(source=source, summary="Runtime task-run includes sensor report and handoff evidence.")
+                    for source in runtime_summary.source_paths
+                ],
+            ],
+            blockers=[
+                MaturityBlocker(
+                    id="runtime-trends-not-available",
+                    reason="Runtime task evidence exists, but trend and replay analysis are not available yet.",
+                    prevents_level="L3",
+                )
+            ],
+            next_level_requirements=["Aggregate Runtime task events into trend and replay evidence."],
+            confidence="high",
+        )
     return MaturityDimensionReport(
         level="L1" if has_generation_runs else "L0",
         evidence=[MaturityEvidence(source=".ai/runs/", summary=f"Generation trace exists: {has_generation_runs}.")],
@@ -284,8 +360,25 @@ def _verification_dimension(commands: CommandCatalog) -> MaturityDimensionReport
     )
 
 
-def _governance_dimension(ai: Path | None) -> MaturityDimensionReport:
+def _governance_dimension(ai: Path | None, runtime_summary: RuntimeTaskRunCollectionSummary) -> MaturityDimensionReport:
     has_generation_runs = ai is None or _has_generation_runs(ai)
+    if runtime_summary.task_run_count > 0:
+        return MaturityDimensionReport(
+            level="L2",
+            evidence=[
+                MaturityEvidence(source=source, summary="Runtime task-run includes decision log and handoff summary.")
+                for source in runtime_summary.source_paths
+            ],
+            blockers=[
+                MaturityBlocker(
+                    id="workflow-event-store-missing",
+                    reason="Decision logs and handoff summaries exist, but task-level event store and replay are not available.",
+                    prevents_level="L3",
+                )
+            ],
+            next_level_requirements=["Aggregate Runtime decision logs into workflow event history."],
+            confidence="high",
+        )
     return MaturityDimensionReport(
         level="L1" if has_generation_runs else "L0",
         evidence=[MaturityEvidence(source=".ai/runs/", summary=f"Generation audit trail exists: {has_generation_runs}.")],
@@ -301,16 +394,31 @@ def _governance_dimension(ai: Path | None) -> MaturityDimensionReport:
     )
 
 
-def _blocking_caps(ai: Path | None, commands: CommandCatalog) -> list[MaturityBlockingCap]:
+def _blocking_caps(
+    ai: Path | None,
+    commands: CommandCatalog,
+    runtime_summary: RuntimeTaskRunCollectionSummary,
+    runtime_resolved: bool,
+) -> list[MaturityBlockingCap]:
     caps = [
         MaturityBlockingCap(
             id="runtime-audit-not-owned-by-builder",
-            reason="L3+ governance requires host Runtime task audit artifacts; Harness Builder CLI does not generate task-runs.",
+            reason="L4 governance requires repeated host Runtime audit artifacts; Harness Builder CLI does not generate task-runs.",
             max_level="L3",
-            active=True,
+            active=runtime_summary.task_run_count == 0,
             evidence=[".ai/task-runs is an external Runtime contract"],
         )
     ]
+    if runtime_summary.task_run_count > 0 and not runtime_resolved:
+        caps.append(
+            MaturityBlockingCap(
+                id="runtime-sensors-unresolved",
+                reason="Runtime task-runs exist, but failed/skipped/unresolved sensors block Workflow-bound L3.",
+                max_level="L2",
+                active=True,
+                evidence=runtime_summary.source_paths,
+            )
+        )
     if not commands.commands:
         caps.append(
             MaturityBlockingCap(
@@ -354,9 +462,20 @@ def _next_steps(dimensions: dict[str, MaturityDimensionReport]) -> list[Maturity
     return steps
 
 
-def _overall_level(commands: CommandCatalog, workflow_ready: bool, config: HarnessConfig) -> MaturityLevel:
+def _overall_level(
+    commands: CommandCatalog,
+    workflow_ready: bool,
+    config: HarnessConfig,
+    runtime_resolved: bool,
+) -> MaturityLevel:
     if not commands.commands:
         return "L0"
+    has_standard_escalation = any(
+        rule.selected_workflow == "standard" and "high_risk_module" in rule.triggers
+        for rule in config.workflow_routing.rules
+    )
+    if workflow_ready and config.workflows and has_standard_escalation and runtime_resolved:
+        return "L3"
     if workflow_ready and config.workflows:
         return "L2"
     return "L1"
@@ -385,3 +504,12 @@ def _contains_section(path: Path, section: str) -> bool:
 def _has_generation_runs(ai: Path) -> bool:
     runs = ai / "runs"
     return runs.exists() and any(path.is_dir() for path in runs.iterdir())
+
+
+def _runtime_resolved(runtime_summary: RuntimeTaskRunCollectionSummary) -> bool:
+    return (
+        runtime_summary.task_run_count > 0
+        and runtime_summary.failed_sensor_count == 0
+        and runtime_summary.skipped_sensor_count == 0
+        and runtime_summary.unresolved_sensor_count == 0
+    )

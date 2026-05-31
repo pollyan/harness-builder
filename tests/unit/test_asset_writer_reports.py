@@ -53,9 +53,10 @@ def test_write_report_assets_writes_reports_scores_plan_and_records_trace(tmp_pa
     assert maturity["schema_version"] == "1.0"
     assert "dimensions" in maturity
     assert "guides" in maturity["dimensions"]
-    assert maturity["dimensions"]["workflow"]["level"] == "L3"
+    assert maturity["dimensions"]["workflow"]["level"] == "L2"
     assert any("Workflow routing rules configured: 3" in item["summary"] for item in maturity["dimensions"]["workflow"]["evidence"])
-    assert "Validate routing outcomes against runtime task history." in maturity["dimensions"]["workflow"]["next_level_requirements"]
+    assert "Validate workflow routing with resolved Runtime task-run evidence." in maturity["dimensions"]["workflow"]["next_level_requirements"]
+    assert any(blocker["id"] == "runtime-workflow-not-observed" for blocker in maturity["dimensions"]["workflow"]["blockers"])
     assert "next_steps" in maturity
     evidence = yaml.safe_load((ai / "maturity-evidence.yaml").read_text(encoding="utf-8"))
     assert evidence["schema_version"] == "1.0"

@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Runtime 运行证据成熟度门禁
+
+- North Star 模块：Maturity & Evolution、Experience & Self-Improve、Workflow Runtime Specification、Governance & Auditability。
+- Gap Analysis 摘要：Runtime task-run 已能被 Builder 只读校验并进入 Experience / Maturity evidence，但 `maturity_model.py` 仍主要按命令和 workflow 文件判断 overall，`workflow` 维度在没有 resolved Runtime 证据时也可到 L3，`repair_loop` 固定 L0，导致成熟度语义和真实任务结果脱节。
+- 用户故事：作为 Harness Maintainer，当宿主 Runtime 已写出合法 `.ai/task-runs/<task-id>/` 时，我可以运行 `assess` 看到成熟度基于真实 Sensor Report、Decision Log、Handoff Summary 和 repair attempts 更新，从而判断 Harness 是否真的进入 Workflow-bound L3。
+- 当前代码 gap：`overall_level` 只看命令和 workflow 文件；`workflow` 维度不区分 runtime sensor passed / failed；`observability` 和 `governance_auditability` 只看 Builder generation trace；`repair_loop` 不消费 Runtime repair attempts。
+- 关键决策 / 取舍：继续不恢复 `run`，不生成 Runtime 产物；只复用 `summarize_runtime_task_runs()` 的 schema-valid summary。全部 Runtime sensor resolved 才允许 workflow / overall 到 L3；failed / skipped / unresolved sensor 是成熟度 blocker，不是 Builder 结构校验失败。
+- Assumptions / risks：单个 resolved task-run 只能证明已有一次 Workflow-bound 运行证据，不能证明 L4 自适应能力；L4 仍依赖多任务趋势、Experience 治理和策略优化。
+- 边界情况 / 失败模式及回应：无 task-runs 不让 `assess` 失败，但保持 L2 ceiling；存在 bad task-run 时 Runtime loader 显式失败；存在 failed/skipped/unresolved sensor 时成熟度保守停在 L2 并列出 blocker。
+- Sub agent 使用情况：使用三个 explorer 子代理并行做 North Star gap、代码/测试现状和验收效率调研；结论共同指出 L3/L4 语义、workflow policy lifecycle 和 acceptance efficiency 是高优先候选。本轮选取 Runtime maturity gate。
+- 价值切分说明：本轮只做“运行证据影响成熟度”的纵向切片，不实现参考 Runtime、不做 L4 趋势分析、不改变 benchmark 结构校验。
+- 可执行验收标准及验证方式：unit 覆盖 passed Runtime task-run 使 workflow / observability / governance / repair_loop 和 overall 提升；failed Runtime sensor 阻止 L3 并生成 blocker；maturity evidence 既有 Runtime 汇总测试保持通过。
+- 完成内容：`maturity_model.py` 消费 Runtime summary；新增 runtime resolved 判定；更新 workflow、repair_loop、observability、governance、overall 和 blocking caps；README、init workflow、spec/plan 和演进记录同步。
+- 验证结果：targeted maturity tests 已通过；fast/full/push 结果见本轮提交记录。
+- Self-Harness Gate：长期 Runtime 分工和成熟度门禁规则已同步。下一轮候选 gap：workflow recommendation 到 policy lifecycle 端到端验收、self-improve package consumption、acceptance efficiency matrix、过程文档中文 gate。
+
 ## 2026-05-31 Runtime Task-Run 只读摄取
 
 - North Star 模块：Experience & Self-Improve、Maturity & Evolution、Sensors、Governance & Auditability。

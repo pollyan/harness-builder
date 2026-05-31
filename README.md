@@ -95,7 +95,7 @@ Harness Builder 不提供任务级 `run` 命令。真实 AI Coding 工具执行 
   experience-candidates.md
 ```
 
-这些 Runtime 产物仍由宿主 AI Coding Runtime 生成，Harness Builder 不主动创建或执行它们。若 `.ai/task-runs/<task-id>/` 已存在，Builder 会在 `benchmark`、Experience index、maturity evidence 和 `summarize-experience` 中只读消费：校验 `harness-map.yaml`、`sensor-report.yaml`、`runtime-summary.yaml`、`decision-log.md` 和 `handoff-summary.md` 的结构与一致性，并把 sensor failed / skipped、repair attempts、handoff 摘要作为后续 Experience / Self-Improve 的证据。缺少 `.ai/task-runs` 不会让 benchmark 失败；存在但 schema 或跨文件一致性错误会让 benchmark 显式失败。
+这些 Runtime 产物仍由宿主 AI Coding Runtime 生成，Harness Builder 不主动创建或执行它们。若 `.ai/task-runs/<task-id>/` 已存在，Builder 会在 `benchmark`、Experience index、maturity evidence、`assess` 和 `summarize-experience` 中只读消费：校验 `harness-map.yaml`、`sensor-report.yaml`、`runtime-summary.yaml`、`decision-log.md` 和 `handoff-summary.md` 的结构与一致性，并把 sensor failed / skipped、repair attempts、handoff 摘要作为后续 Experience / Self-Improve 的证据。缺少 `.ai/task-runs` 不会让 benchmark 失败；存在但 schema 或跨文件一致性错误会让 benchmark 显式失败。成熟度评估会把全部 resolved 的 Runtime sensor 结果作为 Workflow-bound L3 的运行证据；failed / skipped / unresolved sensor 会作为真实成熟度 blocker，而不是被当作 Builder 产物校验失败。
 
 `assess` 更新成熟度评估，`improve` 生成待确认改进候选，`self-improve` 串联成熟度评估、改进候选、LLM maturity review 和 review-only asset candidates，生成 `.ai/review/self-improve-package.*`。`self-improve` 不应用正式 Harness 变更，不执行 Runtime workflow，也不创建 `.ai/task-runs`。
 
