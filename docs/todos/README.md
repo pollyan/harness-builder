@@ -18,6 +18,7 @@
 
 | Todo | 状态 | 优先级 | 说明 |
 | --- | --- | --- | --- |
+| [guided init 在 ai4se 真实仓库上的体验与扫描深度问题](guided-init-ai4se-real-repo-findings.md) | open | high | 记录真实多栈仓库试跑暴露的 evidence 噪声、多栈建模、中文成熟度叙事、skipped files 展示、高风险突出和 LLM / 确定性扫描主从关系问题。 |
 | [成熟度驱动的 init 主向导与命令信息架构重构](maturity-driven-init-wizard.md) | open | high | 将 `init` 强化为成熟度驱动的主入口，串联扫描、确认、成熟度初评、Harness 生成、benchmark 和下一步建议；再次执行时作为已有 Harness 的状态感知维护入口。 |
 
 ## 管理规则

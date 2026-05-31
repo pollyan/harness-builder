@@ -39,6 +39,33 @@ def test_collect_evidence_ignores_generated_and_dependency_dirs(tmp_path: Path):
     assert ".ai/project-inventory.json" not in paths
 
 
+def test_collect_evidence_ignores_ai_tool_workspaces_and_keeps_root_project_manifests(tmp_path: Path):
+    _write(tmp_path / "package.json", '{"scripts":{"test":"npm test"}}')
+    _write(tmp_path / "pyproject.toml", "[project]\nname='demo'\n")
+    _write(tmp_path / "requirements.txt", "flask\n")
+    _write(tmp_path / ".claude" / "worktrees" / "feature" / "package.json", '{"private":true}')
+    _write(tmp_path / ".opencode" / "package.json", '{"private":true}')
+    _write(tmp_path / "deploy-package" / ".opencode" / "package.json", '{"private":true}')
+
+    bundle = collect_evidence(tmp_path)
+
+    indexed_paths = {item.path for item in bundle.files}
+    key_paths = {item.path for item in bundle.key_files}
+    priority_paths = {item.path for item in bundle.priority_files}
+
+    assert "package.json" in indexed_paths
+    assert "pyproject.toml" in indexed_paths
+    assert "requirements.txt" in indexed_paths
+    assert ".claude/worktrees/feature/package.json" not in indexed_paths
+    assert ".opencode/package.json" not in indexed_paths
+    assert "deploy-package/.opencode/package.json" not in indexed_paths
+
+    assert {"package.json", "pyproject.toml", "requirements.txt"}.issubset(key_paths)
+    assert {"package.json", "pyproject.toml", "requirements.txt"}.issubset(priority_paths)
+    assert all(not path.startswith(".claude/") for path in key_paths)
+    assert all("/.opencode/" not in f"/{path}" for path in key_paths)
+
+
 def test_collect_evidence_records_truncated_large_files(tmp_path: Path):
     (tmp_path / "README.md").write_text("x" * 5000, encoding="utf-8")
 

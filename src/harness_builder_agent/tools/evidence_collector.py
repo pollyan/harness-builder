@@ -4,8 +4,30 @@ from pathlib import Path
 
 from harness_builder_agent.schemas.scan import EvidenceBucketCoverage, EvidenceBundle, EvidenceCoverage, EvidenceFile
 
-IGNORED_DIRS = {".git", ".ai", ".venv", "node_modules", "target", "bin", "obj", "dist", "build", "__pycache__"}
-KEY_FILE_NAMES = {"pom.xml", "package.json", "global.json"}
+IGNORED_DIRS = {
+    ".git",
+    ".ai",
+    ".venv",
+    ".claude",
+    ".opencode",
+    "node_modules",
+    "target",
+    "bin",
+    "obj",
+    "dist",
+    "build",
+    "__pycache__",
+}
+KEY_FILE_NAMES = {
+    "pom.xml",
+    "package.json",
+    "global.json",
+    "pyproject.toml",
+    "requirements.txt",
+    "requirements-dev.txt",
+    "Pipfile",
+    "poetry.lock",
+}
 CONFIG_NAMES = {".env.example"}
 CONFIG_SUFFIXES = (".yml", ".yaml", ".json", ".config")
 SOURCE_SUFFIXES = {".java", ".cs", ".js", ".ts", ".tsx", ".vue", ".py"}

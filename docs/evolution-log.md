@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Init 工具工作区 Evidence 降噪
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：CLI Experience、深度扫描、可解释 evidence、LLM-first evidence hygiene。
+- init North Star 旅程阶段：基础扫描、扫描结果友好呈现、与用户对齐扫描理解。
+- Gap Analysis 摘要：真实 `ai4se` guided `init` 试跑显示 `.claude/worktrees`、`.opencode`、`deploy-package/.opencode` 等工具工作区中的 `package.json` 会进入 key evidence，并可能优先出现在 CLI “判断依据”中；同时 Python 项目根文件如 `pyproject.toml`、`requirements.txt` 还没有被视为关键 evidence。
+- 用户故事：作为 Harness Maintainer，当我在包含 AI 工具工作区和真实项目 manifest 的仓库上运行 guided `init` 时，我可以看到根项目和真实应用文件作为优先判断依据，而不是工具工作区里的临时 `package.json`，从而相信 Builder 正在理解项目本身。
+- 当前代码 gap：`evidence_collector._walk_files()` 未忽略 `.claude` / `.opencode`；`_is_key_file()` 未覆盖 Python 项目 manifest；`scan_reconciler` 和 guided CLI 会沿用 `evidence.key_files` 作为判断依据。
+- 关键决策 / 取舍：本轮只在 evidence collection 层做 hygiene，忽略 `.claude` / `.opencode` 任意层级目录，并把 `pyproject.toml`、`requirements*.txt`、`Pipfile`、`poetry.lock` 纳入 key evidence；不扩展 primary stack 枚举，不实现完整多栈模型，也不忽略整个 `deploy-package`。
+- Assumptions / risks：`.claude` / `.opencode` 语义上属于工具状态目录，忽略后如果客户把真实业务代码放在其中，需要用户显式补充或后续高级扫描策略处理；Python 关键文件进入 evidence 只提升输入可信度，不代表当前 schema 已支持 Python primary stack。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行审查 ai4se todo；一个定位 evidence 噪声、skipped 和高风险展示落点，另一个确认多栈表达和英文成熟度 blocker 是后续更大切片。
+- 价值切分说明：本轮优先消化 `docs/todos/` 中 high priority 工作项，但只处理第一个可独立验收的信任问题；skipped 中文化、高风险突出、多栈建模和中文成熟度 blocker 继续保留为后续切片。
+- 验收标准及验证方式：unit 覆盖 `collect_evidence()` 忽略 `.claude` / `.opencode` / `deploy-package/.opencode` 文件，并确认根 `package.json`、`pyproject.toml`、`requirements.txt` 进入 key / priority evidence。
+- 完成内容：扩展 `IGNORED_DIRS` 和 `KEY_FILE_NAMES`；新增 evidence collector 单元测试固定工具工作区降噪行为；同步本 todo 的已完成切片记录。
+- Self-Harness Gate：下一轮候选 gap 首选同一 todo 中的 skipped / sampled 文件信息中文化和覆盖不足说明，其次是高风险风险项突出展示，再其次是多栈表达与成熟度英文 blocker 中文化。
+
 ## 2026-05-31 Guided Init 启动边界说明
 
 - North Star 模块：CLI Experience、Progressive Collaboration、Maturity & Evolution。
