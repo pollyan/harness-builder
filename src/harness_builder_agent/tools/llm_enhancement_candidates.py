@@ -4,9 +4,10 @@ from typing import Any
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 
 
-def build_llm_enhancement_candidates(inventory: ProjectInventory, commands: CommandCatalog) -> dict[str, Any]:
+def build_llm_enhancement_candidates(inventory: ProjectInventory, commands: CommandCatalog) -> WeaponLibraryCandidateReport:
     proposal = inventory.stack_extensions.get("llm_scan_proposal", {})
     candidates: list[dict[str, Any]] = []
     seen: set[tuple[str, str, tuple[str, ...]]] = set()
@@ -83,7 +84,7 @@ def build_llm_enhancement_candidates(inventory: ProjectInventory, commands: Comm
             }
         )
 
-    return {"schema_version": "1.0", "source": "llm_scan_proposal", "candidates": candidates}
+    return WeaponLibraryCandidateReport(candidates=candidates)
 
 
 def candidate_guides_markdown(report: dict[str, Any]) -> str:
@@ -121,4 +122,3 @@ def _candidates_markdown(title: str, candidates: list[dict[str, Any]]) -> str:
         "这些候选项来自 LLM scan proposal，只能作为 candidate，需人工确认后才能进入正式 Harness。\n\n"
         f"{body}\n"
     )
-

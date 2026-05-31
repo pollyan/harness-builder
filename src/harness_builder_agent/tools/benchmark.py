@@ -19,6 +19,7 @@ from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.scan import LLMScanProposal, ScanMetadata
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
@@ -256,10 +257,9 @@ def _human_confirmation_checks(ai: Path) -> list[dict[str, Any]]:
 def _llm_enhancement_checks(ai: Path) -> list[dict[str, Any]]:
     report_path = ai / "experience" / "weapon-library-candidates.yaml"
     try:
-        report = yaml.safe_load(report_path.read_text(encoding="utf-8"))
-        candidates = report.get("candidates", [])
-        schema_passed = report.get("schema_version") == "1.0" and report.get("source") == "llm_scan_proposal" and bool(candidates)
-        checks = [{"id": "schema:weapon-library-candidates", "passed": schema_passed, "candidate_count": len(candidates)}]
+        report = WeaponLibraryCandidateReport.model_validate(yaml.safe_load(report_path.read_text(encoding="utf-8")))
+        candidates = report.candidates
+        checks = [{"id": "schema:weapon-library-candidates", "passed": True, "candidate_count": len(candidates)}]
     except Exception as exc:  # pragma: no cover
         return [
             {"id": "schema:weapon-library-candidates", "passed": False, "error": str(exc)},
@@ -274,7 +274,7 @@ def _llm_enhancement_checks(ai: Path) -> list[dict[str, Any]]:
     checks.append(
         {
             "id": "content:llm-enhancement-candidates",
-            "passed": all(item.get("status") == "candidate" and item.get("human_confirmation_required") is True for item in candidates)
+            "passed": all(item.status == "candidate" and item.human_confirmation_required is True for item in candidates)
             and "candidate" in review_text.lower(),
         }
     )

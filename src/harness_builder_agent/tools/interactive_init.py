@@ -63,7 +63,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             inline_contexts.append(inline.strip())
 
     candidate_report = build_llm_enhancement_candidates(inventory, commands)
-    candidate_ids = [item["id"] for item in candidate_report.get("candidates", [])]
+    candidate_ids = [item.id for item in candidate_report.candidates]
     typer.echo(f"候选 Guide/Sensor: {len(candidate_ids)}")
     candidate_choice = typer.prompt("候选处理方式: a=全部接受, k=保持候选", default="k").strip().lower()
     accept_candidates = candidate_choice == "a"

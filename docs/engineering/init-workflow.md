@@ -163,6 +163,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/review/candidate-guides.md`
 - `.ai/review/candidate-sensors.md`
 
+其中 `.ai/experience/weapon-library-candidates.yaml` 是机器消费候选报告，必须通过 `WeaponLibraryCandidateReport` schema 校验；候选在人工确认前保持 candidate/review-only 状态，不能被视为已写入正式 Guides 或 Sensors。
+
 必须生成的可追溯产物：
 
 - `.ai/runs/<run_id>/trace.yaml`

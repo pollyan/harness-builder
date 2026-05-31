@@ -16,6 +16,7 @@ from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.sensor_report import SensorReport
 from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceBucketCoverage, EvidenceCoverage, EvidenceFile, ScanMetadata
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 
 
@@ -35,6 +36,28 @@ def test_project_inventory_records_stack_modules_and_evidence():
     assert payload["primary_stack"] == "java-spring"
     assert payload["modules"][0]["kind"] == "backend"
     assert payload["evidence"][0]["path"] == "pom.xml"
+
+
+def test_weapon_library_candidate_report_rejects_invalid_status():
+    with pytest.raises(ValidationError):
+        WeaponLibraryCandidateReport.model_validate(
+            {
+                "schema_version": "1.0",
+                "source": "llm_scan_proposal",
+                "candidates": [
+                    {
+                        "id": "llm-guide-001",
+                        "candidate_type": "guide",
+                        "status": "applied",
+                        "title": "Guide",
+                        "rationale": "Needs review.",
+                        "evidence": [".ai/project-inventory.json"],
+                        "source": "llm_scan_proposal",
+                        "human_confirmation_required": True,
+                    }
+                ],
+            }
+        )
 
 
 def test_evidence_bundle_records_priority_buckets_and_coverage():

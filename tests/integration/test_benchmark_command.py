@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
-from harness_builder_agent.tools.benchmark import _content_checks, _quality_scores, _schema_checks, run_benchmark
+from harness_builder_agent.tools.benchmark import _content_checks, _llm_enhancement_checks, _quality_scores, _schema_checks, run_benchmark
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -331,6 +331,20 @@ def test_benchmark_fails_when_hard_gate_command_lacks_evidence(tmp_path: Path, m
     assert report["status"] == "failed"
     hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-command-evidence")
     assert hard_gate_check["passed"] is False
+
+
+def test_benchmark_fails_weapon_library_candidates_with_invalid_status(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    path = ai / "experience" / "weapon-library-candidates.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidates"][0]["status"] = "applied"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    checks = _llm_enhancement_checks(ai)
+
+    schema = next(check for check in checks if check["id"] == "schema:weapon-library-candidates")
+    assert schema["passed"] is False
 
 
 def test_benchmark_schema_checks_fail_when_project_inventory_is_invalid(tmp_path: Path, monkeypatch):
