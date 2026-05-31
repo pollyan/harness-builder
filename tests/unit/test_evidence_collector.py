@@ -99,6 +99,11 @@ def test_collect_evidence_uses_stratified_sampling_for_large_messy_repo(tmp_path
     java_bucket = next(item for item in bundle.coverage.bucket_coverage if item.bucket == "source:.java")
     assert java_bucket.total_count >= 40
     assert java_bucket.skipped_count > 0
+    source_warning = next(item for item in bundle.coverage.warnings if item["code"] == "source_sampling_truncated")
+    assert source_warning["bucket"] == "source:.java"
+    assert source_warning["total_count"] == java_bucket.total_count
+    assert source_warning["selected_count"] == java_bucket.selected_count
+    assert source_warning["skipped_count"] == java_bucket.skipped_count
 
 
 def test_collect_evidence_marks_priority_reason_and_bucket(tmp_path: Path):

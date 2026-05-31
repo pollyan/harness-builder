@@ -342,13 +342,70 @@ def _uncertainty_attention_lines(inventory: ProjectInventory, commands: CommandC
     if not inventory.modules:
         lines.append("暂未识别稳定模块边界，需要人工确认主要模块、入口文件或职责分工。")
     for warning in _stack_extensions_list(inventory, "scan_warnings")[:5]:
-        message = str(warning.get("message") or warning.get("code") or "扫描存在未分类 warning")
-        lines.append(message)
+        lines.append(_format_scan_warning_for_cli(inventory, warning))
     low_confidence_commands = [command for command in commands.commands if command.confidence == "low"]
     if low_confidence_commands:
         labels = ", ".join(f"`{command.command}`" for command in low_confidence_commands[:3])
         lines.append(f"低置信度验证命令：{labels}，需要确认是否稳定可执行。")
     return lines or ["当前扫描没有发现必须立即处理的不确定性；仍建议确认关键模块和验证命令。"]
+
+
+def _format_scan_warning_for_cli(inventory: ProjectInventory, warning: dict[str, object]) -> str:
+    code = str(warning.get("code") or "unknown")
+    if code == "source_sampling_truncated":
+        bucket = _warning_bucket(warning)
+        stats = _coverage_bucket_stats(inventory, bucket)
+        label = _source_bucket_label(bucket)
+        if stats:
+            selected = stats.get("selected_count", 0)
+            total = stats.get("total_count", 0)
+            skipped = stats.get("skipped_count", 0)
+            return (
+                f"{label} 源码文件较多，本次已抽样 {selected}/{total} 个文件，"
+                f"还有 {skipped} 个未进入初始摘要；这可能影响技术栈、模块边界或风险判断，"
+                "建议补充关键目录、入口文件或高风险路径。"
+            )
+        return (
+            f"{label} 源码文件较多，本次只抽样读取了部分文件；"
+            "可能遗漏核心模块或风险路径，建议补充关键目录、入口文件或高风险路径。"
+        )
+    if code == "test_evidence_not_found":
+        return "当前扫描未找到明确测试证据；建议补充真实 test / integration / lint / typecheck 入口或说明只能先使用 soft gate。"
+    message = str(warning.get("message") or code or "扫描存在未分类 warning")
+    return f"扫描 warning（{code}）：{message}"
+
+
+def _warning_bucket(warning: dict[str, object]) -> str:
+    bucket = warning.get("bucket")
+    if bucket:
+        return str(bucket)
+    evidence = warning.get("evidence")
+    if isinstance(evidence, list) and evidence:
+        return str(evidence[0])
+    return ""
+
+
+def _coverage_bucket_stats(inventory: ProjectInventory, bucket: str) -> dict[str, object] | None:
+    extensions = inventory.stack_extensions if isinstance(inventory.stack_extensions, dict) else {}
+    scan_metadata = extensions.get("scan_metadata")
+    if not isinstance(scan_metadata, dict):
+        return None
+    coverage = scan_metadata.get("coverage")
+    if not isinstance(coverage, dict):
+        return None
+    bucket_coverage = coverage.get("bucket_coverage")
+    if not isinstance(bucket_coverage, list):
+        return None
+    for item in bucket_coverage:
+        if isinstance(item, dict) and item.get("bucket") == bucket:
+            return item
+    return None
+
+
+def _source_bucket_label(bucket: str) -> str:
+    if bucket.startswith("source:") and len(bucket) > len("source:"):
+        return f"`{bucket.removeprefix('source:')}`"
+    return "源码"
 
 
 def _verification_gap_lines(commands: CommandCatalog) -> list[str]:

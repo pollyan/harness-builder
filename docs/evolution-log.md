@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 采样覆盖不足中文化
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：CLI Experience、深度扫描、可解释 evidence、Maturity & Evolution。
+- init North Star 旅程阶段：基础扫描、扫描结果友好呈现、与用户对齐扫描理解。
+- Gap Analysis 摘要：真实多栈仓库中源码 bucket 被抽样时，机器 warning `source:.py skipped 73 files` 会直接出现在 guided CLI “不确定性”区块；`scan-metadata.yaml` 已有 coverage / bucket / skipped 统计，但 CLI 没把这些审计字段翻译成用户可理解的覆盖不足说明。
+- 用户故事：作为 Harness Maintainer，当首次 guided `init` 扫描一个源码文件较多的仓库时，我可以在“不确定性”中看到中文说明：某类源码已抽样多少、仍有多少未进入初始摘要、这会影响哪些判断、我应该补充什么，从而理解扫描覆盖边界并校准关键模块或风险路径。
+- 当前代码 gap：`evidence_collector._coverage()` 的 warning 只有 code / bucket / 英文 message；`interactive_init._uncertainty_attention_lines()` 原样输出 `scan_warnings[].message`，导致内部 bucket warning 泄露到用户界面。
+- 关键决策 / 取舍：本轮只做 source sampling warning 的中文化和 metadata detail；不改变采样上限、不把 coverage gap 变成失败、不实现完整多栈建模、高风险候选治理或 LLM-planned deep scan。未知 warning 仍保留原 message 作为调试线索。
+- Assumptions / risks：旧 inventory 如果缺少 coverage 详情，会使用中文通用覆盖不足说明；机器 metadata 继续保留 warning code / bucket / message 和 coverage 详情，避免损失审计能力。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行确认选题优先级、代码路径和测试层级；结论一致建议本轮优先做 skipped / sampled 中文化，把高风险突出和多栈建模留作后续切片。
+- 价值切分说明：本轮继续优先消化 high priority todo，但只处理“用户能不能理解扫描覆盖边界”这一条独立信任问题；它直接改善 CLI-first `init` 体验，并为后续 targeted scan / deep scan 留出明确用户补充入口。
+- 验收标准及验证方式：unit 覆盖 coverage warning 保留 total / selected / skipped 计数；guided integration 覆盖“不确定性”输出中文抽样说明、包含 `.py` / `20/93` / `73`，且不再出现 raw `source:.py skipped 73 files` 或英文测试证据 warning。
+- 完成内容：`EvidenceCoverage.warnings` 补充抽样统计 detail；`interactive_init.py` 新增 warning 中文格式化 helper；guided scan attention summary 测试从英文 warning 断言更新为中文用户语义断言。
+- Self-Harness Gate：下一轮候选 gap 首选同一 todo 中的“高风险风险项突出展示并进入人工确认 / 候选链路”，其次是“多栈表达与用户补充入口”，再其次是“成熟度 blocker 中文化”和“LLM-planned deep scan 架构切片”。
+
 ## 2026-05-31 Init 工具工作区 Evidence 降噪
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

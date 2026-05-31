@@ -532,12 +532,31 @@ def test_guided_init_groups_scan_risks_uncertainties_and_validation_gaps(tmp_pat
                 "needs_human_confirmation": True,
                 "scan_warnings": [
                     {
+                        "code": "source_sampling_truncated",
+                        "message": "source:.py skipped 73 files",
+                        "severity": "warning",
+                        "evidence": ["source:.py"],
+                    },
+                    {
                         "code": "test_evidence_not_found",
                         "message": "No dedicated test evidence bucket was found; test strategy needs human confirmation.",
                         "severity": "warning",
                         "evidence": [],
                     }
                 ],
+                "scan_metadata": {
+                    "coverage": {
+                        "bucket_coverage": [
+                            {
+                                "bucket": "source:.py",
+                                "total_count": 93,
+                                "selected_count": 20,
+                                "skipped_count": 73,
+                                "selected_paths": ["app/main.py"],
+                            }
+                        ]
+                    }
+                },
                 "llm_scan_proposal": {"confidence": "low"},
             },
         )
@@ -570,7 +589,12 @@ def test_guided_init_groups_scan_risks_uncertainties_and_validation_gaps(tmp_pat
     assert "不确定性" in result.output
     assert "需要人工确认" in result.output
     assert "LLM 扫描置信度为 low" in result.output
-    assert "No dedicated test evidence bucket was found" in result.output
+    assert "`.py` 源码文件较多" in result.output
+    assert "本次已抽样 20/93 个文件" in result.output
+    assert "还有 73 个未进入初始摘要" in result.output
+    assert "source:.py skipped 73 files" not in result.output
+    assert "当前扫描未找到明确测试证据" in result.output
+    assert "No dedicated test evidence bucket was found" not in result.output
     assert "mvn -Pintegration test" in result.output
     assert "验证缺口" in result.output
     assert "暂未确认 hard gate" in result.output

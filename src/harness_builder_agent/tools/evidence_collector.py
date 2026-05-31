@@ -268,7 +268,7 @@ def _coverage(
     selected_by_bucket: dict[str, list[Path]],
 ) -> EvidenceCoverage:
     bucket_coverage: list[EvidenceBucketCoverage] = []
-    warnings: list[dict[str, str]] = []
+    warnings: list[dict[str, object]] = []
     selected_count = 0
     for bucket in sorted(buckets):
         selected = [_relative(path, root) for path in selected_by_bucket.get(bucket, [])]
@@ -289,6 +289,9 @@ def _coverage(
                 {
                     "code": "source_sampling_truncated",
                     "bucket": bucket,
+                    "total_count": total,
+                    "selected_count": len(selected),
+                    "skipped_count": skipped,
                     "message": f"{bucket} skipped {skipped} files",
                 }
             )

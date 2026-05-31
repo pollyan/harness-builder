@@ -9,7 +9,10 @@
 - 触发样本：`/Users/anhui/Documents/myProgram/ai4se`
 - 相关工程规则：`docs/engineering/init-workflow.md`、`docs/engineering/llm-contracts.md`、`docs/engineering/testing-strategy.md`
 - 相关产品方向：`docs/strategy/init-north-star.md`
-- 已完成切片：`2026-05-31 Init 工具工作区 Evidence 降噪`，忽略 `.claude` / `.opencode` 工具工作区，并把 Python 项目 manifest 纳入 key evidence。剩余 skipped 中文化、多栈建模、高风险突出和 LLM-planned deep scan 仍保持 open。
+- 已完成切片：
+  - `2026-05-31 Init 工具工作区 Evidence 降噪`：忽略 `.claude` / `.opencode` 工具工作区，并把 Python 项目 manifest 纳入 key evidence。
+  - `2026-05-31 Guided Init 采样覆盖不足中文化`：`source_sampling_truncated` 不再把 `source:.py skipped 73 files` 作为 CLI 主界面文案，而是用中文说明抽样范围、未进入初始摘要数量、影响和补充建议；metadata 保留 bucket / selected / skipped / total 计数。
+- 剩余多栈建模、高风险突出、成熟度英文叙事和 LLM-planned deep scan 仍保持 open。
 
 ## 背景
 
