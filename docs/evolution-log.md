@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Existing Harness Workflow History Status
+
+- North Star 模块：CLI Experience、Workflow Runtime Specification、Experience & Self-Improve、Maturity & Evolution。
+- Gap Analysis 摘要：open todo 只剩“成熟度驱动的 init 主向导与命令信息架构重构”；当前 `recommend-workflow` 已保留历史并让 Experience / Maturity 统计多次 recommendation，但已有 Harness 维护入口仍只展示 `workflow_recommendations=<count>`，Maintainer 无法直接看到最近一个待审核 routing signal。Prompt 集中管理经代码、测试和工程文档检查已基本落地，本轮不再重复处理。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 查看已有 Harness 状态时，我可以直接看到 workflow recommendation 历史中的最新任务、推荐 workflow、风险和待审核状态，从而判断是否需要进入 `improve` 或 `review-candidate` 处理 routing policy gap。
+- 当前代码 gap：`interactive_init.py` 的 Experience / review signals 只显示 workflow recommendation count；guided `recommend-workflow` 已写 history artifacts，但输出和 trace artifacts 仍只列 latest recommendation 文件。
+- 决策：新增 `_workflow_recommendation_status_lines()`，优先消费 `.ai/review/workflow-routing-recommendations/index.yaml` 的 `WorkflowRecommendationHistory`，没有 history 时兼容 `.ai/review/workflow-routing-recommendation.yaml` 的 `WorkflowRecommendationReport`；schema 无效时显式失败，不伪装成 missing。
+- 决策：guided `recommend-workflow` 输出和 trace 同步记录 latest compatibility files、history index、history summary、Experience index 和 maturity evidence，让主向导状态与 standalone 命令产物保持一致。
+- Assumptions / risks：一行 latest signal 足以支撑第一步维护入口判断；完整历史浏览、候选 diff / summary 和 workflow policy guided apply 留给后续小切片。旧 latest 与新 history 同时存在时优先信任 history index。
+- 边界与失败模式：不执行 Runtime，不创建 `.ai/task-runs`，不修改正式 routing policy，不改变 LLM router prompt/parser，不改变 Experience / Maturity 计数模型；history schema 或 latest schema 错误直接失败。
+- Sub agent 使用：使用 explorer 子代理只读审计 open todos、North Star 候选 gap 和 Prompt 集中管理现状；结论支持先收口当前 workflow history status WIP，并确认它属于 maturity-driven init 主向导价值链。
+- 价值切分：本轮不是单纯增加字段或测试，而是把已存在的机器历史计数转成 Maintainer 在主入口可审查、可接管的最新 routing signal。
+- 可执行验收标准及验证方式：integration 覆盖 history index 有两条 recommendation 时 `init -> exit` 展示 count/latest id/task/workflow/risk/status/source；integration 覆盖 legacy latest 无 history 时仍展示 task/workflow/risk/status/source；integration 覆盖 guided `recommend-workflow` 输出和 trace artifacts 包含 history index / summary，且不创建 `.ai/task-runs`、不覆盖正式资产。
+- 完成内容：新增 existing-Harness latest workflow recommendation 状态 helper；guided `recommend-workflow` trace/output 补 history artifacts；README、init workflow、spec/plan 和演进记录同步。
+- 验证结果：RED targeted integration 3 failed；GREEN targeted integration 3 passed；fast regression 见提交前验证。
+- Self-Harness Gate：本轮更新了长期 init workflow 边界和 README；无需新增 schema 或 benchmark，因为 history schema / benchmark 已在上一轮完成。下一轮候选 gap：guided candidate governance 的候选浏览与 apply 前摘要/diff；首次 `init` 后 benchmark 健康度解释与下一步治理节奏；或 `interactive_init.py` 维护入口拆分以降低后续迭代成本。
+
 ## 2026-05-31 Test Loop Slices
 
 - North Star 模块：Benchmark / Review Intelligence、Maturity-driven Evolution、工程验证体系。

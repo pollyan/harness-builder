@@ -19,6 +19,7 @@ from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
+from harness_builder_agent.tools.experience_index import write_experience_index
 from harness_builder_agent.tools.scan_repo import scan_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -540,6 +541,109 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert trace["summary"]["existing_harness_action"] == "exit"
 
 
+def test_guided_init_existing_harness_shows_latest_workflow_recommendation_history(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    ai = repo / ".ai"
+    history_dir = ai / "review" / "workflow-routing-recommendations"
+    history_dir.mkdir(parents=True, exist_ok=True)
+    history_entries = [
+        {
+            "recommendation_id": "task-1-20260531T120000Z",
+            "task_id": "task-1",
+            "created_at": "2026-05-31T12:00:00Z",
+            "yaml_path": ".ai/review/workflow-routing-recommendations/task-1-20260531T120000Z.yaml",
+            "markdown_path": ".ai/review/workflow-routing-recommendations/task-1-20260531T120000Z.md",
+            "recommended_workflow": "bugfix",
+            "risk_level": "medium",
+            "confidence": "high",
+            "review_status": "pending_harness_maintainer_review",
+        },
+        {
+            "recommendation_id": "task-2-20260531T121500Z",
+            "task_id": "task-2",
+            "created_at": "2026-05-31T12:15:00Z",
+            "yaml_path": ".ai/review/workflow-routing-recommendations/task-2-20260531T121500Z.yaml",
+            "markdown_path": ".ai/review/workflow-routing-recommendations/task-2-20260531T121500Z.md",
+            "recommended_workflow": "standard",
+            "risk_level": "high",
+            "confidence": "medium",
+            "review_status": "pending_harness_maintainer_review",
+        },
+    ]
+    (history_dir / "index.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "latest_recommendation_id": "task-2-20260531T121500Z",
+                "recommendations": history_entries,
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    write_experience_index(ai)
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="exit\n")
+
+    assert result.exit_code == 0, result.output
+    assert "workflow_recommendations=2" in result.output
+    assert "latest_workflow_recommendation=task-2-20260531T121500Z" in result.output
+    assert "task=task-2" in result.output
+    assert "workflow=standard" in result.output
+    assert "risk=high" in result.output
+    assert "status=pending_harness_maintainer_review" in result.output
+    assert "source=.ai/review/workflow-routing-recommendations/index.yaml" in result.output
+
+
+def test_guided_init_existing_harness_shows_legacy_latest_workflow_recommendation(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    ai = repo / ".ai"
+    review_dir = ai / "review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    (review_dir / "workflow-routing-recommendation.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "task_id": "legacy-task",
+                "task_brief": "Fix legacy checkout regression.",
+                "recommended_workflow": "bugfix",
+                "matched_rule_ids": ["bugfix-intent"],
+                "risk_level": "medium",
+                "confidence": "high",
+                "rationale": "Legacy latest recommendation.",
+                "required_guides": [".ai/guides/task-templates/bugfix.md"],
+                "required_sensors": [".ai/sensors/verification.md"],
+                "human_confirmation_required": False,
+                "review_status": "pending_harness_maintainer_review",
+                "evidence_sources": [".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    write_experience_index(ai)
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="exit\n")
+
+    assert result.exit_code == 0, result.output
+    assert "workflow_recommendations=1" in result.output
+    assert "latest_workflow_recommendation=legacy_latest" in result.output
+    assert "task=legacy-task" in result.output
+    assert "workflow=bugfix" in result.output
+    assert "risk=medium" in result.output
+    assert "source=.ai/review/workflow-routing-recommendation.yaml" in result.output
+
+
 def test_guided_init_existing_harness_can_assess_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
@@ -788,6 +892,8 @@ def test_guided_init_existing_harness_can_recommend_workflow_without_overwriting
     assert "工作流推荐已生成" in result.output
     assert "bugfix" in result.output
     assert ".ai/review/workflow-routing-recommendation.yaml" in result.output
+    assert ".ai/review/workflow-routing-recommendations/index.yaml" in result.output
+    assert ".ai/review/workflow-routing-recommendations.md" in result.output
     _assert_formal_assets_unchanged(repo, formal_before)
 
     yaml_path = repo / ".ai" / "review" / "workflow-routing-recommendation.yaml"
@@ -815,6 +921,8 @@ def test_guided_init_existing_harness_can_recommend_workflow_without_overwriting
     artifact_paths = {item["path"] for item in artifacts["artifacts"]}
     assert ".ai/review/workflow-routing-recommendation.yaml" in artifact_paths
     assert ".ai/review/workflow-routing-recommendation.md" in artifact_paths
+    assert ".ai/review/workflow-routing-recommendations/index.yaml" in artifact_paths
+    assert ".ai/review/workflow-routing-recommendations.md" in artifact_paths
     assert ".ai/experience/experience-index.yaml" in artifact_paths
     assert ".ai/maturity-evidence.yaml" in artifact_paths
 

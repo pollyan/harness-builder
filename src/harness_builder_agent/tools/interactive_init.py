@@ -19,6 +19,7 @@ from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
+from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.candidate_governance import review_candidate
@@ -375,6 +376,8 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         )
         trace.artifact(output_dir / "review" / "workflow-routing-recommendation.yaml", "workflow_recommendation")
         trace.artifact(output_dir / "review" / "workflow-routing-recommendation.md", "review")
+        trace.artifact(output_dir / "review" / "workflow-routing-recommendations" / "index.yaml", "workflow_recommendation_history")
+        trace.artifact(output_dir / "review" / "workflow-routing-recommendations.md", "review")
         trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
         trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
         trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
@@ -596,6 +599,8 @@ def _workflow_recommendation_summary(recommendation: WorkflowRecommendationRepor
             "- review_status=pending_harness_maintainer_review",
             "- `.ai/review/workflow-routing-recommendation.yaml`",
             "- `.ai/review/workflow-routing-recommendation.md`",
+            "- `.ai/review/workflow-routing-recommendations/index.yaml`",
+            "- `.ai/review/workflow-routing-recommendations.md`",
         ]
     )
 
@@ -699,6 +704,7 @@ def _experience_status_lines(ai: Path) -> list[str]:
     if not path.exists():
         return [
             "experience_index=missing",
+            *_workflow_recommendation_status_lines(ai),
             f"self_improve_package={_self_improve_package_status(ai)}",
             f"human_input_needed={_human_input_needed_status(ai)}",
             f"schema_content_failed_checks={_benchmark_schema_content_failed_count(ai)}",
@@ -711,11 +717,53 @@ def _experience_status_lines(ai: Path) -> list[str]:
         f"candidate_governance={index.candidate_governance_decision_count}",
         f"maturity_reviews={index.maturity_review_count}",
         f"workflow_recommendations={index.workflow_recommendation_count}",
+        *_workflow_recommendation_status_lines(ai),
         f"runtime_task_runs={index.runtime_task_run_count}",
         f"self_improve_package={_self_improve_package_status(ai)}",
         f"human_input_needed={_human_input_needed_status(ai)}",
         f"schema_content_failed_checks={_benchmark_schema_content_failed_count(ai)}",
     ]
+
+
+def _workflow_recommendation_status_lines(ai: Path) -> list[str]:
+    history_path = ai / "review" / "workflow-routing-recommendations" / "index.yaml"
+    if history_path.exists():
+        history = WorkflowRecommendationHistory.model_validate(yaml.safe_load(history_path.read_text(encoding="utf-8")) or {})
+        latest = next(
+            (
+                item
+                for item in history.recommendations
+                if item.recommendation_id == history.latest_recommendation_id
+            ),
+            None,
+        )
+        if latest is None:
+            return ["latest_workflow_recommendation=none source=.ai/review/workflow-routing-recommendations/index.yaml"]
+        return [
+            "latest_workflow_recommendation="
+            f"{latest.recommendation_id} "
+            f"task={latest.task_id} "
+            f"workflow={latest.recommended_workflow} "
+            f"risk={latest.risk_level} "
+            f"status={latest.review_status} "
+            "source=.ai/review/workflow-routing-recommendations/index.yaml"
+        ]
+
+    latest_path = ai / "review" / "workflow-routing-recommendation.yaml"
+    if latest_path.exists():
+        recommendation = WorkflowRecommendationReport.model_validate(
+            yaml.safe_load(latest_path.read_text(encoding="utf-8")) or {}
+        )
+        return [
+            "latest_workflow_recommendation=legacy_latest "
+            f"task={recommendation.task_id} "
+            f"workflow={recommendation.recommended_workflow} "
+            f"risk={recommendation.risk_level} "
+            f"status={recommendation.review_status} "
+            "source=.ai/review/workflow-routing-recommendation.yaml"
+        ]
+
+    return []
 
 
 def _self_improve_package_status(ai: Path) -> str:
