@@ -13,6 +13,7 @@ from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
 from harness_builder_agent.tools.review_maturity import review_maturity
+from harness_builder_agent.tools.self_improve import run_self_improve
 from harness_builder_agent.tools.summarize_experience import summarize_experience
 
 app = typer.Typer(help="Generate, assess, improve, and benchmark project-level AI Coding Harness assets.")
@@ -101,6 +102,29 @@ def improve_command(repo: Path = typer.Option(..., "--repo", exists=True, file_o
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
     typer.echo(f"Generated improvement candidates in {output_dir}")
+
+
+@app.command("self-improve")
+def self_improve_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
+    """Generate one review-only maturity-driven self-improvement package."""
+    trace = GenerationTrace.start(repo, "self-improve")
+    try:
+        trace.event("self-improve", "started", "Self-improve package generation started.")
+        output_dir = run_self_improve(repo)
+        trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.artifact(output_dir / "improvement-candidates.yaml", "improvement_candidates")
+        trace.artifact(output_dir / "review" / "maturity-review.yaml", "maturity_review")
+        trace.artifact(output_dir / "review" / "asset-candidates.yaml", "asset_candidates")
+        trace.artifact(output_dir / "review" / "self-improve-package.yaml", "self_improve_package")
+        trace.artifact(output_dir / "review" / "self-improve-package.md", "review")
+        trace.event("self-improve", "completed", "Self-improve package generation completed.", {"artifact_count": 7})
+        trace.finish("completed", {"artifact_count": 7})
+    except Exception as exc:
+        trace.event("self-improve", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Generated self-improve package in {output_dir / 'review'}")
 
 
 @app.command("review-maturity")

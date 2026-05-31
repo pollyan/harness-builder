@@ -16,6 +16,7 @@ from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.sensor_report import SensorReport
 from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceBucketCoverage, EvidenceCoverage, EvidenceFile, ScanMetadata
+from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
@@ -734,3 +735,37 @@ def test_experience_summary_report_rejects_invalid_kind():
                 ],
             }
         )
+
+
+def test_self_improve_package_manifest_schema():
+    manifest = SelfImprovePackageManifest.model_validate(
+        {
+            "package_id": "self-improve-001",
+            "review_status": "pending_harness_maintainer_review",
+            "generated_artifacts": [
+                {"path": ".ai/improvement-candidates.yaml", "kind": "improvement_candidates"},
+                {"path": ".ai/review/maturity-review.yaml", "kind": "maturity_review"},
+                {"path": ".ai/review/asset-candidates.yaml", "kind": "asset_candidates"},
+            ],
+            "candidate_counts": {
+                "improvement_candidates": 3,
+                "maturity_reviews": 3,
+                "asset_candidates": 2,
+                "guide_candidates": 1,
+                "sensor_candidates": 1,
+                "workflow_policy_candidates": 0,
+            },
+            "maturity": {
+                "overall_level": "L2",
+                "target_next_level": "L3",
+                "dimension_scores": {"guides": "L2", "sensors": "L2"},
+            },
+            "next_actions": ["Review asset candidates before applying formal Harness changes."],
+            "warnings": ["Runtime task-runs are absent."],
+        }
+    )
+
+    assert manifest.schema_version == "1.0"
+    assert manifest.review_status == "pending_harness_maintainer_review"
+    assert manifest.candidate_counts.asset_candidates == 2
+    assert manifest.maturity.overall_level == "L2"

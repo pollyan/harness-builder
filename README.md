@@ -39,6 +39,7 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
 .venv/bin/harness-builder-agent init --repo tests/fixtures/mini-spring-boot
 .venv/bin/harness-builder-agent assess --repo tests/fixtures/mini-spring-boot
 .venv/bin/harness-builder-agent improve --repo tests/fixtures/mini-spring-boot
+.venv/bin/harness-builder-agent self-improve --repo tests/fixtures/mini-spring-boot
 .venv/bin/harness-builder-agent benchmark --repo tests/fixtures/mini-spring-boot --profile java-spring
 ```
 
@@ -85,7 +86,7 @@ Harness Builder 不提供任务级 `run` 命令。真实 AI Coding 工具执行 
   experience-candidates.md
 ```
 
-`assess` 更新成熟度评估，`improve` 生成待确认改进候选，`benchmark` 会检查 Harness 资产文件存在、schema、内容质量、Workflow Skill 引用和 hard gate command 证据。
+`assess` 更新成熟度评估，`improve` 生成待确认改进候选，`self-improve` 串联成熟度评估、改进候选、LLM maturity review 和 review-only asset candidates，生成 `.ai/review/self-improve-package.*`。`self-improve` 不应用正式 Harness 变更，不执行 Runtime workflow，也不创建 `.ai/task-runs`。`benchmark` 会检查 Harness 资产文件存在、schema、内容质量、Workflow Skill 引用、review-only 智能改进产物和 hard gate command 证据。
 
 `benchmark-report.yaml` 中：
 
@@ -109,11 +110,13 @@ git clone --depth 1 https://github.com/dotnet-architecture/eShopOnWeb.git .bench
 .venv/bin/harness-builder-agent init --non-interactive --repo .benchmarks/RuoYi-Vue
 .venv/bin/harness-builder-agent assess --repo .benchmarks/RuoYi-Vue
 .venv/bin/harness-builder-agent improve --repo .benchmarks/RuoYi-Vue
+.venv/bin/harness-builder-agent self-improve --repo .benchmarks/RuoYi-Vue
 .venv/bin/harness-builder-agent benchmark --repo .benchmarks/RuoYi-Vue --profile java-spring
 
 .venv/bin/harness-builder-agent init --non-interactive --repo .benchmarks/eShopOnWeb
 .venv/bin/harness-builder-agent assess --repo .benchmarks/eShopOnWeb
 .venv/bin/harness-builder-agent improve --repo .benchmarks/eShopOnWeb
+.venv/bin/harness-builder-agent self-improve --repo .benchmarks/eShopOnWeb
 .venv/bin/harness-builder-agent benchmark --repo .benchmarks/eShopOnWeb --profile dotnet-aspnet
 ```
 

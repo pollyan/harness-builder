@@ -231,6 +231,53 @@ def _write_valid_experience_summary(ai: Path) -> None:
     )
 
 
+def _write_valid_self_improve_package(ai: Path) -> None:
+    review = ai / "review"
+    review.mkdir(parents=True, exist_ok=True)
+    (review / "self-improve-package.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "package_id": "self-improve-package",
+                "review_status": "pending_harness_maintainer_review",
+                "generated_artifacts": [
+                    {"path": ".ai/improvement-candidates.yaml", "kind": "improvement_candidates"},
+                    {"path": ".ai/review/maturity-review.yaml", "kind": "maturity_review"},
+                    {"path": ".ai/review/asset-candidates.yaml", "kind": "asset_candidates"},
+                    {"path": ".ai/review/self-improve-package.yaml", "kind": "self_improve_package"},
+                ],
+                "candidate_counts": {
+                    "improvement_candidates": 2,
+                    "maturity_reviews": 1,
+                    "asset_candidates": 1,
+                    "guide_candidates": 1,
+                    "sensor_candidates": 0,
+                    "workflow_policy_candidates": 0,
+                },
+                "maturity": {
+                    "overall_level": "L2",
+                    "target_next_level": "L3",
+                    "dimension_scores": {"guides": "L2", "sensors": "L2"},
+                },
+                "next_actions": ["Review asset candidates before applying formal Harness changes."],
+                "warnings": ["runtime task-runs absent"],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (review / "self-improve-package.md").write_text(
+        "# Self-Improve Package\n\n"
+        "## Maturity Snapshot\n\n- overall level: `L2`\n\n"
+        "## Generated Artifacts\n\n- `.ai/improvement-candidates.yaml`\n\n"
+        "## Candidate Counts\n\n- asset candidates: 1\n\n"
+        "## Next Actions\n\n- Review asset candidates before applying formal Harness changes.\n\n"
+        "## Review Boundary\n\n- review status: `pending_harness_maintainer_review`\n",
+        encoding="utf-8",
+    )
+
+
 def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: str = "mini-spring-boot", profile: str = "java-spring") -> Path:
     repo = tmp_path / fixture_name
     shutil.copytree(FIXTURES / fixture_name, repo)
@@ -269,6 +316,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-recommendation-review" in check_ids
     assert "content:maturity-review-artifact" in check_ids
     assert "content:asset-candidate-review" in check_ids
+    assert "content:self-improve-package" in check_ids
     assert "content:experience-summary-artifact" in check_ids
     assert "content:guides-quality" in check_ids
     assert "content:stack-specific-guides" in check_ids
@@ -509,6 +557,34 @@ def test_benchmark_records_absent_maturity_review_as_optional(tmp_path: Path, mo
     review = next(check for check in checks if check["id"] == "content:maturity-review-artifact")
     assert review["passed"] is True
     assert review["present"] is False
+
+
+def test_benchmark_records_absent_self_improve_package_as_optional(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    package = next(check for check in checks if check["id"] == "content:self-improve-package")
+    assert package["passed"] is True
+    assert package["present"] is False
+
+
+def test_benchmark_validates_self_improve_package_artifact(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_maturity_review(ai)
+    _write_valid_asset_candidates(ai)
+    _write_valid_self_improve_package(ai)
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    package = next(check for check in checks if check["id"] == "content:self-improve-package")
+    assert package["passed"] is True
+    assert package["present"] is True
+    assert package["asset_candidate_count"] == 1
 
 
 def test_benchmark_accepts_valid_maturity_review_artifacts(tmp_path: Path, monkeypatch):

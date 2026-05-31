@@ -19,6 +19,7 @@ from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.scan import LLMScanProposal, ScanMetadata
+from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
@@ -296,6 +297,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _workflow_recommendation_review_check(ai),
         _maturity_review_artifact_check(ai),
         _asset_candidate_review_check(ai),
+        _self_improve_package_check(ai),
         _experience_summary_artifact_check(ai),
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
@@ -512,11 +514,12 @@ def _maturity_review_artifact_check(ai: Path) -> dict[str, Any]:
 
 def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
     yaml_path = ai / "review" / "asset-candidates.yaml"
-    markdown_paths = [
-        ai / "review" / "asset-candidate-guides.md",
-        ai / "review" / "asset-candidate-sensors.md",
-        ai / "review" / "asset-candidate-workflows.md",
-    ]
+    markdown_by_kind = {
+        "guide": ai / "review" / "asset-candidate-guides.md",
+        "sensor": ai / "review" / "asset-candidate-sensors.md",
+        "workflow_policy": ai / "review" / "asset-candidate-workflows.md",
+    }
+    markdown_paths = list(markdown_by_kind.values())
     present_paths = [path for path in [yaml_path, *markdown_paths] if path.exists()]
     if not present_paths:
         return {"id": "content:asset-candidate-review", "passed": True, "present": False}
@@ -547,9 +550,10 @@ def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
             errors.append("evidence_source_outside_ai")
 
     required_sections = ["### Rationale", "### Draft Content", "### Evidence Sources", "### Acceptance Checks"]
-    for path in markdown_paths:
+    candidate_kinds = {candidate.kind for candidate in report.candidates}
+    for kind, path in markdown_by_kind.items():
         text = path.read_text(encoding="utf-8") if path.exists() else ""
-        if any(section not in text for section in required_sections):
+        if kind in candidate_kinds and any(section not in text for section in required_sections):
             errors.append("missing_markdown_sections")
             break
 
@@ -558,6 +562,53 @@ def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
         "passed": not errors,
         "present": True,
         "candidate_count": len(report.candidates),
+        "errors": sorted(set(errors)),
+    }
+
+
+def _self_improve_package_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "review" / "self-improve-package.yaml"
+    markdown_path = ai / "review" / "self-improve-package.md"
+    if not yaml_path.exists() and not markdown_path.exists():
+        return {"id": "content:self-improve-package", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or not markdown_path.exists():
+        errors.append("incomplete_self_improve_package_pair")
+
+    try:
+        manifest = SelfImprovePackageManifest.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:self-improve-package", "passed": False, "present": True, "errors": [str(exc)]}
+
+    if manifest.review_status != "pending_harness_maintainer_review":
+        errors.append("package_not_review_only")
+    for artifact in manifest.generated_artifacts:
+        if not artifact.path.startswith(".ai/"):
+            errors.append("artifact_path_outside_ai")
+            continue
+        if not (ai.parent / artifact.path).exists():
+            errors.append("generated_artifact_missing")
+
+    markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+    required_sections = [
+        "# Self-Improve Package",
+        "## Maturity Snapshot",
+        "## Generated Artifacts",
+        "## Candidate Counts",
+        "## Next Actions",
+        "## Review Boundary",
+    ]
+    if any(section not in markdown for section in required_sections):
+        errors.append("missing_markdown_sections")
+    if "pending_harness_maintainer_review" not in markdown:
+        errors.append("missing_review_status_boundary")
+
+    return {
+        "id": "content:self-improve-package",
+        "passed": not errors,
+        "present": True,
+        "asset_candidate_count": manifest.candidate_counts.asset_candidates,
         "errors": sorted(set(errors)),
     }
 

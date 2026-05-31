@@ -11,6 +11,7 @@ from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
+from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.scan_repo import scan_repository
 
@@ -341,6 +342,98 @@ def test_generate_asset_candidates_writes_review_only_drafts(tmp_path: Path, mon
     assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == formal_guide_before
     trace = _latest_trace(repo)
     assert trace["command"] == "generate-asset-candidates"
+
+
+def test_self_improve_writes_review_only_package(tmp_path: Path, monkeypatch):
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    formal_guide_before = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+
+    def fake_review(score, evidence_pack, candidates, experience_summary=None):
+        return MaturityReviewReport(
+            summary="Maturity candidates are ready for asset drafting.",
+            reviewer_model="deepseek-test",
+            candidate_reviews=[
+                {
+                    "candidate_id": candidates.candidates[0].id,
+                    "decision": "support",
+                    "rationale": "The candidate is grounded in maturity evidence.",
+                    "suggested_acceptance_checks": ["Run benchmark."],
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                }
+            ],
+        )
+
+    def fake_asset_candidates(score, evidence_pack, improvement_candidates, maturity_review, experience_summary=None):
+        return AssetCandidateReport(
+            candidates=[
+                {
+                    "id": "guide-project-context-scope",
+                    "kind": "guide",
+                    "source_candidate_id": improvement_candidates.candidates[0].id,
+                    "source_review_decision": "support",
+                    "suggested_path": ".ai/guides/project-context.md",
+                    "title": "Scope project context guide",
+                    "rationale": "The supported candidate needs a reviewable guide draft.",
+                    "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                    "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                    "risk_level": "medium",
+                },
+                {
+                    "id": "sensor-verification-hard-gate",
+                    "kind": "sensor",
+                    "source_candidate_id": improvement_candidates.candidates[0].id,
+                    "source_review_decision": "support",
+                    "suggested_path": ".ai/sensors/verification.md",
+                    "title": "Clarify verification hard gate",
+                    "rationale": "The supported candidate needs a reviewable sensor draft.",
+                    "draft_content": "## Candidate Addition\n\nClarify hard gate evidence.",
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                    "acceptance_checks": ["Benchmark content:sensors-quality passes."],
+                    "risk_level": "medium",
+                },
+            ]
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.review_maturity.review_maturity_with_llm", fake_review)
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.generate_asset_candidates.generate_asset_candidates_with_llm",
+        fake_asset_candidates,
+    )
+
+    result = CliRunner().invoke(app, ["self-improve", "--repo", str(repo)])
+
+    assert result.exit_code == 0, result.output
+    manifest_path = repo / ".ai" / "review" / "self-improve-package.yaml"
+    markdown_path = repo / ".ai" / "review" / "self-improve-package.md"
+    manifest = SelfImprovePackageManifest.model_validate(yaml.safe_load(manifest_path.read_text(encoding="utf-8")))
+    markdown = markdown_path.read_text(encoding="utf-8")
+    assert manifest.review_status == "pending_harness_maintainer_review"
+    assert manifest.candidate_counts.improvement_candidates >= 1
+    assert manifest.candidate_counts.maturity_reviews == 1
+    assert manifest.candidate_counts.asset_candidates == 2
+    assert manifest.candidate_counts.guide_candidates == 1
+    assert manifest.candidate_counts.sensor_candidates == 1
+    artifact_paths = {artifact.path for artifact in manifest.generated_artifacts}
+    assert ".ai/improvement-candidates.yaml" in artifact_paths
+    assert ".ai/review/maturity-review.yaml" in artifact_paths
+    assert ".ai/review/asset-candidates.yaml" in artifact_paths
+    assert ".ai/review/self-improve-package.yaml" in artifact_paths
+    assert "# Self-Improve Package" in markdown
+    assert "## Review Boundary" in markdown
+    assert "pending_harness_maintainer_review" in markdown
+    assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == formal_guide_before
+    assert not (repo / ".ai" / "task-runs").exists()
+    trace = _latest_trace(repo)
+    assert trace["command"] == "self-improve"
+    artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
+    assert {"path": ".ai/review/self-improve-package.yaml", "kind": "self_improve_package"} in artifacts["artifacts"]
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    benchmark_result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "java-spring"])
+    assert benchmark_result.exit_code == 0, benchmark_result.output
+    benchmark_report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
+    package_check = next(check for check in benchmark_report["checks"] if check["id"] == "content:self-improve-package")
+    assert package_check["passed"] is True
 
 
 def test_recommend_workflow_writes_review_only_artifacts(tmp_path: Path, monkeypatch):

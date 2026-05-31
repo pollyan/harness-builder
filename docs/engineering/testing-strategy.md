@@ -72,6 +72,7 @@ Integration 测试验证多个模块一起工作，尤其是 CLI 命令。
 - `init` 能基于 mock LLM 为 .NET fixture 生成完整资产。
 - `assess` 能生成成熟度评估。
 - `improve` 能生成改进候选。
+- `self-improve` 能生成 review-only 自改进包，且不修改正式 Harness 资产或创建 `.ai/task-runs`。
 - `benchmark` 能检查核心文件、schema、trace、guide/sensor 内容、workflow skill 引用和 hard gate command 证据。
 
 Integration 测试可以 mock LLM，但不能弱化产物断言。
@@ -97,7 +98,7 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 
 - `RuoYi-Vue` 对应 `java-spring`。
 - `eShopOnWeb` 对应 `dotnet-aspnet`。
-- 跑通 `init/assess/improve/benchmark`。
+- 跑通 `init/assess/improve/benchmark`。`self-improve` 真实 LLM acceptance 覆盖作为独立 todo 跟进。
 - benchmark passed 时必须真的通过。
 - benchmark failed 时必须有明确 hard gate command 证据失败项和摘要。
 
