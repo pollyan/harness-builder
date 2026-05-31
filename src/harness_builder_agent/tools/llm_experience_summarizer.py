@@ -42,6 +42,9 @@ Field contract:
 
 Do not modify formal Guides, Sensors, Workflow Skills, or harness-config.
 Do not claim any candidate has been applied.
+Use experience_index.sources as a review-only source index. Inspect each source path, kind, and item_count to understand available pending improvement, maturity review, asset candidate, workflow recommendation, manual experience, or runtime evidence.
+Ground findings[].evidence_sources in paths that are present in the provided sources map.
+Do not invent missing source paths, and do not treat review-only source entries as applied Guides, Sensors, Workflow Skills, harness-config changes, or task executions.
 Use warnings when Runtime task-run evidence is absent or evidence is sparse.
 """.strip()
     payload = {

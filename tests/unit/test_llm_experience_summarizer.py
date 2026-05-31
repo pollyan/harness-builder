@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from harness_builder_agent.schemas.experience_index import ExperienceIndex
+from harness_builder_agent.schemas.experience_index import ExperienceIndex, ExperienceSource
 from harness_builder_agent.tools.llm_experience_summarizer import (
     build_experience_summary_messages,
     parse_experience_summary_response,
@@ -13,9 +13,20 @@ from harness_builder_agent.tools.llm_experience_summarizer import (
 def _index() -> ExperienceIndex:
     return ExperienceIndex(
         experience_files={"pending-improvements.md": True},
+        sources=[
+            ExperienceSource(path=".ai/experience/pending-improvements.md", kind="pending_improvements", item_count=1),
+            ExperienceSource(path=".ai/review/maturity-review.yaml", kind="maturity_review", item_count=1),
+            ExperienceSource(path=".ai/review/asset-candidates.yaml", kind="asset_candidates", item_count=1),
+            ExperienceSource(
+                path=".ai/review/workflow-routing-recommendation.yaml",
+                kind="workflow_recommendation",
+                item_count=1,
+            ),
+        ],
         pending_improvement_count=1,
         asset_candidate_count=1,
         maturity_review_count=1,
+        workflow_recommendation_count=1,
         runtime_task_run_count=0,
     )
 
@@ -107,3 +118,14 @@ def test_build_experience_summary_messages_includes_review_only_boundary():
     assert "Return one JSON object only" in content
     assert "Do not modify formal Guides" in content
     assert "workflow-routing-recommendation.yaml" in content
+
+
+def test_build_experience_summary_messages_guides_source_index_details():
+    messages = build_experience_summary_messages(_index(), _sources())
+
+    content = messages[-1]["content"]
+    assert "experience_index.sources" in content
+    assert "path, kind, and item_count" in content
+    assert ".ai/review/workflow-routing-recommendation.yaml" in content
+    assert "review-only source index" in content
+    assert "Do not invent missing source paths" in content
