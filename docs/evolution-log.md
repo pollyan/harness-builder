@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Init Completion 行动优先交付摘要
+
+- North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
+- init North Star 旅程阶段：首次初始化、写入后的交付摘要。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo；本轮重新读取事实源后，候选包括 completion 行动优先交付摘要、completion 用户补充进一步压缩、existing Harness 维护入口模块拆分。当前 completion message 已包含必要信息，但顺序仍以生成清单开头，`建议下一步`、Benchmark 和优先入口位于中后段，用户要读完整段才知道先做什么。
+- 用户故事：作为 Harness Maintainer，当我完成首次 guided `init` 后，我可以在终端 `== 初始化完成 ==` 的前半段先看到当前成熟度、建议下一步、Benchmark 健康度和优先查看入口，从而不用先读完整生成清单和补充审计也能知道下一步应该做什么。
+- 当前代码 gap：`render_init_completion_message()` 先渲染 `本次已生成`，再渲染成熟度、证据、用户补充、建议下一步、Benchmark 和入口；这不符合 `init-north-star.md` 对短交付摘要和下一步行动清晰度的优先级。
+- 关键决策 / 取舍：只重排 completion message，不改 `.ai/init-summary.md`、schema、benchmark、正式资产生成或 Runtime 边界；保留所有稳定 section 标题，避免破坏用户识别和既有测试定位。
+- Assumptions / risks：首次 init 完成后用户最需要先知道当前 L 等级和下一步命令；顺序变更可能影响 transcript 断言，因此用 unit 和 integration 锁定新顺序。
+- 边界情况 / 失败模式：benchmark 未运行 / failed 和 human-input 待确认的优先动作继续由上一轮 helper 决定；缺少 interaction decisions 仍显式提示 missing；不执行 benchmark、不覆盖正式资产、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动 explorer 做只读调研，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮只改善首次 init 完成摘要的信息架构，不压缩用户补充、不拆 existing Harness 入口、不修改 benchmark 或 LLM 链路。
+- 可执行验收标准及验证方式：unit 断言 `当前成熟度`、`建议下一步`、`Benchmark 健康度` 和 `优先查看` 均位于 `本次已生成` 前；integration 覆盖 fixture init transcript；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：`render_init_completion_message()` 调整为行动优先顺序；README 和 `docs/engineering/init-workflow.md` 同步 completion message 顺序契约；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED unit 已确认旧顺序失败；targeted unit 1 passed；`tests/unit/test_init_summary.py` 8 passed；targeted integration 2 passed；`git diff --check` passed；`scripts/test-fast.sh` 420 passed。
+- Self-Harness Gate：长期文档已同步；不新增 todo。下一轮候选 gap：completion 用户补充进一步压缩、existing Harness 维护入口模块拆分，或 push 前 full regression / 远端同步外部前置。
+
 ## 2026-06-01 Existing Harness 维护状态人话摘要
 
 - North Star 模块：CLI Experience、Maturity-driven Init、审查接管。

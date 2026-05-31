@@ -329,6 +329,11 @@ def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
     assert "harness-builder-agent benchmark --repo" in result.output
     assert ".ai/init-summary.md" in result.output
     assert ".ai/maturity-report.md" in result.output
+    completion_summary = result.output[result.output.index("== 初始化完成 ==") :]
+    assert completion_summary.index("当前成熟度：") < completion_summary.index("本次已生成：")
+    assert completion_summary.index("建议下一步：") < completion_summary.index("本次已生成：")
+    assert completion_summary.index("Benchmark 健康度：") < completion_summary.index("本次已生成：")
+    assert completion_summary.index("优先查看：") < completion_summary.index("本次已生成：")
     _assert_init_outputs(repo, "java-spring", expected_context_text="团队规则")
     assert not (repo / ".ai" / "benchmark-report.yaml").exists()
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")

@@ -185,6 +185,10 @@ def test_init_completion_message_is_cli_first_delivery_summary(tmp_path: Path):
     assert "本终端摘要是本次 init 的主要交付说明" in message
     assert ".ai/init-summary.md" in message
     assert ".ai/sensors/verification.md" in message
+    assert message.index("当前成熟度：") < message.index("本次已生成：")
+    assert message.index("建议下一步：") < message.index("本次已生成：")
+    assert message.index("Benchmark 健康度：") < message.index("本次已生成：")
+    assert message.index("优先查看：") < message.index("本次已生成：")
     next_steps = message[message.index("建议下一步：") : message.index("\n\nBenchmark 健康度：")]
     assert "1. 先运行 `harness-builder-agent benchmark --repo" in next_steps
     assert "2. 处理 `.ai/human-input-needed.md#处理方式` 中的待确认问题" in next_steps
