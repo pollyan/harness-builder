@@ -288,10 +288,18 @@ def _scan_confirmation_lines(questions: list[dict[str, Any]]) -> list[str]:
     scan_questions = [item for item in questions if item.get("interaction_type") in SCAN_CONFIRMATION_TYPES]
     if not scan_questions:
         return ["- 当前没有额外扫描待确认项；仍建议复核高影响判断。"]
-    return [
-        f"- `{item['interaction_id']}`：{item['question']}（confidence={item['confidence']}；reason={item['reason']}）"
-        for item in scan_questions
-    ]
+    return [_scan_confirmation_line(item) for item in scan_questions]
+
+
+def _scan_confirmation_line(item: dict[str, Any]) -> str:
+    response_status = str(item.get("response_status") or "unaddressed")
+    status_note = f"；response_status={response_status}" if item.get("interaction_type") == "scan_followup_confirmation" else ""
+    sources = item.get("response_sources") if isinstance(item.get("response_sources"), list) else []
+    source_note = f"；response_sources={_format_plain_items(sources)}" if sources else ""
+    return (
+        f"- `{item['interaction_id']}`：{item['question']}"
+        f"（confidence={item['confidence']}；reason={item['reason']}{status_note}{source_note}）"
+    )
 
 
 def _action_guidance_lines(questions: list[dict[str, Any]]) -> list[str]:
@@ -316,19 +324,35 @@ def _action_guidance_line(question: dict[str, Any]) -> str:
     interaction_type = str(question.get("interaction_type", "unknown"))
     if interaction_type == "scan_warning_confirmation":
         return f"- `{interaction_id}`：{scan_warning_action_hint(scan_warning_code_from_interaction_id(interaction_id))}"
+    if interaction_type == "scan_followup_confirmation":
+        return f"- `{interaction_id}`：{_scan_followup_action_guidance(interaction_id, question)}"
     guidance_by_type = {
         "context_confirmation": "用 `harness-builder-agent init --repo <repo> --context <file>` 补充团队规范、架构约束或测试策略。",
         "candidate_asset_confirmation": "用 `review-candidate --candidate-id <id> --decision accepted|deferred|rejected|applied` 治理 review-only Guide / Sensor 候选。",
         "sensor_gate_confirmation": "先在目标仓库和 CI 中确认命令稳定性，再调整 Sensor / gate 语义并运行 benchmark 验收。",
         "risk_area_confirmation": "在 guided scan correction 中补充 `risk=路径|原因`，让风险区进入 Guide、Sensor 和 workflow routing 叙事。",
         "evidence_expansion_confirmation": "查看 `.ai/scan-metadata.yaml` 的 evidence expansion，必要时用 `--context <file>` 或 scan correction 补充关键路径。",
-        "scan_followup_confirmation": "重新进入 guided `init`，根据追问补充 `stack=...`、`module=路径|类型|名称`、`command=ID|命令|类型|gate|来源|置信度` 或 `risk=路径|原因`。",
     }
     guidance = guidance_by_type.get(
         interaction_type,
         "在 `.ai/questionnaire.yaml` 中保留该问题，待 Harness Maintainer 人工确认后再更新对应 Harness 资产。",
     )
     return f"- `{interaction_id}`：{guidance}"
+
+
+def _scan_followup_action_guidance(interaction_id: str, question: dict[str, Any]) -> str:
+    response_status = str(question.get("response_status") or "unaddressed")
+    if response_status == "reviewed_resolved_by_harness_maintainer":
+        return (
+            "已由 Harness Maintainer 标记为 resolved；该状态只表示人工复核完成，不表示 Builder 自动重扫或验证了事实。"
+            f" 如需重新打开，运行 `harness-builder-agent review-human-input --interaction-id {interaction_id} --decision reopened --rationale \"<reason>\"`。"
+        )
+    supplement = "；当前 scan supplement 已部分回应，建议先人工复核是否足够关闭" if response_status == "partially_addressed_by_current_scan_supplement" else ""
+    return (
+        "重新进入 guided `init`，根据追问补充 `stack=...`、`module=路径|类型|名称`、"
+        "`command=ID|命令|类型|gate|来源|置信度` 或 `risk=路径|原因`"
+        f"{supplement}。复核完成后运行 `harness-builder-agent review-human-input --interaction-id {interaction_id} --decision resolved --rationale \"<reason>\"` 标记。"
+    )
 
 
 def scan_warning_code_from_interaction_id(interaction_id: str) -> str:

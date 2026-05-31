@@ -12,6 +12,7 @@ from harness_builder_agent.tools.candidate_governance import review_candidate
 from harness_builder_agent.tools.generate_asset_candidates import generate_asset_candidates
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.human_input_governance import review_human_input
 from harness_builder_agent.tools.init_summary import render_init_completion_message
 from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
@@ -214,6 +215,42 @@ def review_candidate_command(
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
     typer.echo(f"Recorded candidate governance decision in {output_dir / 'review'}")
+
+
+@app.command("review-human-input")
+def review_human_input_command(
+    repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True),
+    interaction_id: str = typer.Option(..., "--interaction-id", help="Human input interaction id from .ai/questionnaire.yaml."),
+    decision: str = typer.Option(..., "--decision", help="resolved or reopened."),
+    rationale: str = typer.Option(..., "--rationale", help="Maintainer rationale for the human input review decision."),
+    reviewer: str = typer.Option("harness-maintainer", "--reviewer", help="Reviewer identity recorded in governance artifacts."),
+) -> None:
+    """Record a governance decision for a scan follow-up human input item."""
+    trace = GenerationTrace.start(repo, "review-human-input")
+    try:
+        trace.event(
+            "human-input-governance",
+            "started",
+            "Human input governance decision started.",
+            {"interaction_id": interaction_id},
+        )
+        output_dir = review_human_input(repo, interaction_id, decision, rationale, reviewer)
+        trace.artifact(output_dir / "questionnaire.yaml", "questionnaire")
+        trace.artifact(output_dir / "human-input-needed.md", "human_confirmation")
+        trace.artifact(output_dir / "review" / "human-input-governance.yaml", "human_input_governance")
+        trace.artifact(output_dir / "review" / "human-input-governance.md", "review")
+        trace.event(
+            "human-input-governance",
+            "completed",
+            "Human input governance decision completed.",
+            {"interaction_id": interaction_id, "decision": decision},
+        )
+        trace.finish("completed", {"interaction_id": interaction_id, "decision": decision})
+    except Exception as exc:
+        trace.event("human-input-governance", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Recorded human input governance decision in {output_dir / 'review'}")
 
 
 @app.command("recommend-workflow")

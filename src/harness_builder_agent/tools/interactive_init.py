@@ -1517,6 +1517,11 @@ def _human_input_needed_status_lines(ai: Path) -> list[str]:
         for question in scan_followups
         if question.response_status == "partially_addressed_by_current_scan_supplement"
     )
+    scan_followup_resolved_count = sum(
+        1
+        for question in scan_followups
+        if question.response_status == "reviewed_resolved_by_harness_maintainer"
+    )
     scan_followup_unaddressed_count = sum(1 for question in scan_followups if question.response_status == "unaddressed")
     lines = [
         "human_input_needed=present",
@@ -1527,6 +1532,7 @@ def _human_input_needed_status_lines(ai: Path) -> list[str]:
     if scan_followups:
         lines.extend(
             [
+                f"human_input_scan_followups_resolved={scan_followup_resolved_count}",
                 f"human_input_scan_followups_partially_addressed={scan_followup_partial_count}",
                 f"human_input_scan_followups_unaddressed={scan_followup_unaddressed_count}",
             ]

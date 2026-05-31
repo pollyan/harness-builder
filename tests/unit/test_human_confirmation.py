@@ -4,7 +4,7 @@ from pathlib import Path
 
 from harness_builder_agent.schemas.command_catalog import CommandDefinition
 from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
-from harness_builder_agent.tools.human_confirmation import build_questionnaire, read_context_inputs
+from harness_builder_agent.tools.human_confirmation import build_questionnaire, human_input_markdown, read_context_inputs
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions
 
 
@@ -218,6 +218,42 @@ def test_build_questionnaire_does_not_mark_unrelated_followup_as_addressed():
     assert question["response_status"] == "unaddressed"
     assert question["response_sources"] == []
     Questionnaire.model_validate(questionnaire)
+
+
+def test_human_input_markdown_distinguishes_followup_response_statuses():
+    markdown = human_input_markdown(
+        {"schema_version": "1.0", "contexts": []},
+        {
+            "schema_version": "1.0",
+            "questions": [
+                {
+                    "interaction_type": "scan_followup_confirmation",
+                    "interaction_id": "confirm:scan-followup:resolved",
+                    "question": "测试入口是什么？",
+                    "options": ["补充或修正相关信息"],
+                    "confidence": "low",
+                    "reason": "缺少测试 evidence。",
+                    "response_status": "reviewed_resolved_by_harness_maintainer",
+                    "response_sources": ["command=unit_test:mvn test"],
+                },
+                {
+                    "interaction_type": "scan_followup_confirmation",
+                    "interaction_id": "confirm:scan-followup:partial",
+                    "question": "模块边界是什么？",
+                    "options": ["补充或修正相关信息"],
+                    "confidence": "low",
+                    "reason": "模块边界不清。",
+                    "response_status": "partially_addressed_by_current_scan_supplement",
+                    "response_sources": ["module=src/main/java"],
+                },
+            ],
+        },
+    )
+
+    assert "response_status=reviewed_resolved_by_harness_maintainer" in markdown
+    assert "response_status=partially_addressed_by_current_scan_supplement" in markdown
+    assert "已由 Harness Maintainer 标记为 resolved" in markdown
+    assert "review-human-input --interaction-id confirm:scan-followup:partial --decision resolved" in markdown
 
 
 def test_build_questionnaire_skips_raw_warnings_represented_by_targeted_followups():

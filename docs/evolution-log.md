@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Human Input Follow-up 人工复核治理
+
+- North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、资产生成与审核接管。
+- init North Star 旅程阶段：深度追问、用户补充吸收、已有 Harness 维护入口、human-input 待确认闭环。
+- Gap Analysis 摘要：当前 open todo 为空，旧本地独有能力迁移已归档。本轮重新读取事实源后，scan follow-up 已能区分 `unaddressed` 和 `partially_addressed_by_current_scan_supplement`，但 Maintainer 没有显式动作把已复核追问关闭；候选还包括 Workflow note -> 结构化 workflow policy candidate 和 push 前 full regression。选择本轮是因为它把“scan supplement 可能回应追问”推进到“人工复核可审计关闭 / 重新打开”，且不触碰正式资产或 Runtime。
+- 用户故事：作为 Harness Maintainer，当我看到 `.ai/questionnaire.yaml` 中某个 `scan_followup_confirmation` 已被 scan supplement 部分回应后，我可以运行 `review-human-input` 将其标记为 resolved 或 reopened，并在再次进入 guided `init` 时看到 resolved / partial / unaddressed 计数，从而区分已人工关闭、仍待复核和未回应的扫描追问。
+- 当前代码 gap：`QuestionnaireQuestion.response_status` 没有 Maintainer resolved 状态；没有 human-input governance schema / CLI；`human-input-needed.md#处理方式` 只建议重新进入 guided scan correction，不能表达已复核边界；已有 Harness 入口不展示 resolved count。
+- 关键决策 / 取舍：新增独立 `HumanInputGovernanceLog`，不复用 candidate governance；`resolved` 只表示人工复核完成，不表示 Builder 自动重扫或验证事实；命令只治理已有 `scan_followup_confirmation`，不修改正式 Guides、Sensors、Workflow Skills、`harness-config.yaml`、inventory 或 command catalog。
+- Assumptions / risks：Maintainer 可以基于团队知识和现有补充判断追问已解决；为避免误读，README、工程规则、Markdown review boundary 都明确 resolved 不是扫描 evidence 自动补齐。
+- 边界情况 / 失败模式：未知 interaction id、空 rationale、缺少 questionnaire、非 scan follow-up 都显式失败；`reopened` 若仍有 `response_sources` 则恢复 partial，否则恢复 unaddressed；本轮不新增 guided 菜单项、不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查 human-input governance 接入点，但当前返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮完成 `questionnaire.yaml -> review-human-input -> governance log -> human-input-needed.md -> existing Harness status lines` 的纵向闭环，不把 Workflow policy patch 安全设计混入同一轮。
+- 可执行验收标准及验证方式：schema unit 覆盖 resolved status 与 governance log；unit 覆盖 resolved / reopened / invalid target；Markdown unit 覆盖 resolved / partial 处理建议；existing Harness preview unit 覆盖 resolved count；integration 覆盖 CLI 命令更新产物、正式资产快照不变、再次 `init` 输出 resolved count。
+- 完成内容：`QuestionnaireQuestion.response_status` 增加 `reviewed_resolved_by_harness_maintainer`；新增 `human_input_governance` schema / tool / CLI；`human-input-needed.md` 展示 follow-up response status 和治理命令；已有 Harness 入口输出 resolved / partial / unaddressed 计数；README、init workflow、spec 和 plan 同步。
+- 验证结果：TDD 红测先因缺少 `human_input_governance` schema 失败；实现后目标 unit 7 passed；目标 CLI integration 1 passed；完整 guided init integration 40 passed；`git diff --check` 通过；`scripts/test-fast.sh` 通过，399 passed。
+- Self-Harness Gate：长期文档已同步；`docs/todos/` 暂不新增，因为当前没有 open todo，下一轮继续按 `init-north-star.md` 重新做 Gap Analysis。下一轮候选 gap：Workflow note -> 结构化 `workflow_policy` asset candidate 安全设计、push 前 full regression / 远端同步，或 existing Harness human-input review action 是否需要 guided 菜单化。
+
 ## 2026-06-01 Workflow 补充改进候选
 
 - North Star 模块：CLI Experience、Workflow Toolkit、Maturity & Evolution、Experience & Self-Improve、资产生成与审核接管。

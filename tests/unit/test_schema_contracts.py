@@ -10,6 +10,7 @@ from harness_builder_agent.schemas.experience_summary import ExperienceSummaryRe
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.harness_map import HarnessMap
 from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
+from harness_builder_agent.schemas.human_input_governance import HumanInputGovernanceLog
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
@@ -158,6 +159,51 @@ def test_questionnaire_accepts_partially_addressed_followup_response_status():
 
     assert questionnaire.questions[0].response_status == "partially_addressed_by_current_scan_supplement"
     assert questionnaire.questions[0].response_sources == ["command=unit_test:mvn test"]
+
+
+def test_questionnaire_accepts_resolved_followup_response_status():
+    questionnaire = Questionnaire.model_validate(
+        {
+            "schema_version": "1.0",
+            "questions": [
+                {
+                    "interaction_type": "scan_followup_confirmation",
+                    "interaction_id": "confirm:scan-followup:test-evidence",
+                    "question": "真实测试入口是什么？",
+                    "options": ["补充或修正相关信息"],
+                    "confidence": "low",
+                    "reason": "缺少测试 evidence。",
+                    "response_status": "reviewed_resolved_by_harness_maintainer",
+                    "response_sources": ["command=unit_test:mvn test"],
+                }
+            ],
+        }
+    )
+
+    assert questionnaire.questions[0].response_status == "reviewed_resolved_by_harness_maintainer"
+
+
+def test_human_input_governance_log_records_review_decisions():
+    log = HumanInputGovernanceLog.model_validate(
+        {
+            "decisions": [
+                {
+                    "interaction_id": "confirm:scan-followup:test-evidence",
+                    "interaction_type": "scan_followup_confirmation",
+                    "decision": "resolved",
+                    "previous_response_status": "partially_addressed_by_current_scan_supplement",
+                    "new_response_status": "reviewed_resolved_by_harness_maintainer",
+                    "rationale": "Maintainer verified mvn test is the real gate.",
+                    "reviewer": "maintainer",
+                    "decided_at": "2026-06-01T00:00:00Z",
+                    "response_sources": ["command=unit_test:mvn test"],
+                }
+            ]
+        }
+    )
+
+    assert log.schema_version == "1.0"
+    assert log.decisions[0].decision == "resolved"
 
 
 def test_evidence_bundle_records_priority_buckets_and_coverage():

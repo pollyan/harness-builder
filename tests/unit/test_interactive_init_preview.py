@@ -265,6 +265,16 @@ def test_human_input_needed_status_lines_summarize_questionnaire(tmp_path: Path)
                     },
                     {
                         "interaction_type": "scan_followup_confirmation",
+                        "interaction_id": "confirm:scan-followup:reviewed",
+                        "question": "已复核的问题？",
+                        "options": ["补充 module"],
+                        "confidence": "low",
+                        "reason": "已人工复核。",
+                        "response_status": "reviewed_resolved_by_harness_maintainer",
+                        "response_sources": ["command=unit_test:mvn test"],
+                    },
+                    {
+                        "interaction_type": "scan_followup_confirmation",
                         "interaction_id": "confirm:scan-followup:test-evidence",
                         "question": "测试入口在哪里？",
                         "options": ["补充 command"],
@@ -294,14 +304,15 @@ def test_human_input_needed_status_lines_summarize_questionnaire(tmp_path: Path)
     assert lines == [
         "human_input_needed=present",
         "human_input_questionnaire=present",
-        "human_input_confirmations=5",
-        "human_input_scan_confirmations=4",
+        "human_input_confirmations=6",
+        "human_input_scan_confirmations=5",
+        "human_input_scan_followups_resolved=1",
         "human_input_scan_followups_partially_addressed=1",
         "human_input_scan_followups_unaddressed=1",
         "human_input_first=confirm:scan-warning:test_evidence_not_found",
         "human_input_first=confirm:high-risk:src-main-resources-application-yml",
         "human_input_first=confirm:team-context",
-        "human_input_omitted=2",
+        "human_input_omitted=3",
         "human_input_action_entry=.ai/human-input-needed.md#处理方式",
     ]
 
