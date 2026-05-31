@@ -7,6 +7,7 @@ import yaml
 
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
+from harness_builder_agent.schemas.human_confirmation import Questionnaire
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 
 
@@ -171,6 +172,22 @@ def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> l
                 )
             )
 
+    human_input_backlog = _read_human_input_backlog(ai)
+    if human_input_backlog is not None:
+        pending_count, first_interaction_id = human_input_backlog
+        if pending_count:
+            actions.append(
+                MaintenanceAction(
+                    priority=25,
+                    action="review-human-input",
+                    reason="human_input_scan_followups_pending",
+                    source=".ai/questionnaire.yaml",
+                    next_action="review-human-input",
+                    count=pending_count,
+                    detail=first_interaction_id,
+                )
+            )
+
     if not actions:
         actions.append(
             MaintenanceAction(
@@ -232,6 +249,10 @@ def _maintenance_action_guidance(index: int, action: MaintenanceAction) -> str:
     if action.reason == "asset_candidates_pending":
         count = f"{action.count} 个 " if action.count else ""
         return f"{prefix}运行 `review-candidate` 处理 {count}review-only 候选，确认 accepted / deferred / rejected。"
+    if action.reason == "human_input_scan_followups_pending":
+        count = f"{action.count} 个 " if action.count else ""
+        detail = f"；先处理 `{action.detail}`" if action.detail else ""
+        return f"{prefix}运行 `review-human-input` 复核 {count}scan follow-up，按人工证据标记 resolved / reopened{detail}。"
     if action.reason == "workflow_recommendations_pending":
         count = f"{action.count} 条 " if action.count else ""
         return f"{prefix}运行 `improve` 把 {count}Workflow 推荐转成可审查的 routing policy 改进候选。"
@@ -255,6 +276,26 @@ def _read_experience_index(ai: Path) -> ExperienceIndex | None:
     if not path.exists():
         return None
     return ExperienceIndex.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+
+
+def _read_human_input_backlog(ai: Path) -> tuple[int, str | None] | None:
+    path = ai / "questionnaire.yaml"
+    if not path.exists():
+        return None
+    questionnaire = Questionnaire.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    pending = [
+        question
+        for question in questionnaire.questions
+        if question.interaction_type == "scan_followup_confirmation"
+        and question.response_status
+        in {
+            "unaddressed",
+            "partially_addressed_by_current_scan_supplement",
+        }
+    ]
+    if not pending:
+        return 0, None
+    return len(pending), pending[0].interaction_id
 
 
 def _schema_content_failed_count(report: BenchmarkReport) -> int:

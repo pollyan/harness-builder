@@ -88,6 +88,35 @@ def _write_benchmark(ai: Path, *, status: str = "passed", schema_content_failure
     )
 
 
+def _write_questionnaire(ai: Path, questions: list[dict[str, object]]) -> None:
+    (ai / "questionnaire.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "questions": questions,
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _scan_followup_question(interaction_id: str, response_status: str) -> dict[str, object]:
+    return {
+        "interaction_type": "scan_followup_confirmation",
+        "interaction_id": interaction_id,
+        "question": "真实测试入口是什么？",
+        "options": ["补充验证命令", "保持待确认"],
+        "confidence": "low",
+        "reason": "缺少测试 evidence。",
+        "response_status": response_status,
+        "response_sources": ["command=unit_test:mvn test"]
+        if response_status == "partially_addressed_by_current_scan_supplement"
+        else [],
+    }
+
+
 def test_maintenance_triage_prioritizes_contract_health_before_candidate_work(tmp_path: Path):
     ai = tmp_path / ".ai"
     ai.mkdir()
@@ -117,6 +146,98 @@ def test_maintenance_triage_recommends_benchmark_when_report_missing(tmp_path: P
     assert actions[0].action == "benchmark"
     assert actions[0].reason == "benchmark_not_run"
     assert actions[0].source == ".ai/benchmark-report.yaml"
+
+
+def test_maintenance_triage_recommends_human_input_review_for_pending_scan_followups(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_benchmark(ai)
+    _write_experience_index(ai)
+    _write_questionnaire(
+        ai,
+        [
+            _scan_followup_question(
+                "confirm:scan-followup:test-evidence",
+                "partially_addressed_by_current_scan_supplement",
+            ),
+            _scan_followup_question("confirm:scan-followup:module-boundary", "unaddressed"),
+            _scan_followup_question(
+                "confirm:scan-followup:resolved",
+                "reviewed_resolved_by_harness_maintainer",
+            ),
+        ],
+    )
+
+    actions = build_maintenance_triage(ai, score=_score())
+    lines = render_maintenance_triage_lines(actions)
+    guidance = render_maintenance_triage_guidance_lines(actions)
+
+    assert len(actions) == 1
+    assert actions[0].action == "review-human-input"
+    assert actions[0].reason == "human_input_scan_followups_pending"
+    assert actions[0].source == ".ai/questionnaire.yaml"
+    assert actions[0].count == 2
+    assert actions[0].detail == "confirm:scan-followup:test-evidence"
+    assert "top_action_1=review-human-input" in lines[0]
+    assert "reason=human_input_scan_followups_pending" in lines[0]
+    assert "source=.ai/questionnaire.yaml" in lines[0]
+    assert "count=2" in lines[0]
+    assert "detail=confirm:scan-followup:test-evidence" in lines[0]
+    assert "运行 `review-human-input`" in guidance[0]
+    assert "resolved / reopened" in guidance[0]
+
+
+def test_maintenance_triage_keeps_benchmark_before_human_input_review(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_experience_index(ai)
+    _write_questionnaire(
+        ai,
+        [_scan_followup_question("confirm:scan-followup:test-evidence", "unaddressed")],
+    )
+
+    actions = build_maintenance_triage(ai, score=_score())
+
+    assert [action.action for action in actions[:2]] == ["benchmark", "review-human-input"]
+    assert actions[1].reason == "human_input_scan_followups_pending"
+
+
+def test_maintenance_triage_keeps_candidate_governance_before_human_input_review(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_benchmark(ai)
+    _write_experience_index(ai, asset_candidates=3, governance=1)
+    _write_questionnaire(
+        ai,
+        [_scan_followup_question("confirm:scan-followup:test-evidence", "unaddressed")],
+    )
+
+    actions = build_maintenance_triage(ai, score=_score())
+
+    assert [action.action for action in actions[:2]] == ["review-candidate", "review-human-input"]
+    assert actions[0].reason == "asset_candidates_pending"
+    assert actions[1].reason == "human_input_scan_followups_pending"
+
+
+def test_maintenance_triage_ignores_resolved_scan_followups(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_benchmark(ai)
+    _write_experience_index(ai)
+    _write_questionnaire(
+        ai,
+        [
+            _scan_followup_question(
+                "confirm:scan-followup:resolved",
+                "reviewed_resolved_by_harness_maintainer",
+            )
+        ],
+    )
+
+    actions = build_maintenance_triage(ai, score=_score())
+
+    assert actions[0].action == "recommend-workflow"
+    assert actions[0].reason == "no_pending_maintenance_signal"
 
 
 def test_maintenance_triage_recommends_real_task_when_no_pending_signals(tmp_path: Path):

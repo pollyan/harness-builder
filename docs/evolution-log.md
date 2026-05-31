@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Human Input Triage Recommendation
+
+- North Star 模块：CLI Experience、Experience & Self-Improve、Maturity & Evolution。
+- init North Star 旅程阶段：再次进入已有 Harness 的状态感知维护入口。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo；本轮对比 North Star、README、init workflow 和现有代码后，发现 human-input backlog 已能展示状态、guided `review-human-input` 也已存在，但 Maintenance triage 仍只读 benchmark / Experience index，没有把未解决 scan follow-up 排成下一步动作。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 查看已有 Harness 健康状态时，如果 `.ai/questionnaire.yaml` 中存在未解决或部分回应的 scan follow-up，我可以在 top actions 中看到 `review-human-input`、待处理数量和首个 interaction id，从而知道下一步先复核扫描追问。
+- 当前代码 gap：`build_maintenance_triage()` 不读取 `Questionnaire` schema；CLI 只能显示 `human_input_scan_followups_partially_addressed` / `unaddressed` 计数，不能推荐治理动作。
+- 关键决策 / 取舍：只统计 `scan_followup_confirmation` 的 `unaddressed` 和 `partially_addressed_by_current_scan_supplement`；`reviewed_resolved_by_harness_maintainer` 不再进入 triage；新增 `human_input_scan_followups_pending` triage reason，priority=25，排序在 benchmark 和 candidate governance 之后、workflow recommendation 和 pending improvements 之前。
+- Assumptions / risks：首个待处理 interaction id 作为 detail 足够提示起点；完整列表仍在 `.ai/questionnaire.yaml` 和 `.ai/human-input-needed.md`。损坏的 questionnaire 继续显式失败，不做 silent fallback。
+- 边界情况 / 失败模式：triage 只推荐动作，不自动执行治理，不关闭追问，不修改正式 Harness 资产，不创建 Runtime 产物。
+- Sub agent 使用情况：尝试启动 explorer 做只读审查，但当前线程达到 agent 上限；本轮在 spec 中记录该限制，由主线程完成代码和测试审查。
+- 价值切分说明：本轮只补“状态信号 -> triage 推荐 -> guided 治理入口”的路由闭环，不修改 `review-human-input` 治理语义。
+- 可执行验收标准及验证方式：unit 覆盖 pending / resolved-only / benchmark-before-human 排序；integration 覆盖已有 Harness 输出 `top_action_2=review-human-input`、reason、count、detail、中文 guidance，并保持不扫描和不覆盖正式资产；README 与 init workflow 同步长期规则。
+- 完成内容：`maintenance_triage.py` 读取 `Questionnaire`，统计待复核 scan follow-up 并渲染 `review-human-input` top action 和 guidance；补充 unit / integration 测试；更新 README、init workflow、spec、plan。
+- 验证结果：targeted unit 和 targeted integration 已通过；完整 guided init integration、`git diff --check` 和 `scripts/test-fast.sh` 见本轮提交前验证。
+- Self-Harness Gate：本轮不新增 todo；下一轮候选 gap 保留“首次 init 用户补充对最终 maturity preview 的可见影响”、push 前 full regression 外部前置，以及继续拆解 `interactive_init.py` 过大带来的维护风险。
+
 ## 2026-06-01 Guided Human Input Review 维护入口
 
 - North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、资产生成与审核接管。

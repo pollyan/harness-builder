@@ -1025,6 +1025,13 @@ def test_guided_init_marks_scan_followup_partially_addressed_by_current_suppleme
     assert existing_result.exit_code == 0, existing_result.output
     assert "human_input_scan_followups_partially_addressed=2" in existing_result.output
     assert "human_input_scan_followups_unaddressed=0" in existing_result.output
+    assert "top_action_2=review-human-input" in existing_result.output
+    assert "reason=human_input_scan_followups_pending" in existing_result.output
+    assert "source=.ai/questionnaire.yaml" in existing_result.output
+    assert "count=2" in existing_result.output
+    assert "detail=confirm:scan-followup:test-evidence" in existing_result.output
+    assert "运行 `review-human-input`" in existing_result.output
+    assert "resolved / reopened" in existing_result.output
 
 
 def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):
