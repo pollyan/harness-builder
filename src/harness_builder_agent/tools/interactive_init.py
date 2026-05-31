@@ -128,10 +128,11 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     candidate_report = build_llm_enhancement_candidates(inventory, commands)
     candidate_decisions = _review_candidates(candidate_report, weapon_selection, commands)
     workflow_confirmation = _show_workflows()
+    _show_workflow_note_immediate_summary(workflow_confirmation)
     candidate_ids = [item.id for item in candidate_report.candidates]
 
     while True:
-        _show_prewrite_maturity_preview(repo, inventory, commands, weapon_selection, inline_contexts)
+        _show_prewrite_maturity_preview(repo, inventory, commands, weapon_selection, inline_contexts, workflow_confirmation)
         action = _confirm_summary(
             inventory,
             commands,
@@ -1657,12 +1658,29 @@ def _show_workflows() -> WorkflowConfirmation:
     )
 
 
+def _show_workflow_note_immediate_summary(workflow_confirmation: WorkflowConfirmation) -> None:
+    if not workflow_confirmation.notes:
+        return
+
+    typer.echo("\nWorkflow 补充理解")
+    for item in workflow_confirmation.notes[:5]:
+        typer.echo(f"- Workflow 补充：{item}")
+    if len(workflow_confirmation.notes) > 5:
+        typer.echo(f"- 还有 {len(workflow_confirmation.notes) - 5} 条 Workflow 补充会进入交互决策。")
+
+    typer.echo("\nWorkflow 补充影响")
+    typer.echo("- 这些补充会进入 interaction-decisions.yaml、project-context.md 和 human-input-needed.md。")
+    typer.echo("- 它们会作为 review-only 的人工说明影响后续审查；不直接修改正式 workflow routing policy。")
+    typer.echo("- 如需改变正式 routing policy，后续仍应通过候选治理或结构化 workflow policy patch 审核。")
+
+
 def _show_prewrite_maturity_preview(
     repo: Path,
     inventory: ProjectInventory,
     commands: CommandCatalog,
     weapon_selection: WeaponLibrarySelection,
     inline_contexts: list[str] | None = None,
+    workflow_confirmation: WorkflowConfirmation | None = None,
 ) -> None:
     config = HarnessConfig.default()
     planned = build_maturity_report(
@@ -1703,6 +1721,20 @@ def _show_prewrite_maturity_preview(
         typer.echo("- 影响范围：进入 Guides、human-input-needed 和后续人工审查；不直接修改正式 workflow routing policy。")
     else:
         typer.echo("- 暂无团队规则输入；当前按扫描证据和内置 Harness 基线生成。")
+
+    typer.echo("Workflow 补充约束")
+    workflow_notes = workflow_confirmation.notes if workflow_confirmation else []
+    if workflow_notes:
+        for item in workflow_notes[:5]:
+            typer.echo(f"- {item}")
+        if len(workflow_notes) > 5:
+            typer.echo(f"- 还有 {len(workflow_notes) - 5} 条 Workflow 补充会写入交互决策。")
+        typer.echo(
+            "- 影响范围：进入 interaction-decisions.yaml、project-context.md、human-input-needed.md 和后续人工确认；"
+            "作为 review-only 说明，不直接修改正式 workflow routing policy。"
+        )
+    else:
+        typer.echo("- 暂无 Workflow 补充；当前按内置 bugfix / lightweight / standard routing 预览。")
 
     typer.echo("将生成的 Guides")
     for weapon in weapon_selection.guide_weapons[:3]:

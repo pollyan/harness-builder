@@ -136,6 +136,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 首次 guided `init` 收到团队规则后，必须在进入候选审查前立即复述这些规则，并说明它们会进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`；CLI 必须明确团队规则是用户提供的约束，不能被当作扫描事实。
 - 写入前 Harness 设计预览必须展示团队规则约束；如果没有团队规则输入，也要说明当前按扫描证据和内置 Harness 基线生成。
 - Workflow 补充必须说明会进入 Workflow 说明和人工确认记录；除非经过候选治理或结构化 policy patch，不能直接修改正式 routing policy。
+- 首次 guided `init` 收到 Workflow 补充后，必须在进入写入前 preview / 最终确认前立即复述这些补充，并说明它们会进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`；CLI 必须明确 Workflow 补充是 review-only 的人工说明，不直接修改正式 workflow routing policy。
+- 写入前 Harness 设计预览必须展示 Workflow 补充约束；如果没有 Workflow 补充，也要说明当前按内置 bugfix / lightweight / standard routing 预览。
 - 最终确认摘要不能只显示补充数量，必须展示具体补充内容的可读摘要，让用户在写入前确认系统理解了输入。
 
 ### 7. 资产写入

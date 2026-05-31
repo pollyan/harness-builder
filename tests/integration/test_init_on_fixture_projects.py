@@ -998,6 +998,23 @@ def test_guided_init_restates_user_supplements_before_write_and_persists_them(tm
     )
 
     assert result.exit_code == 0, result.output
+    workflow_prompt_index = result.output.index("如果工作流还有补充说明")
+    workflow_understanding_index = result.output.index("Workflow 补充理解")
+    workflow_impact_index = result.output.index("Workflow 补充影响")
+    maturity_preview_index = result.output.index("当前 Harness 成熟度初评")
+    assert workflow_prompt_index < workflow_understanding_index < workflow_impact_index < maturity_preview_index
+    workflow_summary = result.output[workflow_understanding_index:maturity_preview_index]
+    assert "bugfix 工作流适合缺陷修复" in workflow_summary
+    assert "interaction-decisions.yaml" in workflow_summary
+    assert "project-context.md" in workflow_summary
+    assert "human-input-needed.md" in workflow_summary
+    assert "review-only" in workflow_summary
+    assert "不直接修改正式 workflow routing policy" in workflow_summary
+    preview = result.output[result.output.index("写入前 Harness 设计预览") : result.output.index("\n最终确认\n")]
+    assert "Workflow 补充约束" in preview
+    assert "bugfix 工作流适合缺陷修复" in preview
+    assert "review-only" in preview
+    assert "不直接修改正式 workflow routing policy" in preview
     final_summary = result.output[result.output.index("最终确认"):]
     assert "已吸收的用户补充" in final_summary
     assert "补充影响" in final_summary
