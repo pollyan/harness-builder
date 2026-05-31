@@ -68,6 +68,7 @@
 - 2026-06-01：迁移 project-context evidence context benchmark 校验。当前 `project-context.md` 会在 `## 来源证据` 保留 inventory evidence、文档、配置和 CI 路径，并在 `## LLM 证据扩展` 保留 evidence expansion 的 requested/read paths、risk focus、confidence、read file count 和 rationale；`content:project-context-evidence-context` 会报告缺失 evidence path、缺失 LLM evidence expansion 章节或缺失 expansion detail。
 - 2026-06-01：迁移 scan report evidence visibility。当前 `scan-report.md` 会展示 Evidence、LLM Evidence Expansion、Evidence Coverage、Stack Evidence Validation、Scan Warnings、Risk Areas 和 Command Candidates；`content:scan-report` 会报告缺失章节、evidence path、coverage selected path、evidence expansion detail、warning、risk 或 command confidence。
 - 2026-06-01：迁移 init summary evidence audit。当前 `init-summary.md` 会在 `## 扫描证据审计` 摘要展示 evidence expansion requested/read paths、risk focus、confidence、read file count、rationale 和 coverage selected paths；`content:init-summary` 会报告缺失章节、summary expansion detail 或 summary coverage selected path。
+- 2026-06-01：迁移内容质量 failed check detail preservation。当前 `content:workflow-skills`、`content:guides-quality`、`content:sensors-quality` 和 `content:stack-specific-guides` 失败时会保留具体 `missing` detail，包括缺失 Skill 文件 / marker、Guide / Sensor 章节、hard gate marker 或 stack-specific weapon id。
 
 ## 理想状态
 
@@ -97,7 +98,7 @@
    - project-context evidence context gate。
      - 已迁移：2026-06-01。
    - failed check missing / errors / detail preservation。
-     - 已部分迁移：2026-06-01（scan-report / init-summary evidence audit failed checks 有中文 label、missing detail 和专门 triage guidance；系统性全量审计仍待后续）。
+     - 已部分迁移：2026-06-01（scan-report / init-summary evidence audit failed checks 有中文 label、missing detail 和专门 triage guidance；Guide / Sensor / Workflow Skill / stack-specific Guide 内容质量失败会保留具体 `missing` detail；系统性全量审计仍待后续）。
 
 3. **Human input 闭环**
    - `.ai/human-input-needed.md#处理方式`。

@@ -608,21 +608,29 @@ def _missing_init_summary_confirmation_ids(ai: Path, text: str) -> list[str]:
 
 
 def _workflow_skills_check(ai: Path) -> dict[str, Any]:
-    lightweight = ai / "skills" / "lightweight" / "SKILL.md"
-    bugfix = ai / "skills" / "bugfix" / "SKILL.md"
-    standard = ai / "skills" / "standard" / "SKILL.md"
-    lightweight_text = lightweight.read_text(encoding="utf-8") if lightweight.exists() else ""
-    bugfix_text = bugfix.read_text(encoding="utf-8") if bugfix.exists() else ""
-    standard_text = standard.read_text(encoding="utf-8") if standard.exists() else ""
-    passed = all(
+    expected = [
+        (ai / "skills" / "lightweight" / "SKILL.md", ".ai/skills/lightweight/SKILL.md", "轻量级开发工作流", "missing_lightweight_skill_marker"),
+        (ai / "skills" / "bugfix" / "SKILL.md", ".ai/skills/bugfix/SKILL.md", "缺陷修复工作流", "missing_bugfix_skill_marker"),
+        (ai / "skills" / "standard" / "SKILL.md", ".ai/skills/standard/SKILL.md", "标准开发工作流", "missing_standard_skill_marker"),
         (
-            "轻量级开发工作流" in lightweight_text,
-            "缺陷修复工作流" in bugfix_text,
-            "标准开发工作流" in standard_text,
-            "Requirement Alignment" in standard_text,
-        )
-    )
-    return {"id": "content:workflow-skills", "passed": passed}
+            ai / "skills" / "standard" / "SKILL.md",
+            ".ai/skills/standard/SKILL.md",
+            "Requirement Alignment",
+            "missing_standard_skill_requirement_alignment",
+        ),
+    ]
+    missing: list[str] = []
+    texts: dict[Path, str] = {}
+    for path, rel_path, marker, missing_marker in expected:
+        if not path.exists():
+            missing_file = f"missing_skill_file:{rel_path}"
+            if missing_file not in missing:
+                missing.append(missing_file)
+            continue
+        text = texts.setdefault(path, path.read_text(encoding="utf-8"))
+        if marker not in text:
+            missing.append(missing_marker)
+    return {"id": "content:workflow-skills", "passed": not missing, "missing": missing}
 
 
 def _workflow_skill_config_reference_check(ai: Path) -> dict[str, Any]:
@@ -1276,8 +1284,10 @@ def _guide_quality_check(ai: Path) -> dict[str, Any]:
     required_sections = ["## 当前项目事实", "## 来源证据", "## 候选规则", "## Harness Builder 推荐补齐项", "## 人工确认点"]
     guide = ai / "guides" / "project-context.md"
     text = guide.read_text(encoding="utf-8") if guide.exists() else ""
-    passed = all(section in text for section in required_sections)
-    return {"id": "content:guides-quality", "passed": passed}
+    missing = [section for section in required_sections if section not in text]
+    if not guide.exists():
+        missing.insert(0, "missing_guide_file:.ai/guides/project-context.md")
+    return {"id": "content:guides-quality", "passed": not missing, "missing": missing}
 
 
 def _project_context_evidence_context_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
@@ -1371,20 +1381,32 @@ def _sensor_quality_check(ai: Path) -> dict[str, Any]:
     required_sections = ["## 已发现的验证命令", "## 缺失验证能力", "## 推荐验证活动", "## 失败处理策略"]
     sensor = ai / "sensors" / "verification.md"
     text = sensor.read_text(encoding="utf-8") if sensor.exists() else ""
-    passed = all(section in text for section in required_sections) and "hard" in text
-    return {"id": "content:sensors-quality", "passed": passed}
+    missing = [section for section in required_sections if section not in text]
+    if not sensor.exists():
+        missing.insert(0, "missing_sensor_file:.ai/sensors/verification.md")
+    if "hard" not in text:
+        missing.append("missing_hard_gate_marker")
+    return {"id": "content:sensors-quality", "passed": not missing, "missing": missing}
 
 
 def _stack_specific_guide_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
     guide = ai / "guides" / "project-context.md"
     text = guide.read_text(encoding="utf-8") if guide.exists() else ""
+    missing: list[str] = []
     if inventory.primary_stack == "java-spring":
-        passed = "java-spring.guide.maven-boundary" in text and "java-spring.guide.auth-sql-config-risk" in text
+        expected_weapon_ids = ["java-spring.guide.maven-boundary", "java-spring.guide.auth-sql-config-risk"]
     elif inventory.primary_stack == "dotnet-aspnet":
-        passed = "dotnet-aspnet.guide.solution-boundary" in text and "dotnet-aspnet.guide.publicapi-config-risk" in text
+        expected_weapon_ids = ["dotnet-aspnet.guide.solution-boundary", "dotnet-aspnet.guide.publicapi-config-risk"]
     else:
-        passed = "人工确认" in text
-    return {"id": "content:stack-specific-guides", "passed": passed, "stack": inventory.primary_stack}
+        expected_weapon_ids = []
+        if "人工确认" not in text:
+            missing.append("missing_unknown_stack_confirmation")
+    for weapon_id in expected_weapon_ids:
+        if weapon_id not in text:
+            missing.append(f"missing_stack_guide_weapon:{weapon_id}")
+    if not guide.exists():
+        missing.insert(0, "missing_guide_file:.ai/guides/project-context.md")
+    return {"id": "content:stack-specific-guides", "passed": not missing, "stack": inventory.primary_stack, "missing": missing}
 
 
 def _weapon_library_selection_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:

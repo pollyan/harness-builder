@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Content Quality Detail Preservation 迁移
+
+- North Star 模块：Benchmark / Review Intelligence、CLI Experience、Maturity & Evolution。
+- init North Star 旅程阶段：已有 Harness 维护；质量门禁解释；语义资产可审计。
+- Gap Analysis 摘要：当前唯一 high priority 迁移 todo 仍是本地独有 / 更细能力合并与迁移。scan-report、init-summary、project-context、risk context 和 hard gate command 已逐步保留 missing/errors/weak detail，但 `content:workflow-skills`、`content:guides-quality`、`content:sensors-quality` 和 `content:stack-specific-guides` 仍只返回 `passed=false`，维护者无法从 benchmark report 直接知道缺哪个章节、marker 或 weapon id。
+- 用户故事：作为 Harness Maintainer，当我运行 `benchmark` 发现 Guide、Sensor、Workflow Skill 或 stack-specific Guide 内容质量失败时，我可以在 `benchmark-report.yaml` 中看到具体缺失章节、缺失 workflow skill marker 或缺失 weapon id，从而知道应该修哪份语义资产，而不是只看到 `passed=false`。
+- 当前代码 gap：四个内容质量 check 的 pass/fail 判断存在，但没有填充 `BenchmarkReport` schema 已支持的 `missing` 字段。
+- 关键决策 / 取舍：不新增 schema，不改变 writer 输出，不改变 pass/fail 语义；复用 `missing` 字段承载缺失文件、缺失 marker、缺失章节和缺失 weapon id。
+- Assumptions / risks：旧 benchmark report 不会 retroactively 获得 detail；新 report 与维护入口已能消费 `missing`。本轮只覆盖最常见的老内容质量 check，系统性全量审计仍保留为后续 gap。
+- Sub agent 使用情况：尝试启动只读 explorer 审查本轮候选，但当前环境返回 `agent thread limit reached`；本轮由主线程完成分析、TDD、实现和验证。
+- 价值切分说明：本轮是 failed check detail preservation 的一个纵向小切片，直接保护 benchmark 失败诊断工作流，不混入 scanner schema、writer 生成逻辑或 Runtime。
+- 可执行验收标准及验证方式：integration 负向测试断言 Guide 缺章节、standard Workflow Skill 文件缺失、Sensor 缺章节 / hard marker 时，对应 content check 均返回可行动 `missing` detail；stack-specific Guide 缺 weapon id 时返回具体 weapon id。
+- 完成内容：`_workflow_skills_check()`、`_guide_quality_check()`、`_sensor_quality_check()` 和 `_stack_specific_guide_check()` 保留 missing detail；README、sensor/gate rules、testing strategy、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：Runtime 边界未变化，未执行任务、不创建 `.ai/task-runs`。下一轮候选 gap：failed check missing / errors / detail preservation 系统性全量审计，或 evidence reason preservation。
+
 ## 2026-06-01 Scan Evidence Failed Check Triage 迁移
 
 - North Star 模块：CLI Experience、Benchmark / Review Intelligence、Maturity & Evolution。

@@ -1219,7 +1219,18 @@ def test_benchmark_content_checks_fail_when_guide_required_sections_are_missing(
     guide_check = next(check for check in checks if check["id"] == "content:guides-quality")
     stack_check = next(check for check in checks if check["id"] == "content:stack-specific-guides")
     assert guide_check["passed"] is False
+    assert guide_check["missing"] == [
+        "## 当前项目事实",
+        "## 来源证据",
+        "## 候选规则",
+        "## Harness Builder 推荐补齐项",
+        "## 人工确认点",
+    ]
     assert stack_check["passed"] is False
+    assert stack_check["missing"] == [
+        "missing_stack_guide_weapon:java-spring.guide.maven-boundary",
+        "missing_stack_guide_weapon:java-spring.guide.auth-sql-config-risk",
+    ]
 
 
 def test_benchmark_quality_degrades_when_guide_lacks_evidence_reference(tmp_path: Path, monkeypatch):
@@ -1265,7 +1276,27 @@ def test_benchmark_content_checks_fail_when_workflow_skill_file_is_missing(tmp_p
     workflow_skill = next(check for check in checks if check["id"] == "content:workflow-skills")
     harness_map_skill = next(check for check in checks if check["id"] == "content:workflow-skill-config-reference")
     assert workflow_skill["passed"] is False
+    assert workflow_skill["missing"] == ["missing_skill_file:.ai/skills/standard/SKILL.md"]
     assert harness_map_skill["passed"] is False
+
+
+def test_benchmark_content_checks_report_sensor_missing_details(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    (ai / "sensors" / "verification.md").write_text("# Verification\n", encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    sensor_check = next(check for check in checks if check["id"] == "content:sensors-quality")
+    assert sensor_check["passed"] is False
+    assert sensor_check["missing"] == [
+        "## 已发现的验证命令",
+        "## 缺失验证能力",
+        "## 推荐验证活动",
+        "## 失败处理策略",
+        "missing_hard_gate_marker",
+    ]
 
 
 def test_benchmark_content_checks_fail_when_standard_routing_rule_is_missing(tmp_path: Path, monkeypatch):

@@ -86,6 +86,7 @@ Benchmark 应检查：
 - scan report evidence visibility 可审计；`.ai/scan-report.md` 必须展示 Evidence、LLM Evidence Expansion、Evidence Coverage、Stack Evidence Validation、Scan Warnings、Risk Areas 和 Command Candidates。缺失章节、inventory evidence path、coverage selected path、evidence expansion detail、scan warning code、risk path 或 command confidence 时，`content:scan-report` 必须失败并保留具体 `missing_*` detail。
 - init summary evidence audit 可审计；`.ai/init-summary.md` 必须在 `## 扫描证据审计` 中摘要展示 evidence expansion requested/read paths、risk focus、confidence、read file count、rationale 和 coverage selected paths。缺失时 `content:init-summary` 必须失败并保留具体 `missing_summary_expansion_*` 或 `missing_summary_coverage_selected_path:*` detail。
 - project-context evidence context 可审计；`.ai/guides/project-context.md` 的 `## 来源证据` 必须保留 `ProjectInventory` 中的 evidence、documents、configs 和 CI 路径，`## LLM 证据扩展` 必须保留 `ScanMetadata.evidence_expansion` 的 requested/read paths、risk focus、confidence、read file count 和 rationale。缺失时 `content:project-context-evidence-context` 必须失败并保留具体 `missing_evidence_path:<path>`、`missing_llm_evidence_expansion_section` 或 `missing_expansion_*`。
+- Guide、Sensor、Workflow Skill 和 stack-specific Guide 的内容质量检查失败时，benchmark 必须保留具体 `missing` detail；例如缺失章节名、缺失 `.ai/skills/*/SKILL.md` 文件、缺失 skill marker、缺失 hard gate marker 或缺失 stack-specific weapon id。
 - scan risk path 在 Guide、Sensor 和 standard routing 之间一致；`ProjectInventory` 中的风险路径必须出现在 `.ai/guides/project-context.md`、`.ai/sensors/verification.md`，并以 `risk_area:<path>` trigger 或 rationale 进入 `.ai/harness-config.yaml` 的 `standard-escalation`。缺失时 `content:risk-context-consistency` 必须失败并保留具体 `missing_*_risk:<path>`。
 - hard gate command 有 source、confidence、type 和 gate 证据；source 必须指向目标仓库内真实存在的文件。source 为空、low confidence、source path 不存在或逃出仓库时，benchmark 必须让 `content:hard-gate-command-evidence` 失败，并在 `weak_commands` 中保留 command id、source、confidence 和 reason。
 - 显式 LLM review 命令生成的可选 review artifacts 在存在时必须被校验。它们不是 baseline required files，但 schema 错误、YAML/Markdown 缺少配对、跨文件引用无效或丢失 review-only 状态时，benchmark 应失败。
@@ -153,6 +154,7 @@ Sensor 不是孤立文件。它应该和以下产物一致：
 - scan report 缺少 evidence coverage、selected path、LLM evidence expansion、scan warning、risk area 或 command confidence 时 benchmark 失败并列出具体 missing detail。
 - init-summary 缺少 scan evidence audit 章节、LLM evidence expansion detail 或 coverage selected path 时 benchmark 失败并列出具体 missing detail。
 - project-context 缺少来源证据路径或 LLM evidence expansion 审计细节时 benchmark 失败并列出具体 missing detail。
+- Guide、Sensor、Workflow Skill 或 stack-specific Guide 内容质量失败时 benchmark 失败并列出具体 missing detail。
 - scan risk path 缺少 Guide、Sensor 或 routing 任一环时 benchmark 失败并列出具体路径。
 - hard gate command source 缺失、source path 不存在、source path 逃出仓库或 low confidence 时 benchmark 失败并列出失败摘要。
 - future runtime 中 skipped 不被当作 passed。
