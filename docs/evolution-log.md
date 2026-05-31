@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 扫描补充结构化决策契约
+
+- North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、Experience & Self-Improve、资产生成与审核接管。
+- init North Star 旅程阶段：扫描理解对齐、用户补充吸收、机器可读交互决策、写入前 Harness 设计预览。
+- Gap Analysis 摘要：当前 open todo 为空。本轮重新读取事实源后，scan / rules / workflow 的返回修改和即时反馈链路已经比较完整；但 `interaction-decisions.yaml` 对 scan 补充仍只记录 notes 和 primary stack override，结构化 `module` / `command` / `risk` 修正只散落在 project inventory、command catalog 或语义资产中。候选还包括 Workflow note review-only routing candidate 和 push 前 full regression；本轮选择先补齐扫描补充的机器决策契约。
+- 工程信任故事：作为后续 Self-Improve / 审计链路维护者，当 Harness Maintainer 在 guided `init` 中用 `module=...`、`command=...` 或 `risk=...` 修正扫描理解时，我可以在 `interaction-decisions.yaml` 中读取结构化的模块、验证命令、风险区域、影响范围和“用户补充待审，不是已验证扫描事实”的边界，从而稳定消费这些输入，而不是解析自由文本 notes 或误判它们已经由扫描证据验证。
+- 当前代码 gap：`ScanConfirmation` 没有结构化 modules / commands / risk_areas，也没有 scan impact scopes、review 状态或 fact effect；`accepted_interactive_decisions()` 无法把结构化 scan supplement 写入交互决策。
+- 关键决策 / 取舍：扩展 `ScanConfirmation` 默认兼容字段；根据补充类型写入 project inventory、command catalog、Sensors、workflow routing review、human-input-needed 和 maturity preview 等影响范围；有补充时统一标记 `pending_harness_maintainer_review` 与 `user_supplied_correction_review_required`。不从自然语言 notes 推断结构化补充，不修改正式 routing policy。
+- Assumptions / risks：结构化 scan correction 是高信号用户输入，适合进入机器契约；旧 `interaction-decisions.yaml` 通过默认值兼容；未来若要关闭 questionnaire follow-up，需要单独设计 resolved 状态。
+- 边界情况 / 失败模式：无 scan 补充时不制造 pending review；自然语言补充仍只作为 notes；本轮不执行 Runtime、不创建 `.ai/task-runs`、不改 LLM 或 benchmark。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 scan supplement contract，但当前返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮把已存在的结构化补充消费链路补成可审计机器契约，不改变资产生成语义；Workflow note routing candidate 继续保留为后续安全设计。
+- 可执行验收标准及验证方式：unit 测试覆盖 schema、writer 默认值、structured supplement impact contract 和 Markdown；guided integration 覆盖 `interaction-decisions.yaml` 中 modules / commands / risk_areas / impact scopes / review status / fact effect，并确认既有 inventory、command catalog、Guide、Sensor、init-summary 行为不退化。
+- 完成内容：`ScanConfirmation` 增加结构化 scan supplement 和 impact 字段；`accepted_interactive_decisions()` 接收并写入结构化 scan supplement；decision Markdown 展示 scan impact 和结构化补充；guided init 传入 `GuidedScanOverrides` 的 modules / commands / risk areas；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 unit / integration 测试 13 passed；完整 guided init integration 37 passed；`git diff --check` 通过；`scripts/test-fast.sh` 通过，384 passed。
+- Self-Harness Gate：`docs/engineering/init-workflow.md` 已同步稳定契约；README 暂不需要描述 schema 细节；`docs/todos/` 暂不新增。下一轮候选 gap：Workflow note review-only routing candidate 的安全设计、scan follow-up 被用户补充后的 resolved / still pending 状态、push 前 full regression / 远端同步。
+
 ## 2026-06-01 Guided Init 团队规则与 Workflow 返回修改提示
 
 - North Star 模块：CLI Experience、Maturity & Evolution、Workflow Toolkit、资产生成与审核接管。

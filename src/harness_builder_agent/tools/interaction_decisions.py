@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+from harness_builder_agent.schemas.command_catalog import CommandDefinition
 from harness_builder_agent.schemas.interaction_decision import (
     CandidateDecision,
     ContextConfirmation,
@@ -18,6 +19,13 @@ CONTEXT_IMPACT_SCOPES = [
     "human_input_needed",
     "guide_context",
     "review_only_team_context",
+]
+
+BASE_SCAN_IMPACT_SCOPES = [
+    "interaction_decisions",
+    "project_context",
+    "human_input_needed",
+    "maturity_preview",
 ]
 
 
@@ -42,6 +50,9 @@ def accepted_interactive_decisions(
     accept_candidates: bool = False,
     scan_notes: list[str] | None = None,
     primary_stack_override: str | None = None,
+    scan_modules: list[dict[str, str]] | None = None,
+    scan_commands: list[CommandDefinition] | None = None,
+    scan_risk_areas: list[dict[str, str]] | None = None,
     candidate_decisions: list[CandidateDecision] | None = None,
     workflow_confirmation: WorkflowConfirmation | None = None,
 ) -> InteractionDecisions:
@@ -61,7 +72,21 @@ def accepted_interactive_decisions(
         CandidateDecision(candidate_id=candidate_id, decision="accepted" if accept_candidates else "kept")
         for candidate_id in (candidate_ids or [])
     ]
-    scan_status = "amended" if (scan_notes or primary_stack_override) else "accepted"
+    scan_module_values = scan_modules or []
+    scan_command_values = scan_commands or []
+    scan_risk_values = scan_risk_areas or []
+    has_scan_supplement = bool(
+        scan_notes or primary_stack_override or scan_module_values or scan_command_values or scan_risk_values
+    )
+    scan_status = "amended" if has_scan_supplement else "accepted"
+    scan_impact_scopes = _scan_impact_scopes(
+        has_supplement=has_scan_supplement,
+        has_inventory_impact=bool(primary_stack_override or scan_module_values or scan_risk_values),
+        has_command_impact=bool(scan_command_values),
+        has_risk_impact=bool(scan_risk_values),
+    )
+    scan_review_status = "pending_harness_maintainer_review" if has_scan_supplement else "not_required"
+    scan_fact_effect = "user_supplied_correction_review_required" if has_scan_supplement else "not_applicable"
     return InteractionDecisions(
         mode="interactive",
         repo=RepoConfirmation(path=repo_path, confirmed=True),
@@ -69,6 +94,12 @@ def accepted_interactive_decisions(
             status=scan_status,
             primary_stack_override=primary_stack_override,
             notes=scan_notes or [],
+            modules=scan_module_values,
+            commands=scan_command_values,
+            risk_areas=scan_risk_values,
+            impact_scopes=scan_impact_scopes,
+            review_status=scan_review_status,
+            fact_effect=scan_fact_effect,
         ),
         context_confirmation=ContextConfirmation(
             status=context_status,
@@ -82,6 +113,25 @@ def accepted_interactive_decisions(
         workflow_confirmation=workflow_confirmation or WorkflowConfirmation(),
         final_confirmation=FinalConfirmation(status="confirmed"),
     )
+
+
+def _scan_impact_scopes(
+    *,
+    has_supplement: bool,
+    has_inventory_impact: bool,
+    has_command_impact: bool,
+    has_risk_impact: bool,
+) -> list[str]:
+    if not has_supplement:
+        return []
+    scopes = list(BASE_SCAN_IMPACT_SCOPES)
+    if has_inventory_impact:
+        scopes.append("project_inventory")
+    if has_command_impact:
+        scopes.extend(["command_catalog", "sensors"])
+    if has_risk_impact:
+        scopes.append("workflow_routing_review")
+    return list(dict.fromkeys(scopes))
 
 
 def apply_candidate_decisions(report: dict, decisions: InteractionDecisions) -> dict:
@@ -114,6 +164,18 @@ def interaction_decisions_markdown(decisions: InteractionDecisions) -> str:
         for item in decisions.candidate_decisions
     ] or ["- 无逐项 candidate 决策。"]
     scan_lines = decisions.scan_confirmation.notes or ["无"]
+    scan_module_lines = [
+        f"- `{item.get('path', '')}` ({item.get('kind', '')}, {item.get('name', '')})"
+        for item in decisions.scan_confirmation.modules
+    ] or ["- 无结构化模块补充。"]
+    scan_command_lines = [
+        f"- `{item.id}`: {item.command} ({item.type}, {item.gate}, source={item.source}, confidence={item.confidence})"
+        for item in decisions.scan_confirmation.commands
+    ] or ["- 无结构化命令补充。"]
+    scan_risk_lines = [
+        f"- `{item.get('path', '')}`: {item.get('reason', '')}"
+        for item in decisions.scan_confirmation.risk_areas
+    ] or ["- 无结构化风险补充。"]
     workflow_lines = decisions.workflow_confirmation.notes or ["无"]
     return (
         "# Interaction Decisions\n\n"
@@ -121,6 +183,9 @@ def interaction_decisions_markdown(decisions: InteractionDecisions) -> str:
         f"- repo_confirmed: {decisions.repo.confirmed}\n"
         f"- scan: {decisions.scan_confirmation.status}\n"
         f"- primary_stack_override: {decisions.scan_confirmation.primary_stack_override or '无'}\n"
+        f"- scan_impact_scopes: {', '.join(decisions.scan_confirmation.impact_scopes) or '无'}\n"
+        f"- scan_review_status: {decisions.scan_confirmation.review_status}\n"
+        f"- scan_fact_effect: {decisions.scan_confirmation.fact_effect}\n"
         f"- context: {decisions.context_confirmation.status}\n"
         f"- context_impact_scopes: {', '.join(decisions.context_confirmation.impact_scopes) or '无'}\n"
         f"- context_review_status: {decisions.context_confirmation.review_status}\n"
@@ -133,6 +198,14 @@ def interaction_decisions_markdown(decisions: InteractionDecisions) -> str:
         f"- final: {decisions.final_confirmation.status}\n\n"
         "## Scan Supplements\n\n"
         + "\n".join(f"- {item}" for item in scan_lines)
+        + "\n\n"
+        "## Scan Structured Supplements\n\n"
+        "### Modules\n\n"
+        + "\n".join(scan_module_lines)
+        + "\n\n### Commands\n\n"
+        + "\n".join(scan_command_lines)
+        + "\n\n### Risk Areas\n\n"
+        + "\n".join(scan_risk_lines)
         + "\n\n"
         "## Inline Context\n\n"
         + "\n".join(f"- {item}" for item in context_lines)

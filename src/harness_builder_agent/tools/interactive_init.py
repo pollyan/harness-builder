@@ -193,6 +193,9 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
         candidate_ids=candidate_ids,
         scan_notes=scan_overrides.notes,
         primary_stack_override=scan_overrides.primary_stack,
+        scan_modules=scan_overrides.modules,
+        scan_commands=scan_overrides.commands,
+        scan_risk_areas=scan_overrides.risk_areas,
         candidate_decisions=candidate_decisions,
         workflow_confirmation=workflow_confirmation,
     )

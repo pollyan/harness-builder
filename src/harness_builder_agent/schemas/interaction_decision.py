@@ -4,11 +4,25 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from harness_builder_agent.schemas.command_catalog import CommandDefinition
+
 InteractionMode = Literal["interactive", "non_interactive"]
 ScanConfirmationStatus = Literal["accepted", "amended", "needs_review", "not_confirmed"]
 ContextConfirmationStatus = Literal["confirmed", "partially_confirmed", "not_provided", "not_confirmed"]
 CandidateDecisionStatus = Literal["accepted", "rejected", "kept", "edited"]
 FinalConfirmationStatus = Literal["confirmed", "cancelled", "not_confirmed"]
+ScanImpactScope = Literal[
+    "interaction_decisions",
+    "project_inventory",
+    "command_catalog",
+    "project_context",
+    "sensors",
+    "workflow_routing_review",
+    "human_input_needed",
+    "maturity_preview",
+]
+ScanReviewStatus = Literal["pending_harness_maintainer_review", "not_required"]
+ScanFactEffect = Literal["user_supplied_correction_review_required", "not_applicable"]
 ContextImpactScope = Literal[
     "interaction_decisions",
     "project_context",
@@ -37,6 +51,12 @@ class ScanConfirmation(BaseModel):
     status: ScanConfirmationStatus = "not_confirmed"
     primary_stack_override: str | None = None
     notes: list[str] = Field(default_factory=list)
+    modules: list[dict[str, str]] = Field(default_factory=list)
+    commands: list[CommandDefinition] = Field(default_factory=list)
+    risk_areas: list[dict[str, str]] = Field(default_factory=list)
+    impact_scopes: list[ScanImpactScope] = Field(default_factory=list)
+    review_status: ScanReviewStatus = "not_required"
+    fact_effect: ScanFactEffect = "not_applicable"
 
 
 class ContextConfirmation(BaseModel):

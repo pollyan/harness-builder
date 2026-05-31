@@ -131,6 +131,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 - 结构化 scan 补充必须说明会影响 project inventory、command catalog、risk hints、Guides、Sensors 或写入前成熟度预览。
 - 自然语言 scan 补充必须明确标记为人工补充说明，进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`，不能伪装成扫描事实。
+- `interaction-decisions.yaml` 中的 `scan_confirmation` 必须在存在 `stack`、`module`、`command`、`risk` 或自然语言 scan 补充时记录机器可读的 `modules`、`commands`、`risk_areas`、`impact_scopes`、`review_status=pending_harness_maintainer_review` 和 `fact_effect=user_supplied_correction_review_required`；无 scan 补充时必须保持空结构化字段、`review_status=not_required` 和 `fact_effect=not_applicable`，避免后续 self-improve 或审计把用户补充误判为已由扫描 evidence 验证的事实。
 - scan 补充的即时复述必须发生在 `_apply_scan_overrides()` 更新内存态 inventory / command catalog 之后，让用户知道后续 weapon selection、maturity preview 和正式资产生成将基于已吸收的补充继续推进。
 - 用户在最终确认阶段返回 scan 重新输入补充时，新的 scan 补充必须替换上一版 scan 补充，而不是叠加旧 module / command / risk 到正式 project inventory 或 command catalog；最终 `.ai` 资产只能保留最新 scan 修正。
 - 用户在最终确认阶段返回 scan 且上一版 scan 补充非空时，CLI 必须明确说明新输入会替换上一版补充，直接回车会清空上一版补充；如果用户输入新的 scan 补充，CLI 必须输出“上一版补充 / 当前生效补充”的替换结果，说明最终写入只会使用当前生效补充；如果用户直接回车清空旧补充，CLI 必须输出可见确认，说明后续预览和正式资产会按扫描基线继续。

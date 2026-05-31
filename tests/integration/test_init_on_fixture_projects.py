@@ -1134,6 +1134,26 @@ def test_guided_init_structured_scan_corrections_update_modules_commands_and_ris
     assert any("frontend 还包含批处理入口" in note for note in inventory["stack_extensions"]["human_overrides"]["scan_notes"])
     catalog = yaml.safe_load((repo / ".ai" / "command-catalog.yaml").read_text(encoding="utf-8"))
     assert any(command["id"] == "frontend_test" and command["command"] == "npm test" for command in catalog["commands"])
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["scan_confirmation"]["status"] == "amended"
+    assert decisions["scan_confirmation"]["modules"] == [{"path": "frontend", "kind": "frontend", "name": "frontend"}]
+    assert decisions["scan_confirmation"]["commands"][0]["id"] == "frontend_test"
+    assert decisions["scan_confirmation"]["commands"][0]["source"] == "frontend/package.json"
+    assert decisions["scan_confirmation"]["risk_areas"] == [
+        {"path": "frontend/package.json", "reason": "前端依赖需要单独确认"}
+    ]
+    assert decisions["scan_confirmation"]["impact_scopes"] == [
+        "interaction_decisions",
+        "project_context",
+        "human_input_needed",
+        "maturity_preview",
+        "project_inventory",
+        "command_catalog",
+        "sensors",
+        "workflow_routing_review",
+    ]
+    assert decisions["scan_confirmation"]["review_status"] == "pending_harness_maintainer_review"
+    assert decisions["scan_confirmation"]["fact_effect"] == "user_supplied_correction_review_required"
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
     assert "frontend" in project_context
     assert "frontend/package.json" in project_context
