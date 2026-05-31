@@ -44,6 +44,7 @@ scripts/test-full.sh
 
 ## 提交与 CI 规则
 
+- Codex 的本地 commit message 必须使用中文；`docs/superpowers/specs/`、`docs/superpowers/plans/` 和 `docs/evolution-log.md` 等过程文档也必须用中文撰写。
 - Codex 在创建 git commit 前，必须先主动运行快速回归：`scripts/test-fast.sh`。
 - Codex 在 push 到 GitHub 前，必须先主动运行本地全量回归：`scripts/test-full.sh`。
 - 如果本地缺少 `.venv/bin/python`，可以使用当前环境中的 `python -m pytest -q`，但必须在回复中说明。
