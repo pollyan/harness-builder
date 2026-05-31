@@ -39,3 +39,26 @@ def test_build_questionnaire_includes_context_guides_sensors_and_warnings():
     assert "高风险" in high_risk_question["question"]
     assert "API key" in high_risk_question["reason"]
     Questionnaire.model_validate(questionnaire)
+
+
+def test_build_questionnaire_includes_low_confidence_evidence_expansion():
+    questionnaire = build_questionnaire(
+        context_inputs={"schema_version": "1.0", "contexts": []},
+        scan_metadata={
+            "warnings": [],
+            "evidence_expansion": {
+                "requested_paths": ["src/auth/AuthService.py"],
+                "risk_focus": ["auth flow"],
+                "rationale": "Auth code was not sampled.",
+                "confidence": "low",
+                "read_paths": ["src/auth/AuthService.py"],
+                "read_file_count": 1,
+            },
+        },
+    )
+
+    question = next(item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:evidence-expansion")
+    assert question["interaction_type"] == "evidence_expansion_confirmation"
+    assert "src/auth/AuthService.py" in question["question"]
+    assert "Auth code was not sampled." in question["reason"]
+    Questionnaire.model_validate(questionnaire)

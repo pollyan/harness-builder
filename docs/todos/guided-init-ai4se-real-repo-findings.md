@@ -17,6 +17,7 @@
   - `2026-05-31 成熟度叙事中文化`：`MaturityReport` 源头的 blocker、evidence summary、next level requirement 和 blocking cap 改为中文；`maturity-report.md` 使用中文维度标签和“证据 / 阻断”展示标签，guided CLI 不再泄漏已知英文 maturity blocker。
   - `2026-06-01 LLM 规划式深度扫描 Manifest 语义增强`：全量轻量 `files[]` manifest 为每个文件保留 bucket、priority、reason，让 LLM evidence planner 在 coverage gap 下能主动选择未采样但高价值的风险、入口、测试或业务文件深度读取；仍不无限制读取全仓。
   - `2026-06-01 LLM Evidence Plan 可审计`：`.ai/scan-metadata.yaml` 通过 `evidence_expansion` 记录 planner prompt version、requested paths、risk focus、rationale、planner confidence、实际读取 paths 和读取文件数量；planner 低置信度会进入 warning 和 human confirmation 信号。
+  - `2026-06-01 Guided Init LLM Evidence Plan 可见化`：首次 guided `init` 在扫描发现阶段展示“LLM 深度补充”，说明 planner 补读路径、关注原因、规划说明、实际读取结果和置信度；planner 低置信度进入 `confirm:evidence-expansion` 待确认项和 `human-input-needed.md`。
 - 剩余 LLM-planned deep scan 仍保持 open。
 
 ## 背景

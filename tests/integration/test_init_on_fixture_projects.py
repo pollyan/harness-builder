@@ -14,6 +14,7 @@ from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
+from harness_builder_agent.schemas.human_confirmation import Questionnaire
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
@@ -717,6 +718,60 @@ def test_guided_init_groups_scan_risks_uncertainties_and_validation_gaps(tmp_pat
     assert "确认高风险线索是否确认为风险边界" in result.output
     assert result.output.index("\n风险区域") < result.output.index("\n团队规则")
     assert result.output.index("高风险，需人工确认") < result.output.index("\n团队规则")
+
+
+def test_guided_init_shows_llm_evidence_expansion_summary_and_confirmation(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+
+    def scan_with_evidence_expansion(repo_path: Path):
+        inventory = ProjectInventory(
+            repo_name=repo_path.name,
+            root_path=str(repo_path),
+            primary_stack="java-spring",
+            stacks=["java", "spring-boot"],
+            modules=[{"name": "app", "path": ".", "kind": "backend"}],
+            evidence=[{"path": "pom.xml", "reason": "build config"}],
+            stack_extensions={
+                "scan_metadata": {
+                    "evidence_expansion": {
+                        "schema_version": "1.0",
+                        "planner_prompt_version": "llm-evidence-plan-v1",
+                        "requested_paths": ["src/main/java/com/example/AuthService.java"],
+                        "risk_focus": ["auth flow"],
+                        "rationale": "认证逻辑未进入初始源码摘要。",
+                        "confidence": "low",
+                        "read_paths": ["src/main/java/com/example/AuthService.java"],
+                        "read_file_count": 1,
+                    }
+                }
+            },
+        )
+        commands = CommandCatalog(commands=[])
+        return inventory, commands
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", scan_with_evidence_expansion)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="\n\n\n\n\n\n\nconfirm\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "LLM 深度补充" in result.output
+    assert "src/main/java/com/example/AuthService.java" in result.output
+    assert "auth flow" in result.output
+    assert "认证逻辑未进入初始源码摘要" in result.output
+    assert "置信度：low" in result.output
+
+    questionnaire = yaml.safe_load((repo / ".ai" / "questionnaire.yaml").read_text(encoding="utf-8"))
+    Questionnaire.model_validate(questionnaire)
+    ids = {item["interaction_id"] for item in questionnaire["questions"]}
+    assert "confirm:evidence-expansion" in ids
+    human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
+    assert "confirm:evidence-expansion" in human_input
+    assert "src/main/java/com/example/AuthService.java" in human_input
 
 
 def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):

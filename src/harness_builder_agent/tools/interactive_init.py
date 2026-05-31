@@ -262,6 +262,8 @@ def _show_scan_findings(inventory: ProjectInventory, commands: CommandCatalog) -
 
 
 def _show_scan_attention_summary(inventory: ProjectInventory, commands: CommandCatalog) -> None:
+    _show_llm_evidence_expansion(inventory)
+
     typer.echo("\n风险区域")
     for line in _risk_attention_lines(inventory):
         typer.echo(f"- {line}")
@@ -277,6 +279,53 @@ def _show_scan_attention_summary(inventory: ProjectInventory, commands: CommandC
     typer.echo("\n建议补充")
     for line in _human_followup_lines(inventory, commands):
         typer.echo(f"- {line}")
+
+
+def _show_llm_evidence_expansion(inventory: ProjectInventory) -> None:
+    expansion = _evidence_expansion(inventory)
+    if expansion is None:
+        return
+
+    typer.echo("\nLLM 深度补充")
+    requested = _format_cli_items(expansion.get("requested_paths"))
+    focus = _format_cli_items(expansion.get("risk_focus"))
+    read_paths = _format_cli_items(expansion.get("read_paths"))
+    rationale = str(expansion.get("rationale") or "未提供规划说明。")
+    confidence = str(expansion.get("confidence") or "unknown")
+
+    typer.echo(f"- LLM 规划补读：{requested}")
+    typer.echo(f"- 关注原因：{focus}")
+    typer.echo(f"- 规划说明：{rationale}")
+    if _list_items(expansion.get("read_paths")):
+        typer.echo(f"- 实际读取：{read_paths}")
+    else:
+        typer.echo("- 实际读取：未读取到补充文件；请确认关键路径是否被遗漏或需要人工补充。")
+    if confidence == "low":
+        typer.echo(f"- 置信度：{confidence}，需要人工确认这些文件是否代表真实关键路径或风险边界。")
+    else:
+        typer.echo(f"- 置信度：{confidence}")
+
+
+def _evidence_expansion(inventory: ProjectInventory) -> dict[str, object] | None:
+    extensions = inventory.stack_extensions if isinstance(inventory.stack_extensions, dict) else {}
+    scan_metadata = extensions.get("scan_metadata")
+    if not isinstance(scan_metadata, dict):
+        return None
+    expansion = scan_metadata.get("evidence_expansion")
+    return expansion if isinstance(expansion, dict) else None
+
+
+def _format_cli_items(value: object) -> str:
+    items = _list_items(value)
+    if not items:
+        return "无"
+    return "、".join(f"`{item}`" for item in items[:5])
+
+
+def _list_items(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if item]
 
 
 def _show_scan_maturity_snapshot(repo: Path, inventory: ProjectInventory, commands: CommandCatalog) -> None:

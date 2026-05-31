@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init LLM Evidence Plan 可见化
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：Scanner & Analyzer、CLI Experience、Progressive Collaboration、Maturity & Evolution、智能化闭环。
+- init North Star 旅程阶段：阶段化扫描与进度反馈、扫描结果友好呈现、深度追问、可审计 evidence。
+- Gap Analysis 摘要：上一轮已把 `evidence_expansion` 写入 `.ai/scan-metadata.yaml`，但首次 guided `init` 主界面仍不解释 LLM 为什么补读哪些文件、实际读到哪些文件、planner 低置信度为什么需要人工确认；子代理建议下一步优先处理 coverage gap / conflict / unknown 后的补救和 targeted 追问，本轮选取其中低风险且可独立验收的 planner low-confidence targeted confirmation 切片。
+- 用户故事：作为 Harness Maintainer，当大型或多栈仓库首次 guided `init` 触发 LLM-guided evidence expansion 时，我可以在扫描发现阶段看到 LLM 补读了哪些文件、为什么补读、实际读到了哪些文件，以及低置信度补读计划为何需要人工确认，从而在补充上下文前校准扫描理解和风险边界。
+- 当前代码 gap：`interactive_init.py` 只展示通用风险、不确定性和验证缺口；`human_confirmation.py` 会把 scan warning 转成确认项，但没有专门的 evidence expansion 交互类型，导致 planner 低置信度缺少可读的问题表达。
+- 关键决策 / 取舍：新增 CLI “LLM 深度补充”分组；新增 `evidence_expansion_confirmation` questionnaire 类型和稳定 `confirm:evidence-expansion` id；本轮不做二次 LLM self-check、不扩大读取预算、不调整 planner prompt 或 benchmark scoring。
+- Assumptions / risks：planner rationale 可能来自真实 LLM，后续如出现英文或过长表达，再通过 prompt 或渲染层继续收紧；旧 scan metadata 没有 `evidence_expansion` 时不输出空分组。
+- Sub agent 使用情况：使用 explorer 子代理只读调研下一轮 gap；采纳其 P0 中“targeted 追问触发”的方向，但把更大的二次 self-check / claim-level validation 留作下一轮候选。
+- 价值切分说明：本轮完成“planner metadata -> CLI 可见解释 -> low confidence 待确认资产”的用户可见闭环，不把 claim validation、二次 self-check 和 schema hardening 混入同一 milestone。
+- 验收标准及验证方式：integration 覆盖 guided CLI 输出 `LLM 深度补充`、路径、关注原因、rationale 和 low confidence；unit 覆盖 low-confidence evidence expansion 生成 questionnaire；schema unit 覆盖新 interaction type；文档和 todo 同步契约。
+- 完成内容：`QuestionnaireQuestion` 支持 `evidence_expansion_confirmation`；`build_questionnaire()` 将 low-confidence planner 转成 `confirm:evidence-expansion`；guided CLI 展示 planner requested/read paths、risk focus、rationale 和 confidence；同步 spec、plan、工程文档和 todo。
+- Self-Harness Gate：剩余 LLM-planned deep scan 仍 open。下一轮候选 gap 优先考虑子代理提出的 coverage gap / conflict / unknown 二次 self-check 或 targeted scan，再考虑 claim-level support/conflict/unknown validation 和 `LLMScanProposal` 结构化 hardening。
+
 ## 2026-06-01 LLM Evidence Plan 可审计
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

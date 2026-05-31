@@ -96,6 +96,26 @@ def test_questionnaire_rejects_unknown_interaction_type():
         )
 
 
+def test_questionnaire_accepts_evidence_expansion_confirmation():
+    payload = {
+        "schema_version": "1.0",
+        "questions": [
+            {
+                "interaction_type": "evidence_expansion_confirmation",
+                "interaction_id": "confirm:evidence-expansion",
+                "question": "LLM 深度补充读取的路径是否代表真实关键模块或风险边界？",
+                "options": ["确认这些路径可作为关键 evidence", "人工补充或修正关键路径"],
+                "confidence": "low",
+                "reason": "规划原因：Auth code was not sampled.",
+            }
+        ],
+    }
+
+    questionnaire = Questionnaire.model_validate(payload)
+
+    assert questionnaire.questions[0].interaction_type == "evidence_expansion_confirmation"
+
+
 def test_evidence_bundle_records_priority_buckets_and_coverage():
     bundle = EvidenceBundle(
         repo_name="large-repo",

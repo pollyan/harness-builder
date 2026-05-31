@@ -73,6 +73,22 @@ def build_questionnaire(
                 "reason": f"{signal.confirmation_reason} 扫描原因：{signal.reason}",
             }
         )
+    evidence_expansion = scan_metadata.get("evidence_expansion")
+    if isinstance(evidence_expansion, dict) and evidence_expansion.get("confidence") == "low":
+        requested = _format_items(evidence_expansion.get("requested_paths", []))
+        read = _format_items(evidence_expansion.get("read_paths", []))
+        focus = _format_items(evidence_expansion.get("risk_focus", []))
+        rationale = str(evidence_expansion.get("rationale") or "LLM evidence planner 标记补读计划置信度较低。")
+        questions.append(
+            {
+                "interaction_type": "evidence_expansion_confirmation",
+                "interaction_id": "confirm:evidence-expansion",
+                "question": f"LLM 深度补充读取的路径是否代表真实关键模块或风险边界？{requested}",
+                "options": ["确认这些路径可作为关键 evidence", "人工补充或修正关键路径"],
+                "confidence": "low",
+                "reason": f"规划原因：{rationale}；关注点：{focus}；实际读取：{read}",
+            }
+        )
     for warning in scan_metadata.get("warnings", []):
         code = warning.get("code", "unknown")
         questions.append(
@@ -86,6 +102,12 @@ def build_questionnaire(
             }
         )
     return Questionnaire(questions=questions).model_dump(mode="json")
+
+
+def _format_items(value: Any) -> str:
+    if not isinstance(value, list) or not value:
+        return "无"
+    return "、".join(f"`{item}`" for item in value[:5])
 
 
 def human_input_markdown(context_inputs: dict[str, Any], questionnaire: dict[str, Any], decision_markdown: str = "") -> str:
