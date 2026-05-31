@@ -17,6 +17,7 @@
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `self-improve` 显式生成 review-only 自改进审查包，串联 maturity review 和 asset candidates，不执行 Runtime 或应用正式资产。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时展示分项 Experience / review signals，包括 pending improvements、asset candidates、candidate governance、maturity reviews、workflow recommendations、runtime task runs、self-improve package、human-input-needed 和 schema/content failed checks。
 - 已完成切片：默认 guided `init` 检测已有 workflow recommendation history 时展示最新 recommendation 的 task、workflow、risk、review status 和 source；旧 Harness 无 history index 时兼容 latest recommendation 文件。
+- 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时展示 Maintenance triage top actions，把 benchmark、候选治理、workflow recommendation 和 pending improvements 等信号排序为最多 3 条下一步维护动作。
 - 相关命令：`harness-builder-agent init`、`assess`、`improve`、`benchmark`、`recommend-workflow`、`self-improve`
 - 相关工程规则：`docs/engineering/init-workflow.md`、`docs/engineering/testing-strategy.md`、`docs/engineering/architecture.md`
 - 相关产品方向：`docs/strategy/Harness Builder — 面向遗留代码库治理的 AI Coding Harness 生成器.md`
@@ -46,7 +47,7 @@
 
 - 用户仍需要理解哪些动作只是 review-only，哪些专家命令可能应用正式资产。
 - 首次 `init` 已有完成摘要和 benchmark readiness，但还没有在写入前后形成可选立即运行 benchmark 的交互节奏。
-- 再次执行 `init` 已具备主要维护动作、单个 Guide / Sensor 候选 applied 闭环、guided apply 前 diff / summary 和 latest workflow recommendation history signal，但还缺少更完整的候选列表浏览、完整 recommendation 历史浏览和更明确的 schema / contract 修复引导。
+- 再次执行 `init` 已具备主要维护动作、单个 Guide / Sensor 候选 applied 闭环、guided apply 前 diff / summary、latest workflow recommendation history signal 和 Maintenance triage top actions，但还缺少更完整的候选列表浏览、完整 recommendation 历史浏览和更明确的 schema / contract 修复引导。
 - 底层专家命令的能力和普通用户向导旅程之间仍需要进一步压缩认知负担。
 
 ## 产品判断

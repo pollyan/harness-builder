@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Existing Harness Maintenance Triage
+
+- North Star 模块：CLI Experience、Maturity & Evolution、Experience & Self-Improve、Benchmark / Review Intelligence。
+- Gap Analysis 摘要：已有 Harness 维护入口已经展示成熟度、benchmark 和 Experience / review signals，但仍偏计数面板。Maintainer 需要自己理解 `pending_improvements`、`asset_candidates`、`workflow_recommendations`、`schema_content_failed_checks` 的优先级和命令顺序，才能决定下一步。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 进入已有 Harness 维护入口时，我可以直接看到当前最该处理的 3 个维护动作、每个动作的原因、来源文件和对应菜单动作，从而不用从一组计数里自行推断下一步。
+- 当前代码 gap：`interactive_init.py` 的 `_experience_status_lines()` 已分项展示信号，但没有形成 top action、reason、source 和 next action；状态摘要与菜单之间缺少动作路由层。
+- 决策：新增只读 `maintenance_triage.py` helper，基于 `MaturityReport`、`BenchmarkReport` 和 `ExperienceIndex` 生成最多 3 个 `MaintenanceAction`；不新增持久化 `.ai` 产物和 schema。
+- 决策：优先级为 maturity 缺失、benchmark 未运行、schema/content benchmark 失败、候选未治理、workflow recommendation 待转化、pending improvements 需要 self-improve package；没有待处理信号时建议 `recommend-workflow`。
+- Assumptions / risks：`asset_candidate_count > candidate_governance_decision_count` 只是第一版 pending 近似；后续可按 candidate id 计算 unresolved。workflow recommendation 只代表待 review routing signal，不能解释为已应用 policy。
+- 边界与失败模式：triage 不执行动作、不刷新 Experience index、不覆盖正式资产、不重新计算成熟度；schema 错误继续显式失败，不降级成 missing。
+- Sub agent 使用：使用 explorer 子代理只读审计 existing-Harness 状态信号来源、Top 3 action 优先级、测试位置和是否需要新 schema；结论支持第一版只读 console triage，不新增 schema。
+- 价值切分：本轮服务“回到已有 Harness 后知道下一步做什么”的用户价值，不是单纯增加字段或菜单项。
+- 可执行验收标准及验证方式：unit 覆盖 benchmark/schema-content 优先于候选治理和 workflow recommendation、benchmark missing、no pending fallback；integration 覆盖 existing-Harness `init -> exit` 输出 Maintenance triage 且不覆盖正式资产。
+- 完成内容：新增 `MaintenanceAction` triage helper；guided existing-Harness entry 在 Experience signals 后输出 Maintenance triage；README、init workflow、todo、spec/plan 和演进记录同步。
+- 验证结果：RED targeted failed with missing `maintenance_triage` module；GREEN targeted unit + integration passed；fast regression 见提交前验证。
+- Self-Harness Gate：本轮未新增机器产物契约；长期 init 工作流规则已同步。下一轮候选 gap：workflow recommendation 到 routing policy 的 guided 治理闭环、self-improve candidate lifecycle/maturity delta、或真实 acceptance 验证 LLM-guided evidence expansion。
+
 ## 2026-05-31 LLM-Guided Evidence Expansion
 
 - North Star 模块：Scanner & Analyzer、Prompt Contract、Maturity & Evolution、智能化职责边界。

@@ -531,6 +531,11 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert "已存在 Harness" in result.output
     assert "当前成熟度" in result.output
     assert "Experience / review signals" in result.output
+    assert "Maintenance triage" in result.output
+    assert "top_action_1=benchmark" in result.output
+    assert "reason=benchmark_not_run" in result.output
+    assert "source=.ai/benchmark-report.yaml" in result.output
+    assert "next=benchmark" in result.output
     assert "pending_improvements=" in result.output
     assert "asset_candidates=" in result.output
     assert "candidate_governance=" in result.output

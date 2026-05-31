@@ -28,6 +28,7 @@ from harness_builder_agent.tools.generate_improvements import generate_improveme
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
+from harness_builder_agent.tools.maintenance_triage import build_maintenance_triage, render_maintenance_triage_lines
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.self_improve import run_self_improve
@@ -199,6 +200,9 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo(f"- 最近 benchmark：{benchmark}")
     typer.echo("- Experience / review signals:")
     for line in experience_lines:
+        typer.echo(f"  - {line}")
+    typer.echo("- Maintenance triage:")
+    for line in render_maintenance_triage_lines(build_maintenance_triage(ai, score)):
         typer.echo(f"  - {line}")
     typer.echo("\n可选动作")
     typer.echo("- exit：退出，不覆盖现有 Harness。")
