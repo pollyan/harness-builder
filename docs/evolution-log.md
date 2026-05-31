@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init Scan 返回修改替换补充
+
+- North Star 模块：CLI Experience、Deep Scan Evidence、资产生成与审核接管。
+- init North Star 旅程阶段：扫描理解对齐、用户补充吸收、最终确认返回修改、正式资产写入。
+- Gap Analysis 摘要：当前 open todo 为空。本轮重新读取事实源后发现 `back -> scan` 虽然会重新收集 scan 补充，`interaction-decisions.yaml` 也只记录最新 `scan_overrides`，但 `_apply_scan_overrides()` 会直接追加到已经变异的 `inventory / commands`，导致用户撤销或替换的旧 module / command / risk 仍可能进入 project inventory、command catalog、Guides、Sensors 和 init summary。候选还包括清空补充边界、scan diff preview、Workflow note schema / routing candidate；本轮选择资产正确性更强的 scan override 替换语义。
+- 用户故事：作为 Harness Maintainer，当我在最终确认阶段发现扫描补充写错并返回 `scan` 重新输入模块、验证命令或风险区域时，我可以确信最终生成的 project inventory、command catalog、Guides、Sensors 和 init summary 只包含最新补充，而不会继续保留已经撤销的旧补充，从而避免错误扫描事实污染正式 Harness 资产。
+- 当前代码 gap：scan 完成后没有保留 clean baseline；初次补充和返回 scan 都在当前内存态上追加，旧补充无法被替换。
+- 关键决策 / 取舍：扫描完成后保存 `base_inventory` / `base_commands` 深拷贝；每次应用 scan overrides 都从 baseline 深拷贝后重新应用最新补充；不新增 schema，不改 writer，不增加 scan diff preview 文案。
+- Assumptions / risks：返回 scan 重新输入表达“替换上一版 scan corrections”，与 rules / workflow 返回修改语义一致；如果未来需要累计多轮补充，应显式设计 add/remove/diff 交互。
+- 边界情况 / 失败模式：返回 scan 后直接回车会清空旧 scan 补充并回到扫描基线；本轮未单独加清空测试，但实现语义支持；本轮不执行 Runtime、不创建 `.ai/task-runs`、不默认运行 benchmark。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer，但当前返回 `agent thread limit reached`，未能使用子代理；主线程完成调研与验证。
+- 价值切分说明：本轮修复 scan 补充返回修改的正式资产正确性；CLI diff preview 和更复杂的累计补充模型留给后续 Gap Analysis。
+- 可执行验收标准及验证方式：新增 integration 测试先证明旧 `legacy` module / command / risk 会残留，再修复为最终 `project-inventory.json`、`command-catalog.yaml`、project-context、verification sensor 和 init-summary 只包含最新 `final` 补充。
+- 完成内容：`interactive_init.py` 增加基线深拷贝和 `_scan_state_with_overrides()`；`back -> scan` 基于 clean baseline 展示和收集补充；`docs/engineering/init-workflow.md` 固化替换语义；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 integration 测试通过；commit 前 fast regression 见本轮提交前验证。
+- Self-Harness Gate：README 当前只概述 `back` 返回修改，不细化 scan override 替换语义，暂不更新；`docs/todos/` 暂不新增。下一轮候选 gap：back -> scan 直接回车清空补充测试、scan correction diff preview、Workflow note 结构化 impact schema、或 push 前 full regression 先决条件。
+
 ## 2026-06-01 Guided Init Workflow 补充返回修改
 
 - North Star 模块：CLI Experience、Workflow Toolkit、资产生成与审核接管。

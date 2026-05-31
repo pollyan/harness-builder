@@ -1216,6 +1216,58 @@ def test_guided_init_final_summary_can_go_back_to_workflow_note(tmp_path: Path, 
     assert "初始 Workflow 说明需要修改" not in human_input
 
 
+def test_guided_init_final_summary_back_to_scan_replaces_previous_corrections(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "module=legacy|backend|legacy; command=legacy_test|make legacy-test|test|hard|legacy/Makefile|high; risk=legacy|旧风险\n"
+            "\n"
+            "\n\n\n"
+            "\n"
+            "back\n"
+            "scan\n"
+            "module=final|backend|final; command=final_test|make final-test|test|hard|Makefile|high; risk=final|最终风险\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
+    assert {"name": "final", "path": "final", "kind": "backend"} in inventory["modules"]
+    assert {"name": "legacy", "path": "legacy", "kind": "backend"} not in inventory["modules"]
+    assert {"path": "final", "reason": "最终风险"} in inventory["stack_extensions"]["risk_areas"]
+    assert {"path": "legacy", "reason": "旧风险"} not in inventory["stack_extensions"]["risk_areas"]
+    assert inventory["stack_extensions"]["human_overrides"]["modules"] == [
+        {"path": "final", "kind": "backend", "name": "final"}
+    ]
+    assert inventory["stack_extensions"]["human_overrides"]["risk_areas"] == [{"path": "final", "reason": "最终风险"}]
+
+    catalog = yaml.safe_load((repo / ".ai" / "command-catalog.yaml").read_text(encoding="utf-8"))
+    command_ids = {command["id"] for command in catalog["commands"]}
+    assert "final_test" in command_ids
+    assert "legacy_test" not in command_ids
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert any("final" in note for note in decisions["scan_confirmation"]["notes"])
+    assert all("legacy" not in note for note in decisions["scan_confirmation"]["notes"])
+
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    verification = (repo / ".ai" / "sensors" / "verification.md").read_text(encoding="utf-8")
+    init_summary = (repo / ".ai" / "init-summary.md").read_text(encoding="utf-8")
+    for content in (project_context, verification, init_summary):
+        assert "final" in content
+        assert "最终风险" in content
+        assert "legacy" not in content
+        assert "旧风险" not in content
+        assert "make legacy-test" not in content
+    assert "make final-test" in verification
+
+
 def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))

@@ -114,12 +114,14 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
         {"primary_stack": inventory.primary_stack, "stacks": inventory.stacks, "command_count": len(commands.commands)},
     )
     _show_scan_progress_completed(inventory, commands)
+    base_inventory = inventory.model_copy(deep=True)
+    base_commands = commands.model_copy(deep=True)
 
     scan_overrides = GuidedScanOverrides()
     _show_scan_findings(inventory, commands)
     _show_scan_maturity_snapshot(repo, inventory, commands)
     scan_overrides = _collect_scan_supplement(inventory)
-    _apply_scan_overrides(inventory, commands, scan_overrides)
+    inventory, commands = _scan_state_with_overrides(base_inventory, base_commands, scan_overrides)
     _show_scan_supplement_immediate_summary(scan_overrides)
 
     inline_contexts: list[str] = _collect_team_rules()
@@ -147,9 +149,10 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             trace.finish("failed", {"cancelled": True})
             raise typer.Abort()
         if action == "scan":
-            _show_scan_findings(inventory, commands)
-            scan_overrides = _collect_scan_supplement(inventory)
-            _apply_scan_overrides(inventory, commands, scan_overrides)
+            _show_scan_findings(base_inventory, base_commands)
+            _show_scan_maturity_snapshot(repo, base_inventory, base_commands)
+            scan_overrides = _collect_scan_supplement(base_inventory)
+            inventory, commands = _scan_state_with_overrides(base_inventory, base_commands, scan_overrides)
             _show_scan_supplement_immediate_summary(scan_overrides)
             weapon_selection = select_weapon_library(inventory, commands)
             candidate_report = build_llm_enhancement_candidates(inventory, commands)
@@ -1984,6 +1987,17 @@ def _apply_scan_overrides(
         human_overrides["risk_areas"] = scan_overrides.risk_areas
     if human_overrides:
         inventory.stack_extensions["human_overrides"] = human_overrides
+
+
+def _scan_state_with_overrides(
+    base_inventory: ProjectInventory,
+    base_commands: CommandCatalog,
+    scan_overrides: GuidedScanOverrides,
+) -> tuple[ProjectInventory, CommandCatalog]:
+    inventory = base_inventory.model_copy(deep=True)
+    commands = base_commands.model_copy(deep=True)
+    _apply_scan_overrides(inventory, commands, scan_overrides)
+    return inventory, commands
 
 
 def _stack_label(stack: str) -> str:
