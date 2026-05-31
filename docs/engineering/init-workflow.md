@@ -108,6 +108,20 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/context-inputs.yaml`
 - `.ai/questionnaire.yaml`
 - `.ai/interaction-decisions.yaml`
+- `.ai/maturity-evidence.yaml`
+- `.ai/experience/experience-index.yaml`
+
+其中 `.ai/context-inputs.yaml` 和 `.ai/questionnaire.yaml` 是人机确认流程的机器消费契约，必须分别通过 `ContextInputs` 和 `Questionnaire` schema 校验；`questionnaire` 必须保留稳定的 interaction id，供 benchmark 和后续人工确认流程引用。
+
+其中 `.ai/maturity-evidence.yaml` 是成熟度评估和后续 LLM maturity reviewer 的确定性输入摘要，必须汇总 inventory、command catalog、Harness assets、generation trace、experience、benchmark 和可选 Runtime task-run 可用性。Harness assets evidence 必须包含 workflow routing rule 明细，包括 rule id、selected workflow、task type hints、triggers、required guides、required sensors、human confirmation 和 rationale，便于 LLM review / asset candidate generation 基于路由策略做语义判断。Experience evidence 应优先消费 `.ai/experience/experience-index.yaml`，以暴露 pending improvement、asset candidate、maturity review、workflow recommendation review 和 Runtime task-run 统计，并保留对应 source path / kind / item_count 明细；如果显式运行 `summarize-experience` 后存在 `.ai/experience/experience-summary.yaml`，还必须记录 Experience Summary 可用性和 finding 数量；对旧版本生成且尚无 index 的 Harness，可保留只读取 `.ai/experience/pending-improvements.md` 的兼容路径。
+
+其中 `.ai/experience/experience-index.yaml` 是 Experience 资产的机器消费索引，必须记录已存在的 Experience Markdown、pending improvement 数量、asset candidate 数量、maturity review 数量、可选 `.ai/review/workflow-routing-recommendation.yaml` 数量和可选 Runtime task-run 数量。它由 Builder 在初始化、`improve`、候选资产生成和 Experience Summary 后刷新；Builder 只统计 `.ai/task-runs` 的宿主 Runtime 过程数据，不主动生成该目录。
+
+成熟度评分中的 Experience 维度应优先消费 `.ai/experience/experience-index.yaml` 的结构化计数，包括 workflow recommendation review 计数；旧版本 Harness 缺少 index 时才使用 pending improvement 文件存在性作为兼容判断。
+
+`improve` 应把非零 workflow recommendation review 计数转成待审核的 `workflow_policy_update` 候选，指向 `.ai/harness-config.yaml`；不得直接修改正式 routing policy。
+
+`recommend-workflow` 写出 `.ai/review/workflow-routing-recommendation.*` 后，必须刷新 `.ai/experience/experience-index.yaml`、`.ai/maturity-score.yaml` 和 `.ai/maturity-evidence.yaml`，让推荐证据立即进入后续 maturity / improve 链路；该刷新不能生成 `.ai/task-runs`，也不能应用正式 routing policy 变更。
 
 必须生成的语义上下文产物：
 
@@ -122,11 +136,27 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/guides/task-templates/lightweight-feature.md`
 - `.ai/sensors/verification.md`
 - `.ai/sensors/test-strategy.md`
+- `.ai/experience/project-experience.md`
+- `.ai/experience/repair-patterns.md`
+- `.ai/experience/sensor-feedback.md`
+- `.ai/experience/team-preferences.md`
+- `.ai/experience/pending-improvements.md`
+- `.ai/experience/deprecated-experience.md`
+
+显式运行 `summarize-experience` 后生成的 review-only Experience 语义摘要：
+
+- `.ai/experience/experience-summary.yaml`
+- `.ai/experience/experience-summary.md`
+
+该摘要不是 `init` 和 benchmark 的必需产物；缺失时 `init` 和 benchmark 不应失败。摘要中的 findings 必须保持 `pending_harness_maintainer_review`，不能声称已经修改正式 Guides、Sensors、Workflow Skills 或配置。
 
 必须生成的 workflow skill：
 
 - `.ai/skills/lightweight/SKILL.md`
 - `.ai/skills/bugfix/SKILL.md`
+- `.ai/skills/standard/SKILL.md`
+
+`standard` 是面向复杂、高风险、跨模块、安全/数据/架构影响任务的固定模板。它只声明宿主 AI Coding Runtime 应执行的流程和任务级过程数据契约，`init` 不生成 `.ai/task-runs`。
 
 必须生成的候选增强产物：
 
@@ -134,6 +164,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/review/llm-enhancement-candidates.md`
 - `.ai/review/candidate-guides.md`
 - `.ai/review/candidate-sensors.md`
+
+其中 `.ai/experience/weapon-library-candidates.yaml` 是机器消费候选报告，必须通过 `WeaponLibraryCandidateReport` schema 校验；候选在人工确认前保持 candidate/review-only 状态，不能被视为已写入正式 Guides 或 Sensors。
 
 必须生成的可追溯产物：
 
@@ -172,6 +204,12 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 缺字段时测试应失败。
 - schema 变更必须同步测试。
 
+`maturity-score.yaml` 是成熟度与演进路线图的机器契约。它必须保留 `overall_level`、`dimension_scores`、`evidence`、`blocking_reasons` 和 `recommended_next_steps` 等摘要字段，同时包含结构化的 `dimensions`、`blocking_caps` 和 `next_steps`，用于记录每个成熟度维度的证据、阻断原因、下一等级要求和后续改进入口。
+
+`experience-index.yaml` 是 Experience Integration 的机器契约。它必须通过 Pydantic schema 校验，且 benchmark 必须检查 `schema:experience-index`。Experience Markdown 是可编辑语义资产，初始化时只能补齐缺失文件，不能覆盖客户已编辑内容。
+
+`harness-config.yaml` 必须包含 `workflows` 和 `workflow_routing`。`workflow_routing` 是宿主 AI Coding Runtime 的任务路由策略契约，至少要覆盖 bugfix intent、low-risk lightweight 和 standard escalation，并明确高风险、跨模块、安全/权限、数据迁移、低置信度和 Sensor 覆盖不足等升级触发条件。`init` 只生成该策略，不基于用户任务文本执行路由，也不生成 `.ai/task-runs`。
+
 Markdown 产物要求：
 
 - 可以使用中文自然语言。
@@ -183,7 +221,7 @@ Skill 产物要求：
 
 - 当前来自内置模板。
 - 不能每次由 LLM 动态生成。
-- `harness-config` 和 `harness-map` 引用的路径必须真实存在。
+- `harness-config` 引用的 Workflow Skill 路径必须真实存在。
 
 ## 测试要求
 
@@ -197,11 +235,14 @@ Skill 产物要求：
 - `--context` 输入能进入人工确认材料。
 - `--context` 和交互输入能进入 generated guides。
 - `.ai/interaction-decisions.yaml` 能通过 schema 校验并进入 trace artifact。
+- `.ai/maturity-evidence.yaml` 能通过 schema 校验，包含成熟度输入来源、workflow routing rule 明细，并进入 trace artifact。
+- `.ai/experience/experience-index.yaml` 能通过 schema 校验，包含 Experience Markdown 存在性、pending improvement、asset candidate、maturity review、workflow recommendation review 和 Runtime task-run 统计。
+- Experience Markdown 初始化只创建缺失文件，不能覆盖已有客户编辑。
 - 生成 JSON/YAML 能通过 schema 校验。
 - guide/sensor 包含 stack-specific 内容。
 - workflow skill 被 config 或 harness map 正确引用。
 - generation trace 包含关键阶段和产物。
-- benchmark 能发现缺失文件、schema 错误、内容章节缺失和 hard gate 失败。
+- benchmark 能发现缺失文件、schema 错误、内容章节缺失和 hard gate command 证据不足。
 
 测试不能只断言文件存在。每个新增产物都应至少断言：
 

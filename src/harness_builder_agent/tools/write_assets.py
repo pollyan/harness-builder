@@ -39,7 +39,8 @@ def write_initial_assets(
         context_paths=[str(path) for path in (context_paths or [])],
     )
     questionnaire = build_questionnaire(context_inputs, scan_metadata_payload)
-    enhancement_candidates = apply_candidate_decisions(build_llm_enhancement_candidates(inventory, commands), decisions)
+    raw_candidates = build_llm_enhancement_candidates(inventory, commands).model_dump(mode="json")
+    enhancement_candidates = apply_candidate_decisions(raw_candidates, decisions)
     if trace:
         trace.event(
             "weapon-selection",

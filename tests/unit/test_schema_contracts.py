@@ -1,16 +1,24 @@
 import pytest
 from pydantic import ValidationError
 
+from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
+from harness_builder_agent.schemas.experience_index import ExperienceIndex
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.harness_map import HarnessMap
+from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
+from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
+from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.sensor_report import SensorReport
 from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceBucketCoverage, EvidenceCoverage, EvidenceFile, ScanMetadata
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
+from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 
 
 def test_project_inventory_records_stack_modules_and_evidence():
@@ -29,6 +37,59 @@ def test_project_inventory_records_stack_modules_and_evidence():
     assert payload["primary_stack"] == "java-spring"
     assert payload["modules"][0]["kind"] == "backend"
     assert payload["evidence"][0]["path"] == "pom.xml"
+
+
+def test_weapon_library_candidate_report_rejects_invalid_status():
+    with pytest.raises(ValidationError):
+        WeaponLibraryCandidateReport.model_validate(
+            {
+                "schema_version": "1.0",
+                "source": "llm_scan_proposal",
+                "candidates": [
+                    {
+                        "id": "llm-guide-001",
+                        "candidate_type": "guide",
+                        "status": "applied",
+                        "title": "Guide",
+                        "rationale": "Needs review.",
+                        "evidence": [".ai/project-inventory.json"],
+                        "source": "llm_scan_proposal",
+                        "human_confirmation_required": True,
+                    }
+                ],
+            }
+        )
+
+
+def test_context_inputs_reject_negative_size():
+    with pytest.raises(ValidationError):
+        ContextInputs.model_validate(
+            {
+                "schema_version": "1.0",
+                "contexts": [
+                    {"path": "/repo/team.md", "size_bytes": -1, "summary": "team", "truncated": False}
+                ],
+            }
+        )
+
+
+def test_questionnaire_rejects_unknown_interaction_type():
+    with pytest.raises(ValidationError):
+        Questionnaire.model_validate(
+            {
+                "schema_version": "1.0",
+                "questions": [
+                    {
+                        "interaction_type": "unknown",
+                        "interaction_id": "confirm:unknown",
+                        "question": "Confirm?",
+                        "options": ["yes"],
+                        "confidence": "medium",
+                        "reason": "Needs confirmation.",
+                    }
+                ],
+            }
+        )
 
 
 def test_evidence_bundle_records_priority_buckets_and_coverage():
@@ -147,13 +208,28 @@ def test_harness_config_has_lightweight_and_bugfix_workflows():
 
     workflow_names = set(config.workflows.keys())
 
-    assert {"lightweight", "bugfix"}.issubset(workflow_names)
+    assert {"lightweight", "bugfix", "standard"}.issubset(workflow_names)
     assert config.workflows["lightweight"].skill_path == ".ai/skills/lightweight/SKILL.md"
     assert config.workflows["bugfix"].skill_path == ".ai/skills/bugfix/SKILL.md"
+    assert config.workflows["standard"].skill_path == ".ai/skills/standard/SKILL.md"
+    assert "solution_design" in config.workflows["standard"].stages
+    assert "test_first_build_verify" in config.workflows["standard"].stages
     assert config.runtime.default_workflow == "lightweight"
     assert config.sensors.max_repair_attempts == 1
+    routing = config.workflow_routing
+    rule_ids = {rule.id for rule in routing.rules}
+    assert routing.default_workflow == "lightweight"
+    assert {"bugfix-intent", "low-risk-lightweight", "standard-escalation"}.issubset(rule_ids)
+    standard_rule = next(rule for rule in routing.rules if rule.id == "standard-escalation")
+    assert standard_rule.selected_workflow == "standard"
+    assert standard_rule.human_confirmation_required is True
+    assert "cross_module_design" in standard_rule.triggers
+    assert "security_or_permission" in standard_rule.triggers
+    assert "insufficient_sensor_coverage" in standard_rule.triggers
 
 
+# These schemas are retained as future AI Coding Runtime artifact contracts.
+# Harness Builder no longer generates these files itself.
 def test_harness_map_accepts_workflow_and_policy_contract():
     harness_map = HarnessMap.model_validate(
         {
@@ -169,6 +245,22 @@ def test_harness_map_accepts_workflow_and_policy_contract():
 
     assert harness_map.selected_workflow == "bugfix"
     assert harness_map.workflow_skill["path"] == ".ai/skills/bugfix/SKILL.md"
+
+
+def test_harness_map_accepts_standard_workflow_contract():
+    harness_map = HarnessMap.model_validate(
+        {
+            "task_id": "demo-task-002",
+            "task_type": "standard",
+            "selected_workflow": "standard",
+            "risk_level": "high",
+            "guide_policy": {"required": [".ai/guides/architecture.md"]},
+            "workflow_skill": {"path": ".ai/skills/standard/SKILL.md"},
+            "sensor_policy": {"hard_gates": ["unit_test"]},
+        }
+    )
+
+    assert harness_map.selected_workflow == "standard"
 
 
 def test_harness_map_rejects_unknown_workflow():
@@ -291,6 +383,118 @@ def test_maturity_report_records_scores_evidence_and_next_steps():
     assert report.dimension_scores["sensors"] == "L2"
 
 
+def test_maturity_report_records_structured_dimension_roadmap():
+    report = MaturityReport.model_validate(
+        {
+            "overall_level": "L2",
+            "target_next_level": "L3",
+            "dimension_scores": {"guides": "L2"},
+            "dimensions": {
+                "guides": {
+                    "level": "L2",
+                    "evidence": [{"source": ".ai/guides/project-context.md", "summary": "Structured project facts exist."}],
+                    "blockers": [
+                        {
+                            "id": "guides-not-risk-routed",
+                            "reason": "Guides are not loaded by risk context.",
+                            "prevents_level": "L3",
+                        }
+                    ],
+                    "next_level_requirements": ["Bind guides to workflow routing."],
+                    "confidence": "high",
+                }
+            },
+            "blocking_caps": [
+                {
+                    "id": "no-runtime-audit",
+                    "reason": "No runtime audit events were found.",
+                    "max_level": "L3",
+                    "active": True,
+                    "evidence": [".ai/task-runs absent"],
+                }
+            ],
+            "next_steps": [
+                {
+                    "id": "bind-guides-to-workflow",
+                    "target_dimension": "guides",
+                    "action": "Bind project guides to workflow routing.",
+                    "priority": "high",
+                    "expected_lift": "guides L2 -> L3",
+                }
+            ],
+            "evidence": ["summary"],
+            "blocking_reasons": ["blocker"],
+            "recommended_next_steps": ["next"],
+        }
+    )
+
+    assert report.target_next_level == "L3"
+    assert report.dimensions["guides"].evidence[0].source == ".ai/guides/project-context.md"
+    assert report.dimensions["guides"].blockers[0].prevents_level == "L3"
+    assert report.blocking_caps[0].active is True
+    assert report.next_steps[0].target_dimension == "guides"
+
+
+def test_maturity_evidence_pack_records_harness_inputs_for_review():
+    pack = MaturityEvidencePack.model_validate(
+        {
+            "repo_name": "demo",
+            "primary_stack": "java-spring",
+            "inventory_summary": {"module_count": 2, "evidence_count": 3, "risk_area_count": 1},
+            "command_summary": {"total_count": 2, "hard_gate_count": 1, "soft_gate_count": 1, "command_ids": ["unit_test"]},
+            "harness_assets": {
+                "guide_count": 3,
+                "sensor_count": 2,
+                "workflow_skill_count": 2,
+                "has_harness_config": True,
+                "has_weapon_library_selection": True,
+                "workflow_routing_rules": [
+                    {
+                        "id": "standard-escalation",
+                        "selected_workflow": "standard",
+                        "task_type_hints": ["feature"],
+                        "triggers": ["high_risk_module", "security_or_permission"],
+                        "required_guides": [".ai/guides/architecture.md"],
+                        "required_sensors": [".ai/sensors/verification.md"],
+                        "human_confirmation_required": True,
+                        "rationale": "Escalate risky work.",
+                    }
+                ],
+            },
+            "observability": {
+                "generation_run_count": 1,
+                "has_runtime_task_runs": False,
+                "latest_generation_status": "completed",
+            },
+            "experience": {
+                "has_pending_improvements": True,
+                "pending_improvement_count": 2,
+                "has_experience_index": True,
+                "asset_candidate_count": 1,
+                "maturity_review_count": 1,
+                "runtime_task_run_count": 0,
+                "experience_file_count": 6,
+                "has_experience_summary": True,
+                "experience_summary_finding_count": 1,
+            },
+            "benchmark": {"has_report": True, "status": "passed"},
+            "maturity_inputs": [".ai/project-inventory.json", ".ai/command-catalog.yaml"],
+            "warnings": ["runtime task-runs absent"],
+        }
+    )
+
+    assert pack.schema_version == "1.0"
+    assert pack.command_summary.hard_gate_count == 1
+    assert pack.observability.has_runtime_task_runs is False
+    assert pack.experience.has_experience_index is True
+    assert pack.experience.asset_candidate_count == 1
+    assert pack.experience.experience_file_count == 6
+    assert pack.experience.has_experience_summary is True
+    assert pack.experience.experience_summary_finding_count == 1
+    assert pack.harness_assets.workflow_routing_rules[0].id == "standard-escalation"
+    assert "security_or_permission" in pack.harness_assets.workflow_routing_rules[0].triggers
+
+
 def test_improvement_candidate_report_requires_reviewable_candidates():
     report = ImprovementCandidateReport.model_validate(
         {
@@ -302,6 +506,11 @@ def test_improvement_candidate_report_requires_reviewable_candidates():
                     "rationale": "Add missing team rule.",
                     "evidence": ["human confirmation"],
                     "human_confirmation_required": True,
+                    "target_dimension": "guides",
+                    "source_next_step": "guides-bind-workflow",
+                    "source_blocking_cap": None,
+                    "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                    "evidence_sources": [".ai/maturity-evidence.yaml", ".ai/project-inventory.json"],
                 }
             ]
         }
@@ -309,6 +518,10 @@ def test_improvement_candidate_report_requires_reviewable_candidates():
 
     assert report.candidates[0].suggested_target.startswith(".ai/")
     assert report.candidates[0].human_confirmation_required is True
+    assert report.candidates[0].target_dimension == "guides"
+    assert report.candidates[0].source_next_step == "guides-bind-workflow"
+    assert report.candidates[0].acceptance_checks == ["Benchmark content:guides-quality passes."]
+    assert ".ai/maturity-evidence.yaml" in report.candidates[0].evidence_sources
 
 
 def test_improvement_candidate_report_rejects_unknown_candidate_type():
@@ -323,5 +536,201 @@ def test_improvement_candidate_report_rejects_unknown_candidate_type():
                         "rationale": "Bad type.",
                     }
                 ]
+            }
+        )
+
+
+def test_maturity_review_report_records_candidate_judgment():
+    report = MaturityReviewReport.model_validate(
+        {
+            "summary": "Candidates are directionally useful but need stronger acceptance checks.",
+            "reviewer_model": "deepseek-test",
+            "candidate_reviews": [
+                {
+                    "candidate_id": "maturity-next-step-guides",
+                    "decision": "revise",
+                    "rationale": "Guide update should be scoped to project-context first.",
+                    "risks": ["May overgeneralize local rules."],
+                    "suggested_acceptance_checks": ["Benchmark content:guides-quality passes."],
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                }
+            ],
+            "missing_candidates": ["Add runtime observability candidate."],
+            "global_risks": ["No runtime task-runs are available."],
+        }
+    )
+
+    assert report.schema_version == "1.0"
+    assert report.candidate_reviews[0].decision == "revise"
+    assert report.global_risks
+
+
+def test_maturity_review_report_rejects_invalid_decision():
+    with pytest.raises(ValidationError):
+        MaturityReviewReport.model_validate(
+            {
+                "summary": "bad",
+                "candidate_reviews": [
+                    {
+                        "candidate_id": "candidate-1",
+                        "decision": "approve",
+                        "rationale": "bad enum",
+                    }
+                ],
+            }
+        )
+
+
+def test_asset_candidate_report_records_review_only_drafts():
+    report = AssetCandidateReport.model_validate(
+        {
+            "candidates": [
+                {
+                    "id": "guide-project-context-scope",
+                    "kind": "guide",
+                    "source_candidate_id": "candidate-1",
+                    "source_review_decision": "revise",
+                    "suggested_path": ".ai/guides/project-context.md",
+                    "title": "Scope project context guide",
+                    "rationale": "The guide needs a more explicit task loading scope.",
+                    "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                    "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                    "risk_level": "medium",
+                    "review_status": "pending_harness_maintainer_review",
+                }
+            ]
+        }
+    )
+
+    assert report.schema_version == "1.0"
+    assert report.candidates[0].kind == "guide"
+    assert report.candidates[0].review_status == "pending_harness_maintainer_review"
+
+
+def test_asset_candidate_report_rejects_invalid_kind():
+    with pytest.raises(ValidationError):
+        AssetCandidateReport.model_validate(
+            {
+                "candidates": [
+                    {
+                        "id": "bad",
+                        "kind": "unknown",
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/guides/project-context.md",
+                        "title": "Bad",
+                        "rationale": "Bad kind.",
+                        "draft_content": "content",
+                    }
+                ]
+            }
+        )
+
+
+def test_workflow_recommendation_report_records_review_only_routing_judgment():
+    report = WorkflowRecommendationReport.model_validate(
+        {
+            "task_id": "task-1",
+            "task_brief": "Fix checkout permission bug.",
+            "recommended_workflow": "bugfix",
+            "matched_rule_ids": ["bugfix-intent"],
+            "risk_level": "medium",
+            "confidence": "high",
+            "rationale": "Bugfix intent matches the configured routing rule.",
+            "required_guides": [".ai/guides/task-templates/bugfix.md"],
+            "required_sensors": [".ai/sensors/verification.md"],
+            "human_confirmation_required": False,
+            "review_status": "pending_harness_maintainer_review",
+            "evidence_sources": [".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+        }
+    )
+
+    assert report.schema_version == "1.0"
+    assert report.recommended_workflow == "bugfix"
+    assert report.review_status == "pending_harness_maintainer_review"
+
+
+def test_workflow_recommendation_report_rejects_invalid_review_status():
+    with pytest.raises(ValidationError):
+        WorkflowRecommendationReport.model_validate(
+            {
+                "task_id": "task-1",
+                "task_brief": "Fix checkout permission bug.",
+                "recommended_workflow": "bugfix",
+                "rationale": "Bad status.",
+                "review_status": "applied",
+            }
+        )
+
+
+def test_experience_index_records_sources_and_counts():
+    index = ExperienceIndex.model_validate(
+        {
+            "experience_files": {
+                "project-experience.md": True,
+                "repair-patterns.md": True,
+                "sensor-feedback.md": True,
+                "team-preferences.md": True,
+                "pending-improvements.md": True,
+                "deprecated-experience.md": True,
+            },
+            "sources": [
+                {"path": ".ai/experience/pending-improvements.md", "kind": "pending_improvements", "item_count": 2},
+                {"path": ".ai/review/workflow-routing-recommendation.yaml", "kind": "workflow_recommendation", "item_count": 1},
+            ],
+            "pending_improvement_count": 2,
+            "asset_candidate_count": 1,
+            "maturity_review_count": 1,
+            "workflow_recommendation_count": 1,
+            "runtime_task_run_count": 0,
+            "warnings": ["runtime task-runs absent"],
+        }
+    )
+
+    assert index.schema_version == "1.0"
+    assert index.sources[0].kind == "pending_improvements"
+    assert index.sources[1].kind == "workflow_recommendation"
+    assert index.workflow_recommendation_count == 1
+
+
+def test_experience_summary_report_records_review_only_findings():
+    report = ExperienceSummaryReport.model_validate(
+        {
+            "summary": "Repeated sensor gaps are blocking maturity improvement.",
+            "findings": [
+                {
+                    "id": "sensor-feedback-coverage-gap",
+                    "kind": "sensor_feedback",
+                    "title": "Coverage gap blocks confidence",
+                    "summary": "Pending improvements repeatedly mention missing sensor coverage.",
+                    "evidence_sources": [".ai/experience/pending-improvements.md"],
+                    "confidence": "medium",
+                    "suggested_follow_up": "Create a reviewed sensor candidate.",
+                }
+            ],
+            "warnings": ["Runtime task-runs are absent."],
+        }
+    )
+
+    assert report.schema_version == "1.0"
+    assert report.source == "llm_experience_summary"
+    assert report.review_status == "pending_harness_maintainer_review"
+    assert report.findings[0].kind == "sensor_feedback"
+
+
+def test_experience_summary_report_rejects_invalid_kind():
+    with pytest.raises(ValidationError):
+        ExperienceSummaryReport.model_validate(
+            {
+                "summary": "Invalid.",
+                "findings": [
+                    {
+                        "id": "bad",
+                        "kind": "not_allowed",
+                        "title": "Bad",
+                        "summary": "Bad.",
+                        "evidence_sources": [".ai/experience/pending-improvements.md"],
+                    }
+                ],
             }
         )

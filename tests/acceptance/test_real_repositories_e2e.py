@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +16,10 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.setdefault("HARNESS_BUILDER_SENSOR_TIMEOUT_SECONDS", "20")
     env.setdefault("HARNESS_BUILDER_LLM_TIMEOUT_SECONDS", "180")
+    pythonpath = os.pathsep.join([str(ROOT / "src"), str(ROOT)])
+    if env.get("PYTHONPATH"):
+        pythonpath = os.pathsep.join([pythonpath, env["PYTHONPATH"]])
+    env["PYTHONPATH"] = pythonpath
     return subprocess.run(
         [sys.executable, "-m", "harness_builder_agent.cli", *args],
         cwd=ROOT,
@@ -27,17 +32,15 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _assert_real_repo(repo_name: str, profile: str, task: str, expected_workflow: str) -> None:
+def _assert_real_repo(repo_name: str, profile: str) -> None:
     repo = BENCHMARKS / repo_name
     assert repo.exists(), f"Missing real benchmark repository: {repo}"
     report_path = repo / ".ai" / "benchmark-report.yaml"
     report_path.unlink(missing_ok=True)
+    shutil.rmtree(repo / ".ai" / "task-runs", ignore_errors=True)
 
     init_result = _run_cli("init", "--repo", str(repo), "--non-interactive")
     assert init_result.returncode == 0, init_result.stderr + init_result.stdout
-
-    run_result = _run_cli("run", "--repo", str(repo), task)
-    assert run_result.returncode == 0, run_result.stderr + run_result.stdout
 
     assess_result = _run_cli("assess", "--repo", str(repo))
     assert assess_result.returncode == 0, assess_result.stderr + assess_result.stdout
@@ -51,6 +54,10 @@ def _assert_real_repo(repo_name: str, profile: str, task: str, expected_workflow
     ai = repo / ".ai"
     assert (ai / "scan-metadata.yaml").exists()
     assert (ai / "llm-scan-proposal.json").exists()
+    assert (ai / "skills" / "lightweight" / "SKILL.md").exists()
+    assert (ai / "skills" / "bugfix" / "SKILL.md").exists()
+    assert (ai / "skills" / "standard" / "SKILL.md").exists()
+    assert not (ai / "task-runs").exists()
     assert report_path.exists(), benchmark_result.stderr + benchmark_result.stdout
     report = yaml.safe_load(report_path.read_text())
     assert report["profile"] == profile
@@ -59,27 +66,23 @@ def _assert_real_repo(repo_name: str, profile: str, task: str, expected_workflow
     assert "schema:llm-scan-proposal" in check_ids
     assert "schema:generation-trace" in check_ids
     assert "content:generation-trace" in check_ids
+    assert "content:hard-gate-command-evidence" in check_ids
+    assert "content:runtime-workflow-trace" not in check_ids
     if benchmark_result.returncode == 0:
         assert report["status"] == "passed"
     else:
         assert report["status"] == "failed"
-        hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-sensors-passed")
+        hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-command-evidence")
         assert hard_gate_check["passed"] is False
-        assert hard_gate_check["failed_or_skipped"]
-        assert hard_gate_check["failed_or_skipped"][0]["summary"]
+        assert hard_gate_check["weak_commands"] or hard_gate_check["hard_gate_count"] == 0
     runs = sorted((ai / "runs").iterdir())
     assert runs
     trace = yaml.safe_load((runs[-1] / "trace.yaml").read_text())
     assert trace["command"] == "benchmark"
     assert trace["status"] in {"completed", "failed"}
     assert "benchmark" in trace["stages"]
-    harness_map = yaml.safe_load((ai / "task-runs" / "demo-task-001" / "harness-map.yaml").read_text())
-    assert harness_map["selected_workflow"] == expected_workflow
-    runtime_summary = yaml.safe_load((ai / "task-runs" / "demo-task-001" / "runtime-summary.yaml").read_text())
-    assert runtime_summary["selected_workflow"] == expected_workflow
-    assert runtime_summary["used_guide_count"] > 0
 
 
-def test_real_repositories_init_run_and_benchmark_end_to_end():
-    _assert_real_repo("RuoYi-Vue", "java-spring", "修复登录接口错误提示不一致的问题", "bugfix")
-    _assert_real_repo("eShopOnWeb", "dotnet-aspnet", "调整 Catalog 相关低风险文案", "lightweight")
+def test_real_repositories_init_and_benchmark_end_to_end():
+    _assert_real_repo("RuoYi-Vue", "java-spring")
+    _assert_real_repo("eShopOnWeb", "dotnet-aspnet")

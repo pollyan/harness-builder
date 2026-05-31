@@ -24,6 +24,10 @@ Harness Builder 的扫描策略是 LLM-first。
 - module list。
 - risk areas。
 - architecture signals。
+- maturity review report。
+- asset candidate report。
+- experience summary report。
+- workflow recommendation report。
 
 规则：
 
@@ -102,6 +106,17 @@ Prompt 是系统行为的一部分，应当可维护。
 - Prompt 修改必须有测试或 acceptance 验证。
 - Prompt 应明确要求 JSON object 和固定 schema。
 - Prompt 不应要求 LLM 直接输出最终文件内容。
+- LLM maturity review 只能输出结构化 review judgment，不能声称已经修改 Guides、Sensors、Workflow 或其他正式 Harness 资产。
+- LLM maturity review 遇到 `experience-workflow-recommendation-review` 改进候选时，应消费 `.ai/review/workflow-routing-recommendation.yaml` 作为 review-only workflow recommendation evidence，并与 `maturity_evidence.harness_assets.workflow_routing_rules` 对照后给出 `support`、`revise` 或 `defer`；review 不能声称推荐已执行、已应用或已写入正式 Harness 资产。
+- LLM asset candidate generation 只能输出结构化 draft candidates，必须保持 `pending_harness_maintainer_review`，不能声称已应用到正式 Harness 资产。
+- LLM experience summary 只能输出结构化 Experience findings，必须保持 `pending_harness_maintainer_review`，不能声称已经沉淀为正式 Guides、Sensors、Workflow 或风险策略。
+- LLM workflow recommendation 只能输出结构化 workflow recommendation report，必须保持 `pending_harness_maintainer_review`，不能声称已经执行 Workflow、生成 Harness Map、创建 `.ai/task-runs` 或修改正式 Harness 资产。
+- LLM maturity review 和 asset candidate generation 的 prompt 在 `.ai/experience/experience-summary.yaml` 存在时应注入可选 `experience_summary` 上下文；缺失时显式传入 `null`，不能自动运行 summarizer 或伪造摘要。
+- LLM maturity review 和 asset candidate generation 的 prompt 应显式消费 `maturity_evidence.experience.sources`，把其中的 source path / kind / item_count 作为 review-only source index；可引用这些路径作为 evidence source，但不能把 source entry 当作已经应用的正式 Harness 规则。
+- LLM experience summary 的 prompt 应显式消费 `experience_index.sources`，把其中的 source path / kind / item_count 作为 review-only source index；findings 必须基于已提供 source map 中的 `.ai/` 路径，不能发明缺失 source path，也不能把 source entry 当作已经应用的正式 Harness 规则或任务执行。
+- LLM asset candidate generation 在生成 `workflow_policy` 候选时，应显式消费 `maturity_evidence.harness_assets.workflow_routing_rules`，但这些 routing rules 只能作为 review-only evidence；候选必须保持 `pending_harness_maintainer_review`，不能声称已经修改或应用 `.ai/harness-config.yaml`。
+- LLM asset candidate generation 遇到 `experience-workflow-recommendation-review` 改进候选时，应消费 `.ai/review/workflow-routing-recommendation.yaml` 作为 review-only workflow recommendation evidence，并优先生成指向 `.ai/harness-config.yaml` 的 `workflow_policy` 草案；草案必须保持 `pending_harness_maintainer_review`，不能声称推荐已执行或已应用。
+- LLM experience summary 可以在 `.ai/review/workflow-routing-recommendation.yaml` 存在时把它作为 review-only evidence 消费，用于总结 workflow gap、routing signal 或 improvement signal；不能把该推荐当成已执行 workflow 或已应用的正式 Harness 变更。
 
 未来如果 Prompt 数量增加，应考虑拆到专门目录，例如 `src/harness_builder_agent/prompts/`。
 
@@ -116,6 +131,11 @@ LLM schema 应表达稳定业务契约。
 - 不要为了临时 prompt 方便加入含义模糊的字段。
 - 对 command candidate 必须保留 command、type、gate、source、confidence。
 - 对 human confirmation 必须有明确标记，而不是藏在自然语言里。
+- 对 maturity review 必须保留 candidate_id、decision、rationale、risks、suggested_acceptance_checks 和 evidence_sources，并拒绝未知 candidate_id。
+- 对 asset candidate 必须保留 kind、source_candidate_id、suggested_path、draft_content、review_status、acceptance_checks 和 evidence_sources；`suggested_path` 必须限制在 `.ai/` 下。
+- 对 experience summary 必须保留 kind、title、summary、review_status、confidence、suggested_follow_up 和 evidence_sources；`evidence_sources` 必须限制在提供给 LLM 的 `.ai/` 证据路径内。
+- 对 workflow recommendation 必须保留 task_id、task_brief、recommended_workflow、matched_rule_ids、risk_level、confidence、rationale、required_guides、required_sensors、human_confirmation_required、review_status 和 evidence_sources；`recommended_workflow` 和 `matched_rule_ids` 必须和当前 `harness-config.yaml` 对齐。
+- 对注入到下游 prompt 的 experience summary，必须在 prompt 中明确它是 review-only semantic context，不是正式规则、不是已应用变更。
 
 ## 错误处理
 
@@ -144,4 +164,7 @@ LLM 相关测试至少覆盖：
 - LLM 声称的 stack 与 evidence 冲突时会被调和。
 - 没有 DeepSeek key 的真实 acceptance 会失败。
 - mock LLM 测试不应该掩盖真实 LLM acceptance 的要求。
-
+- maturity review mock 测试必须覆盖合法 JSON、非法 JSON、schema 错误和未知 candidate_id。
+- asset candidate mock 测试必须覆盖合法 JSON、未知 source_candidate_id、非法 suggested_path 和 schema 错误。
+- experience summary mock 测试必须覆盖合法 JSON、非法 JSON、schema 错误、非 `.ai/` evidence path 和未知 evidence source。
+- workflow recommendation mock 测试必须覆盖合法 JSON、非法 JSON、未知 recommended_workflow、未知 matched_rule_ids、非 `.ai/` evidence source 和 review-only CLI 产物。

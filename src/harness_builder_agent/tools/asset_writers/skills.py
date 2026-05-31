@@ -9,7 +9,7 @@ from harness_builder_agent.tools.generation_trace import GenerationTrace
 
 def write_skill_assets(ai: Path, trace: GenerationTrace | None = None) -> None:
     template_root = files("harness_builder_agent").joinpath("templates", "skills")
-    for name in ("lightweight", "bugfix"):
+    for name in ("lightweight", "bugfix", "standard"):
         path = ai / "skills" / name / "SKILL.md"
         content = template_root.joinpath(name, "SKILL.md").read_text(encoding="utf-8")
         write_text(path, content)

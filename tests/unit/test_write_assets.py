@@ -4,8 +4,10 @@ import yaml
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions
+from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
 
@@ -54,6 +56,15 @@ def _inventory(repo: Path) -> ProjectInventory:
 
 def _commands() -> CommandCatalog:
     return CommandCatalog(commands=[CommandDefinition(id="unit_test", command="mvn test", type="test", gate="hard", source="pom.xml")])
+
+
+def test_llm_enhancement_candidates_returns_schema_report(tmp_path: Path):
+    report = build_llm_enhancement_candidates(_inventory(tmp_path), _commands())
+
+    assert isinstance(report, WeaponLibraryCandidateReport)
+    assert report.schema_version == "1.0"
+    assert report.candidates
+    assert all(candidate.status == "candidate" for candidate in report.candidates)
 
 
 def test_write_initial_assets_generates_core_guides_sensors_skills_candidates_and_trace(tmp_path: Path):

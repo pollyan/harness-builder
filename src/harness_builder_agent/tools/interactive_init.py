@@ -72,9 +72,9 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     inline_contexts: list[str] = _collect_team_rules()
     weapon_selection = select_weapon_library(inventory, commands)
     candidate_report = build_llm_enhancement_candidates(inventory, commands)
-    candidate_ids = [item["id"] for item in candidate_report.get("candidates", [])]
     candidate_decisions = _review_candidates(candidate_report, weapon_selection, commands)
     workflow_confirmation = _show_workflows()
+    candidate_ids = [item.id for item in candidate_report.candidates]
 
     while True:
         action = _confirm_summary(
@@ -221,7 +221,7 @@ def _collect_team_rules() -> list[str]:
 
 
 def _review_candidates(
-    report: dict,
+    report,
     weapon_selection: WeaponLibrarySelection,
     commands: CommandCatalog,
 ) -> list[CandidateDecision]:
@@ -238,7 +238,7 @@ def _review_candidates(
         typer.echo(f"- 现有命令 `{command.command}`：来自 `{command.source}`，当前 gate=`{command.gate}`")
 
     decisions: list[CandidateDecision] = []
-    candidates = report.get("candidates", [])
+    candidates = report.model_dump(mode="json")["candidates"]
     if not candidates:
         typer.echo("\n模型没有提出额外候选项。")
         return decisions

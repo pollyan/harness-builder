@@ -6,20 +6,25 @@ from typing import Any
 
 import yaml
 
+from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
+from harness_builder_agent.schemas.experience_index import ExperienceIndex
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.harness_config import HarnessConfig
-from harness_builder_agent.schemas.harness_map import HarnessMap
+from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
+from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
+from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
-from harness_builder_agent.schemas.sensor_report import SensorReport
 from harness_builder_agent.schemas.scan import LLMScanProposal, ScanMetadata
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
+from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
-from harness_builder_agent.tools.run_task import run_task
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
@@ -36,6 +41,7 @@ REQUIRED_FILES = [
     "scan-report.md",
     "maturity-report.md",
     "maturity-score.yaml",
+    "maturity-evidence.yaml",
     "evolution-plan.md",
     "guides/project-context.md",
     "guides/coding-rules.md",
@@ -44,7 +50,9 @@ REQUIRED_FILES = [
     "sensors/test-strategy.md",
     "skills/lightweight/SKILL.md",
     "skills/bugfix/SKILL.md",
+    "skills/standard/SKILL.md",
     "improvement-candidates.yaml",
+    "experience/experience-index.yaml",
     "review/llm-enhancement-candidates.md",
     "review/candidate-guides.md",
     "review/candidate-sensors.md",
@@ -65,7 +73,6 @@ def run_benchmark(repo: Path, profile: str | None = None, trace: GenerationTrace
             {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)},
         )
     write_initial_assets(root, inventory, commands, trace=trace)
-    run_task(root, _benchmark_task(profile or inventory.primary_stack))
     assess_maturity(root)
     generate_improvements(root)
     ai = root / ".ai"
@@ -80,7 +87,6 @@ def run_benchmark(repo: Path, profile: str | None = None, trace: GenerationTrace
 
     checks.extend(_schema_checks(ai))
     checks.extend(_generation_trace_checks(ai))
-    checks.extend(_runtime_trace_checks(ai))
     checks.extend(_human_confirmation_checks(ai))
     checks.extend(_llm_enhancement_checks(ai))
     checks.extend(_content_checks(ai, inventory))
@@ -152,28 +158,28 @@ def _schema_checks(ai: Path) -> list[dict[str, Any]]:
         checks.append({"id": "schema:weapon-library-selection", "passed": False, "error": str(exc)})
 
     try:
-        HarnessMap.model_validate(yaml.safe_load((ai / "task-runs" / "demo-task-001" / "harness-map.yaml").read_text(encoding="utf-8")))
-        checks.append({"id": "schema:harness-map", "passed": True})
-    except Exception as exc:  # pragma: no cover
-        checks.append({"id": "schema:harness-map", "passed": False, "error": str(exc)})
-
-    try:
-        SensorReport.model_validate(yaml.safe_load((ai / "task-runs" / "demo-task-001" / "sensor-report.yaml").read_text(encoding="utf-8")))
-        checks.append({"id": "schema:sensor-report", "passed": True})
-    except Exception as exc:  # pragma: no cover
-        checks.append({"id": "schema:sensor-report", "passed": False, "error": str(exc)})
-
-    try:
         MaturityReport.model_validate(yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8")))
         checks.append({"id": "schema:maturity-score", "passed": True})
     except Exception as exc:  # pragma: no cover
         checks.append({"id": "schema:maturity-score", "passed": False, "error": str(exc)})
 
     try:
+        MaturityEvidencePack.model_validate(yaml.safe_load((ai / "maturity-evidence.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:maturity-evidence", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:maturity-evidence", "passed": False, "error": str(exc)})
+
+    try:
         ImprovementCandidateReport.model_validate(yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8")))
         checks.append({"id": "schema:improvement-candidates", "passed": True})
     except Exception as exc:  # pragma: no cover
         checks.append({"id": "schema:improvement-candidates", "passed": False, "error": str(exc)})
+
+    try:
+        ExperienceIndex.model_validate(yaml.safe_load((ai / "experience" / "experience-index.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:experience-index", "passed": True})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:experience-index", "passed": False, "error": str(exc)})
     return checks
 
 
@@ -224,78 +230,24 @@ def _generation_trace_checks(ai: Path) -> list[dict[str, Any]]:
     return checks
 
 
-def _runtime_trace_checks(ai: Path) -> list[dict[str, Any]]:
-    task_dir = ai / "task-runs" / "demo-task-001"
-    summary_path = task_dir / "runtime-summary.yaml"
-    events_path = task_dir / "workflow-events.jsonl"
-    used_guides_path = task_dir / "used-guides.yaml"
-
-    try:
-        summary = yaml.safe_load(summary_path.read_text(encoding="utf-8"))
-        required = {
-            "schema_version",
-            "task_id",
-            "task_type",
-            "selected_workflow",
-            "hard_gate_count",
-            "sensor_statuses",
-            "unresolved_sensor_count",
-            "used_guide_count",
-            "workflow_skill_path",
-        }
-        schema_passed = required.issubset(set(summary))
-        checks = [{"id": "schema:runtime-summary", "passed": schema_passed, "task_id": summary.get("task_id")}]
-    except Exception as exc:  # pragma: no cover
-        return [
-            {"id": "schema:runtime-summary", "passed": False, "error": str(exc)},
-            {"id": "content:runtime-workflow-trace", "passed": False, "error": "runtime summary unavailable"},
-        ]
-
-    try:
-        events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
-        used_guides = yaml.safe_load(used_guides_path.read_text(encoding="utf-8"))
-        stages = {event["stage"] for event in events}
-        required_stages = {
-            "task-classification",
-            "guide-selection",
-            "workflow-selection",
-            "sensor-selection",
-            "sensor-execution",
-            "handoff",
-            "experience-candidate",
-        }
-        required_guides = used_guides.get("required_guides", [])
-        passed = (
-            required_stages.issubset(stages)
-            and len(required_guides) == summary.get("used_guide_count")
-            and bool(summary.get("sensor_statuses"))
-        )
-        checks.append(
-            {
-                "id": "content:runtime-workflow-trace",
-                "passed": passed,
-                "stage_count": len(stages),
-                "used_guide_count": len(required_guides),
-            }
-        )
-    except Exception as exc:  # pragma: no cover
-        checks.append({"id": "content:runtime-workflow-trace", "passed": False, "error": str(exc)})
-    return checks
-
-
 def _human_confirmation_checks(ai: Path) -> list[dict[str, Any]]:
+    checks: list[dict[str, Any]] = []
     try:
-        questionnaire = yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8"))
-        questions = questionnaire.get("questions", [])
-        schema_passed = questionnaire.get("schema_version") == "1.0" and bool(questions)
-        checks = [{"id": "schema:questionnaire", "passed": schema_passed, "question_count": len(questions)}]
+        context_inputs = ContextInputs.model_validate(yaml.safe_load((ai / "context-inputs.yaml").read_text(encoding="utf-8")))
+        checks.append({"id": "schema:context-inputs", "passed": True, "context_count": len(context_inputs.contexts)})
     except Exception as exc:  # pragma: no cover
-        return [
-            {"id": "schema:questionnaire", "passed": False, "error": str(exc)},
-            {"id": "content:human-confirmation", "passed": False, "error": "questionnaire unavailable"},
-        ]
+        checks.append({"id": "schema:context-inputs", "passed": False, "error": str(exc)})
 
-    ids = {item.get("interaction_id") for item in questions}
+    try:
+        questionnaire = Questionnaire.model_validate(yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8")))
+        questions = questionnaire.questions
+        checks.append({"id": "schema:questionnaire", "passed": True, "question_count": len(questions)})
+    except Exception as exc:  # pragma: no cover
+        checks.append({"id": "schema:questionnaire", "passed": False, "error": str(exc)})
+        checks.append({"id": "content:human-confirmation", "passed": False, "error": "questionnaire unavailable"})
+        return checks
+
+    ids = {item.interaction_id for item in questions}
     required_ids = {"confirm:team-context", "confirm:guide-candidates", "confirm:sensor-gates"}
     human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8") if (ai / "human-input-needed.md").exists() else ""
     checks.append(
@@ -311,10 +263,9 @@ def _human_confirmation_checks(ai: Path) -> list[dict[str, Any]]:
 def _llm_enhancement_checks(ai: Path) -> list[dict[str, Any]]:
     report_path = ai / "experience" / "weapon-library-candidates.yaml"
     try:
-        report = yaml.safe_load(report_path.read_text(encoding="utf-8"))
-        candidates = report.get("candidates", [])
-        schema_passed = report.get("schema_version") == "1.0" and report.get("source") == "llm_scan_proposal" and bool(candidates)
-        checks = [{"id": "schema:weapon-library-candidates", "passed": schema_passed, "candidate_count": len(candidates)}]
+        report = WeaponLibraryCandidateReport.model_validate(yaml.safe_load(report_path.read_text(encoding="utf-8")))
+        candidates = report.candidates
+        checks = [{"id": "schema:weapon-library-candidates", "passed": True, "candidate_count": len(candidates)}]
     except Exception as exc:  # pragma: no cover
         return [
             {"id": "schema:weapon-library-candidates", "passed": False, "error": str(exc)},
@@ -329,7 +280,7 @@ def _llm_enhancement_checks(ai: Path) -> list[dict[str, Any]]:
     checks.append(
         {
             "id": "content:llm-enhancement-candidates",
-            "passed": all(item.get("status") == "candidate" and item.get("human_confirmation_required") is True for item in candidates)
+            "passed": all(item.status == "candidate" and item.human_confirmation_required is True for item in candidates)
             and "candidate" in review_text.lower(),
         }
     )
@@ -339,35 +290,310 @@ def _llm_enhancement_checks(ai: Path) -> list[dict[str, Any]]:
 def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any]]:
     return [
         _workflow_skills_check(ai),
-        _harness_map_skill_check(ai),
+        _workflow_skill_config_reference_check(ai),
+        _workflow_routing_policy_check(ai),
+        _maturity_routing_evidence_check(ai),
+        _workflow_recommendation_review_check(ai),
+        _maturity_review_artifact_check(ai),
+        _asset_candidate_review_check(ai),
+        _experience_summary_artifact_check(ai),
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
         _weapon_library_selection_check(ai, inventory),
-        _hard_gate_sensors_check(ai),
+        _hard_gate_command_evidence_check(ai),
     ]
 
 
 def _workflow_skills_check(ai: Path) -> dict[str, Any]:
     lightweight = ai / "skills" / "lightweight" / "SKILL.md"
     bugfix = ai / "skills" / "bugfix" / "SKILL.md"
-    passed = (
-        lightweight.exists()
-        and bugfix.exists()
-        and "轻量级开发工作流" in lightweight.read_text(encoding="utf-8")
-        and "缺陷修复工作流" in bugfix.read_text(encoding="utf-8")
+    standard = ai / "skills" / "standard" / "SKILL.md"
+    lightweight_text = lightweight.read_text(encoding="utf-8") if lightweight.exists() else ""
+    bugfix_text = bugfix.read_text(encoding="utf-8") if bugfix.exists() else ""
+    standard_text = standard.read_text(encoding="utf-8") if standard.exists() else ""
+    passed = all(
+        (
+            "轻量级开发工作流" in lightweight_text,
+            "缺陷修复工作流" in bugfix_text,
+            "标准开发工作流" in standard_text,
+            "Requirement Alignment" in standard_text,
+        )
     )
     return {"id": "content:workflow-skills", "passed": passed}
 
 
-def _harness_map_skill_check(ai: Path) -> dict[str, Any]:
-    map_path = ai / "task-runs" / "demo-task-001" / "harness-map.yaml"
-    if not map_path.exists():
-        return {"id": "content:harness-map-workflow-skill", "passed": False, "error": "missing harness-map.yaml"}
-    harness_map = HarnessMap.model_validate(yaml.safe_load(map_path.read_text(encoding="utf-8")))
-    skill_path = harness_map.workflow_skill.get("path")
-    passed = bool(skill_path) and (ai.parent / skill_path).exists()
-    return {"id": "content:harness-map-workflow-skill", "passed": passed, "path": skill_path}
+def _workflow_skill_config_reference_check(ai: Path) -> dict[str, Any]:
+    config_path = ai / "harness-config.yaml"
+    if not config_path.exists():
+        return {"id": "content:workflow-skill-config-reference", "passed": False, "error": "missing harness-config.yaml"}
+    try:
+        config = HarnessConfig.model_validate(yaml.safe_load(config_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover
+        return {"id": "content:workflow-skill-config-reference", "passed": False, "error": str(exc)}
+    missing = [
+        workflow.skill_path
+        for workflow in config.workflows.values()
+        if not workflow.skill_path or not (ai.parent / workflow.skill_path).exists()
+    ]
+    return {
+        "id": "content:workflow-skill-config-reference",
+        "passed": not missing and bool(config.workflows),
+        "workflow_count": len(config.workflows),
+        "missing": missing,
+    }
+
+
+def _workflow_routing_policy_check(ai: Path) -> dict[str, Any]:
+    config_path = ai / "harness-config.yaml"
+    if not config_path.exists():
+        return {"id": "content:workflow-routing-policy", "passed": False, "errors": ["missing_harness_config"]}
+    try:
+        config = HarnessConfig.model_validate(yaml.safe_load(config_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover
+        return {"id": "content:workflow-routing-policy", "passed": False, "errors": [str(exc)]}
+
+    errors: list[str] = []
+    available_workflows = set(config.workflows)
+    rules = config.workflow_routing.rules
+    if config.workflow_routing.default_workflow != "lightweight":
+        errors.append("default_workflow_not_lightweight")
+    if config.workflow_routing.default_workflow not in available_workflows:
+        errors.append("default_workflow_unknown")
+
+    rule_ids = {rule.id for rule in rules}
+    if not {"bugfix-intent", "low-risk-lightweight", "standard-escalation"}.issubset(rule_ids):
+        errors.append("missing_required_routing_rules")
+
+    unknown_workflows = sorted({rule.selected_workflow for rule in rules if rule.selected_workflow not in available_workflows})
+    if unknown_workflows:
+        errors.append("unknown_selected_workflow")
+
+    standard_rules = [rule for rule in rules if rule.id == "standard-escalation" and rule.selected_workflow == "standard"]
+    if not standard_rules:
+        errors.append("missing_standard_escalation")
+    else:
+        triggers = set(standard_rules[0].triggers)
+        required_triggers = {"high_risk_module", "cross_module_design", "security_or_permission", "insufficient_sensor_coverage"}
+        if not required_triggers.issubset(triggers):
+            errors.append("incomplete_standard_escalation_triggers")
+        if not standard_rules[0].human_confirmation_required:
+            errors.append("standard_escalation_without_human_confirmation")
+
+    return {
+        "id": "content:workflow-routing-policy",
+        "passed": not errors,
+        "rule_count": len(rules),
+        "errors": errors,
+    }
+
+
+def _maturity_routing_evidence_check(ai: Path) -> dict[str, Any]:
+    config_path = ai / "harness-config.yaml"
+    evidence_path = ai / "maturity-evidence.yaml"
+    if not config_path.exists() or not evidence_path.exists():
+        return {"id": "content:maturity-routing-evidence", "passed": False, "errors": ["missing_config_or_evidence"]}
+    try:
+        config = HarnessConfig.model_validate(yaml.safe_load(config_path.read_text(encoding="utf-8")))
+        evidence = MaturityEvidencePack.model_validate(yaml.safe_load(evidence_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover
+        return {"id": "content:maturity-routing-evidence", "passed": False, "errors": [str(exc)]}
+
+    errors: list[str] = []
+    config_rule_ids = {rule.id for rule in config.workflow_routing.rules}
+    evidence_rules = evidence.harness_assets.workflow_routing_rules
+    evidence_rule_ids = {rule.id for rule in evidence_rules}
+    if not evidence_rules:
+        errors.append("missing_routing_evidence_detail")
+    if config_rule_ids != evidence_rule_ids:
+        errors.append("routing_evidence_out_of_sync")
+
+    standard_rules = [rule for rule in evidence_rules if rule.id == "standard-escalation" and rule.selected_workflow == "standard"]
+    if not standard_rules:
+        errors.append("missing_standard_escalation_evidence")
+    elif "security_or_permission" not in standard_rules[0].triggers:
+        errors.append("incomplete_standard_escalation_evidence")
+
+    return {
+        "id": "content:maturity-routing-evidence",
+        "passed": not errors,
+        "rule_count": len(evidence_rules),
+        "errors": errors,
+    }
+
+
+def _workflow_recommendation_review_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "review" / "workflow-routing-recommendation.yaml"
+    markdown_path = ai / "review" / "workflow-routing-recommendation.md"
+    if not yaml_path.exists() and not markdown_path.exists():
+        return {"id": "content:workflow-recommendation-review", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or not markdown_path.exists():
+        errors.append("incomplete_recommendation_artifact_pair")
+
+    try:
+        config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
+        report = WorkflowRecommendationReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:workflow-recommendation-review", "passed": False, "present": True, "errors": [str(exc)]}
+
+    available_workflows = set(config.workflows)
+    available_rule_ids = {rule.id for rule in config.workflow_routing.rules}
+    if report.recommended_workflow not in available_workflows:
+        errors.append("unknown_recommended_workflow")
+    if any(rule_id not in available_rule_ids for rule_id in report.matched_rule_ids):
+        errors.append("unknown_matched_rule_ids")
+    if report.review_status != "pending_harness_maintainer_review":
+        errors.append("recommendation_not_review_only")
+    if any(not source.startswith(".ai/") for source in report.evidence_sources):
+        errors.append("evidence_source_outside_ai")
+
+    markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+    required_sections = [
+        "# Workflow Routing Recommendation",
+        "## Task",
+        "## Recommended Workflow",
+        "## Matched Routing Rules",
+        "## Required Harness Assets",
+        "## Review Boundary",
+    ]
+    if any(section not in markdown for section in required_sections):
+        errors.append("missing_markdown_sections")
+
+    return {
+        "id": "content:workflow-recommendation-review",
+        "passed": not errors,
+        "present": True,
+        "recommended_workflow": report.recommended_workflow,
+        "matched_rule_count": len(report.matched_rule_ids),
+        "errors": errors,
+    }
+
+
+def _maturity_review_artifact_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "review" / "maturity-review.yaml"
+    markdown_path = ai / "review" / "maturity-review.md"
+    if not yaml_path.exists() and not markdown_path.exists():
+        return {"id": "content:maturity-review-artifact", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or not markdown_path.exists():
+        errors.append("incomplete_maturity_review_artifact_pair")
+
+    try:
+        report = MaturityReviewReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+        improvements = ImprovementCandidateReport.model_validate(
+            yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+        )
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:maturity-review-artifact", "passed": False, "present": True, "errors": [str(exc)]}
+
+    known_candidate_ids = {candidate.id for candidate in improvements.candidates}
+    for item in report.candidate_reviews:
+        if item.candidate_id not in known_candidate_ids:
+            errors.append("unknown_candidate_id")
+        if any(not source.startswith(".ai/") for source in item.evidence_sources):
+            errors.append("evidence_source_outside_ai")
+
+    markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+    required_sections = ["# Maturity Review", "## Summary", "## Candidate Reviews", "## Missing Candidates", "## Global Risks"]
+    if any(section not in markdown for section in required_sections):
+        errors.append("missing_markdown_sections")
+
+    return {
+        "id": "content:maturity-review-artifact",
+        "passed": not errors,
+        "present": True,
+        "candidate_review_count": len(report.candidate_reviews),
+        "errors": sorted(set(errors)),
+    }
+
+
+def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "review" / "asset-candidates.yaml"
+    markdown_paths = [
+        ai / "review" / "asset-candidate-guides.md",
+        ai / "review" / "asset-candidate-sensors.md",
+        ai / "review" / "asset-candidate-workflows.md",
+    ]
+    present_paths = [path for path in [yaml_path, *markdown_paths] if path.exists()]
+    if not present_paths:
+        return {"id": "content:asset-candidate-review", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or len(present_paths) != 4:
+        errors.append("incomplete_asset_candidate_artifact_set")
+
+    try:
+        report = AssetCandidateReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+        improvements = ImprovementCandidateReport.model_validate(
+            yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+        )
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:asset-candidate-review", "passed": False, "present": True, "errors": [str(exc)]}
+
+    known_candidate_ids = {candidate.id for candidate in improvements.candidates}
+    for candidate in report.candidates:
+        if (
+            candidate.source_candidate_id
+            and candidate.source_review_decision != "missing"
+            and candidate.source_candidate_id not in known_candidate_ids
+        ):
+            errors.append("unknown_source_candidate_id")
+        if not candidate.suggested_path.startswith(".ai/"):
+            errors.append("suggested_path_outside_ai")
+        if any(not source.startswith(".ai/") for source in candidate.evidence_sources):
+            errors.append("evidence_source_outside_ai")
+
+    required_sections = ["### Rationale", "### Draft Content", "### Evidence Sources", "### Acceptance Checks"]
+    for path in markdown_paths:
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        if any(section not in text for section in required_sections):
+            errors.append("missing_markdown_sections")
+            break
+
+    return {
+        "id": "content:asset-candidate-review",
+        "passed": not errors,
+        "present": True,
+        "candidate_count": len(report.candidates),
+        "errors": sorted(set(errors)),
+    }
+
+
+def _experience_summary_artifact_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "experience" / "experience-summary.yaml"
+    markdown_path = ai / "experience" / "experience-summary.md"
+    if not yaml_path.exists() and not markdown_path.exists():
+        return {"id": "content:experience-summary-artifact", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or not markdown_path.exists():
+        errors.append("incomplete_experience_summary_artifact_pair")
+
+    try:
+        report = ExperienceSummaryReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:experience-summary-artifact", "passed": False, "present": True, "errors": [str(exc)]}
+
+    if report.review_status != "pending_harness_maintainer_review":
+        errors.append("summary_not_review_only")
+    if any(not source.startswith(".ai/") for finding in report.findings for source in finding.evidence_sources):
+        errors.append("evidence_source_outside_ai")
+
+    markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+    required_sections = ["# Experience Summary", "## Summary", "## Findings", "## Warnings"]
+    if any(section not in markdown for section in required_sections):
+        errors.append("missing_markdown_sections")
+
+    return {
+        "id": "content:experience-summary-artifact",
+        "passed": not errors,
+        "present": True,
+        "finding_count": len(report.findings),
+        "errors": sorted(set(errors)),
+    }
 
 
 def _guide_quality_check(ai: Path) -> dict[str, Any]:
@@ -428,20 +654,22 @@ def _weapon_library_selection_check(ai: Path, inventory: ProjectInventory) -> di
     }
 
 
-def _hard_gate_sensors_check(ai: Path) -> dict[str, Any]:
-    report_path = ai / "task-runs" / "demo-task-001" / "sensor-report.yaml"
-    if not report_path.exists():
-        return {"id": "content:hard-gate-sensors-passed", "passed": False, "error": "missing sensor-report.yaml"}
+def _hard_gate_command_evidence_check(ai: Path) -> dict[str, Any]:
     try:
-        sensor_report = SensorReport.model_validate(yaml.safe_load(report_path.read_text(encoding="utf-8")))
+        catalog = CommandCatalog.model_validate(yaml.safe_load((ai / "command-catalog.yaml").read_text(encoding="utf-8")))
     except Exception as exc:  # pragma: no cover
-        return {"id": "content:hard-gate-sensors-passed", "passed": False, "error": str(exc)}
-
-    failing = [result for result in sensor_report.sensor_results if result.status != "passed"]
+        return {"id": "content:hard-gate-command-evidence", "passed": False, "error": str(exc)}
+    hard_commands = [command for command in catalog.commands if command.gate == "hard"]
+    weak = [
+        {"id": command.id, "source": command.source, "confidence": command.confidence}
+        for command in hard_commands
+        if not command.source or command.confidence == "low"
+    ]
     return {
-        "id": "content:hard-gate-sensors-passed",
-        "passed": not failing,
-        "failed_or_skipped": [result.model_dump(mode="json") for result in failing],
+        "id": "content:hard-gate-command-evidence",
+        "passed": bool(hard_commands) and not weak,
+        "hard_gate_count": len(hard_commands),
+        "weak_commands": weak,
     }
 
 
@@ -464,7 +692,6 @@ def _quality_scores(ai: Path, inventory: ProjectInventory) -> dict[str, dict[str
         },
         "workflow_quality": {
             "skill_reference_integrity": _score_skill_reference_integrity(ai),
-            "runtime_trace_completeness": _score_runtime_trace_completeness(ai),
         },
     }
 
@@ -593,15 +820,12 @@ def _score_guide_stack_specificity(ai: Path, inventory: ProjectInventory) -> dic
 
 
 def _score_executable_gate(ai: Path) -> dict[str, Any]:
-    try:
-        sensor_report = SensorReport.model_validate(yaml.safe_load((ai / "task-runs" / "demo-task-001" / "sensor-report.yaml").read_text(encoding="utf-8")))
-    except Exception as exc:
-        return _score_item(0, [f"sensor-report.yaml 不可读：{exc}"], ["重新运行 task sensors。"])
-    if not sensor_report.sensor_results:
-        return _score_item(1, ["没有 hard gate sensor result。"], ["确认 hard gate sensor。"])
-    if any(result.status == "passed" for result in sensor_report.sensor_results):
+    check = _hard_gate_command_evidence_check(ai)
+    if check["passed"]:
         return _score_item(5)
-    return _score_item(3, ["存在 hard gate，但没有 passed result。"], ["处理 failed/skipped sensor。"])
+    if check.get("hard_gate_count", 0) > 0:
+        return _score_item(2, ["存在 hard gate command，但证据不足或置信度过低。"], ["补充 source/evidence 或降级为 advisory。"])
+    return _score_item(1, ["没有 hard gate command。"], ["确认至少一个可执行验证命令。"])
 
 
 def _score_failure_policy(ai: Path) -> dict[str, Any]:
@@ -610,10 +834,7 @@ def _score_failure_policy(ai: Path) -> dict[str, Any]:
         return _score_item(0, ["verification sensor Markdown 不可读。"], ["重新生成 sensors。"])
     if "## 失败处理策略" not in text:
         return _score_item(0, ["缺少失败处理策略。"], ["补充失败处理策略。"])
-    report = _hard_gate_sensors_check(ai)
-    if report.get("failed_or_skipped") or report.get("passed"):
-        return _score_item(5)
-    return _score_item(3, ["有失败处理策略，但没有 hard gate 结果。"], ["运行 task sensors。"])
+    return _score_item(5)
 
 
 def _score_missing_capability_clarity(ai: Path) -> dict[str, Any]:
@@ -630,21 +851,10 @@ def _score_missing_capability_clarity(ai: Path) -> dict[str, Any]:
 
 
 def _score_skill_reference_integrity(ai: Path) -> dict[str, Any]:
-    check = _harness_map_skill_check(ai)
+    check = _workflow_skill_config_reference_check(ai)
     if check["passed"]:
         return _score_item(5)
-    return _score_item(0, [check.get("error", "workflow skill 引用无效。")], ["修复 harness-map workflow skill path。"])
-
-
-def _score_runtime_trace_completeness(ai: Path) -> dict[str, Any]:
-    checks = _runtime_trace_checks(ai)
-    content = next((check for check in checks if check["id"] == "content:runtime-workflow-trace"), None)
-    schema = next((check for check in checks if check["id"] == "schema:runtime-summary"), None)
-    if content and content.get("passed"):
-        return _score_item(5)
-    if schema and schema.get("passed"):
-        return _score_item(3, ["runtime summary 存在，但 workflow events 或 used guides 不完整。"], ["检查 runtime trace 产物。"])
-    return _score_item(0, ["runtime trace 不可读。"], ["重新运行 task workflow。"])
+    return _score_item(0, [check.get("error", "workflow skill 引用无效。")], ["修复 harness-config workflow skill path。"])
 
 
 def _read_text(path: Path) -> str | None:
@@ -652,9 +862,3 @@ def _read_text(path: Path) -> str | None:
         return path.read_text(encoding="utf-8")
     except Exception:
         return None
-
-
-def _benchmark_task(profile: str) -> str:
-    if profile == "java-spring":
-        return "修复登录接口错误提示不一致的问题"
-    return "调整 Catalog 相关低风险文案"

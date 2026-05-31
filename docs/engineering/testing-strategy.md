@@ -54,7 +54,6 @@ Unit 测试应该覆盖单个模块的确定性行为。
 - scan reconciler 的冲突处理和置信度处理。
 - weapon library 的选择逻辑。
 - generation trace 的事件和 artifact 记录。
-- sensor runner 的状态判断。
 - human confirmation 的 questionnaire 生成。
 
 Unit 测试不应该：
@@ -71,10 +70,9 @@ Integration 测试验证多个模块一起工作，尤其是 CLI 命令。
 
 - `init` 能基于 mock LLM 为 Java fixture 生成完整资产。
 - `init` 能基于 mock LLM 为 .NET fixture 生成完整资产。
-- `run` 能选择 workflow、生成 harness map、sensor report 和 runtime summary。
 - `assess` 能生成成熟度评估。
 - `improve` 能生成改进候选。
-- `benchmark` 能检查核心文件、schema、trace、guide/sensor 内容和 hard gate。
+- `benchmark` 能检查核心文件、schema、trace、guide/sensor 内容、workflow skill 引用和 hard gate command 证据。
 
 Integration 测试可以 mock LLM，但不能弱化产物断言。
 
@@ -87,7 +85,7 @@ E2E fixture 使用本地小型项目模拟真实仓库。
 - Java Spring fixture。
 - .NET ASP.NET fixture。
 - unknown stack 或 minimal repo 的边界情况。
-- 从 `init` 到 `run` 的完整链路。
+- 从 `init` 到 `assess`、`improve`、`benchmark` 的完整链路。
 
 E2E 重点不是测试 DeepSeek，而是测试工具链在可控项目上的端到端行为。
 
@@ -99,9 +97,9 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 
 - `RuoYi-Vue` 对应 `java-spring`。
 - `eShopOnWeb` 对应 `dotnet-aspnet`。
-- 跑通 `init/run/assess/improve/benchmark`。
+- 跑通 `init/assess/improve/benchmark`。
 - benchmark passed 时必须真的通过。
-- benchmark failed 时必须有明确 hard gate 失败项和摘要。
+- benchmark failed 时必须有明确 hard gate command 证据失败项和摘要。
 
 规则：
 
@@ -133,8 +131,9 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 
 - `SKILL.md` 存在。
 - 标题或核心名称正确。
-- 被 `harness-config` 或 `harness-map` 引用。
+- 被 `harness-config` 引用。
 - 引用路径真实存在。
+- 描述宿主 AI Coding Runtime 需要维护的 runtime artifact contract。
 
 每个新增 sensor 至少断言：
 
@@ -185,7 +184,7 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 - schema 错误能失败。
 - 必需章节缺失能失败。
 - workflow skill 引用错误能失败。
-- hard gate failed/skipped 能被报告。
+- hard gate command 缺少 evidence/source 或 low confidence 能被报告。
 - 报告自身符合 `BenchmarkReport` schema。
 
 ## CI 策略

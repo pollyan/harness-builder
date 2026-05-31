@@ -7,10 +7,10 @@
 Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agent`。当前核心命令包括：
 
 - `init`：扫描目标仓库并生成初始 Harness 资产。
-- `run`：基于已生成 Harness 模拟任务级工作流选择、Guide 使用和 Sensor 执行。
 - `assess`：生成或更新成熟度评估。
 - `improve`：生成待确认的改进候选。
 - `benchmark`：对完整链路产物做结构、内容和质量门禁检查。
+- `recommend-workflow`：基于任务 brief、`workflow_routing` 和成熟度证据生成 review-only workflow 推荐，并刷新 Experience / Maturity 派生证据；不执行 Runtime。
 
 当前主要目录职责：
 
@@ -72,7 +72,9 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - 资产生成应该由确定性程序完成，不能让 LLM 直接随意写文件。
 - 生成 Markdown 可以是语义化内容，但必须保留稳定章节，便于测试和人工审查。
 - 生成 JSON/YAML 必须符合 schema。
-- Workflow Skill 当前来自固定模板，不做动态 LLM 生成。
+- Workflow Skill 当前来自固定模板，内置模板包括 `lightweight`、`bugfix` 和 `standard`，不做动态 LLM 生成。
+- `harness-config.yaml` 必须包含可被宿主 Runtime 消费的 workflow definitions 和 `workflow_routing` 策略；Builder 只生成策略契约，不执行任务路由。
+- `recommend-workflow` 只能输出 `.ai/review/workflow-routing-recommendation.*` 审查产物，并刷新 `.ai/experience/experience-index.yaml`、`.ai/maturity-score.yaml` 和 `.ai/maturity-evidence.yaml` 等派生证据；正式任务执行、Harness Map、`.ai/task-runs` 和正式 routing policy 应用仍由宿主 Runtime / 后续审核流程承担。
 - 如果 writer 文件持续膨胀，应优先按产物类型拆分，而不是继续堆在单文件中。
 
 ### 武器库层
@@ -87,11 +89,11 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 
 ### 可观测层
 
-可观测层包括 generation trace、runtime trace、artifact list 和 decision log。
+可观测层包括 Harness Builder 自身的 generation trace、artifact list 和 decision log。任务级 runtime trace 仍是未来 AI Coding Runtime 执行 Workflow Skill 时需要维护的可观测性契约，但不由 Harness Builder CLI 生成。
 
 规则：
 
-- 关键命令应记录开始、完成、失败和关键阶段事件。
+- 关键 Harness Builder 命令应记录开始、完成、失败和关键阶段事件。
 - 生成的重要文件应记录到 artifact list。
 - 失败不能只表现为异常栈；应尽量保留可解释的阶段和上下文。
 - trace 是调试和验收依据，不是装饰性输出。
@@ -102,8 +104,8 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 
 规则：
 
-- benchmark 不应只检查文件存在，还要检查 schema、内容章节、跨文件引用和 hard gate 结果。
-- hard gate 失败时，benchmark 可以失败，但必须给出明确失败项。
+- benchmark 不应只检查文件存在，还要检查 schema、内容章节、跨文件引用和 hard gate command 证据。
+- hard gate command 证据不足时，benchmark 可以失败，但必须给出明确失败项。
 - benchmark 检查项新增或调整时必须有测试。
 
 ## 跨层调用约束
@@ -133,4 +135,3 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - benchmark 检查逻辑开始承担实际生成职责。
 - LLM prompt、解析和错误处理散落在多个文件中。
 - 新增技术栈需要复制大量既有逻辑。
-

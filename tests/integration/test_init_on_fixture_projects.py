@@ -100,12 +100,21 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert (ai / "sensors" / "test-strategy.md").exists()
     assert (ai / "skills" / "lightweight" / "SKILL.md").exists()
     assert (ai / "skills" / "bugfix" / "SKILL.md").exists()
+    assert (ai / "skills" / "standard" / "SKILL.md").exists()
 
     ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text())
     CommandCatalog.model_validate(yaml.safe_load((ai / "command-catalog.yaml").read_text()))
     config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text()))
     assert config.workflows["lightweight"].skill_path == ".ai/skills/lightweight/SKILL.md"
     assert config.workflows["bugfix"].skill_path == ".ai/skills/bugfix/SKILL.md"
+    assert config.workflows["standard"].skill_path == ".ai/skills/standard/SKILL.md"
+    routing_rule_ids = {rule.id for rule in config.workflow_routing.rules}
+    assert config.workflow_routing.default_workflow == "lightweight"
+    assert {"bugfix-intent", "low-risk-lightweight", "standard-escalation"}.issubset(routing_rule_ids)
+    standard_routing_rule = next(rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation")
+    assert standard_routing_rule.selected_workflow == "standard"
+    assert standard_routing_rule.human_confirmation_required is True
+    assert "security_or_permission" in standard_routing_rule.triggers
     scan_metadata = yaml.safe_load((ai / "scan-metadata.yaml").read_text(encoding="utf-8"))
     assert scan_metadata["llm_status"] == "succeeded"
     llm_proposal = json.loads((ai / "llm-scan-proposal.json").read_text(encoding="utf-8"))
@@ -141,8 +150,11 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
 
     lightweight_skill = (ai / "skills" / "lightweight" / "SKILL.md").read_text(encoding="utf-8")
     bugfix_skill = (ai / "skills" / "bugfix" / "SKILL.md").read_text(encoding="utf-8")
+    standard_skill = (ai / "skills" / "standard" / "SKILL.md").read_text(encoding="utf-8")
     assert "轻量级开发工作流" in lightweight_skill
     assert "缺陷修复工作流" in bugfix_skill
+    assert "标准开发工作流" in standard_skill
+    assert "Requirement Alignment" in standard_skill
 
     questionnaire = yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8"))
     ids = {item["interaction_id"] for item in questionnaire["questions"]}
@@ -179,6 +191,7 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert ".ai/guides/project-context.md" in artifact_paths
     assert ".ai/sensors/verification.md" in artifact_paths
     assert ".ai/skills/lightweight/SKILL.md" in artifact_paths
+    assert ".ai/skills/standard/SKILL.md" in artifact_paths
     decision_log = (latest / "decision-log.md").read_text(encoding="utf-8")
     assert "Interaction Decisions" in decision_log
 

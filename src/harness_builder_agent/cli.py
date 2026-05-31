@@ -7,12 +7,15 @@ import typer
 
 from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.generate_asset_candidates import generate_asset_candidates
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interactive_init import run_guided_init, run_non_interactive_init
-from harness_builder_agent.tools.run_task import run_task
+from harness_builder_agent.tools.recommend_workflow import recommend_workflow
+from harness_builder_agent.tools.review_maturity import review_maturity
+from harness_builder_agent.tools.summarize_experience import summarize_experience
 
-app = typer.Typer(help="Generate and exercise project-level AI Coding Harness assets.")
+app = typer.Typer(help="Generate, assess, improve, and benchmark project-level AI Coding Harness assets.")
 
 
 @app.command("init")
@@ -44,16 +47,6 @@ def init_command(
     typer.echo(f"Generated harness assets in {output_dir}")
 
 
-@app.command("run")
-def run_command(
-    task: str = typer.Argument(...),
-    repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True),
-) -> None:
-    """Generate a task-level harness map and controlled task handoff assets."""
-    task_dir = run_task(repo, task)
-    typer.echo(f"Generated task run assets in {task_dir}")
-
-
 @app.command("benchmark")
 def benchmark_command(
     repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True),
@@ -81,8 +74,9 @@ def assess_command(repo: Path = typer.Option(..., "--repo", exists=True, file_ok
         output_dir = assess_maturity(repo)
         trace.artifact(output_dir / "maturity-report.md", "maturity_report")
         trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
-        trace.event("maturity", "completed", "Maturity assessment completed.", {"artifact_count": 2})
-        trace.finish("completed", {"artifact_count": 2})
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.event("maturity", "completed", "Maturity assessment completed.", {"artifact_count": 3})
+        trace.finish("completed", {"artifact_count": 3})
     except Exception as exc:
         trace.event("maturity", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})
@@ -107,6 +101,88 @@ def improve_command(repo: Path = typer.Option(..., "--repo", exists=True, file_o
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
     typer.echo(f"Generated improvement candidates in {output_dir}")
+
+
+@app.command("review-maturity")
+def review_maturity_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
+    """Run explicit LLM review for maturity-driven improvement candidates."""
+    trace = GenerationTrace.start(repo, "review-maturity")
+    try:
+        trace.event("maturity-review", "started", "LLM maturity review started.")
+        output_dir = review_maturity(repo)
+        trace.artifact(output_dir / "review" / "maturity-review.yaml", "maturity_review")
+        trace.artifact(output_dir / "review" / "maturity-review.md", "review")
+        trace.event("maturity-review", "completed", "LLM maturity review completed.", {"artifact_count": 2})
+        trace.finish("completed", {"artifact_count": 2})
+    except Exception as exc:
+        trace.event("maturity-review", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Generated maturity review in {output_dir / 'review'}")
+
+
+@app.command("generate-asset-candidates")
+def generate_asset_candidates_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
+    """Generate review-only draft Guide, Sensor, and Workflow asset candidates."""
+    trace = GenerationTrace.start(repo, "generate-asset-candidates")
+    try:
+        trace.event("asset-candidates", "started", "Asset candidate generation started.")
+        output_dir = generate_asset_candidates(repo)
+        trace.artifact(output_dir / "review" / "asset-candidates.yaml", "asset_candidates")
+        trace.artifact(output_dir / "review" / "asset-candidate-guides.md", "review")
+        trace.artifact(output_dir / "review" / "asset-candidate-sensors.md", "review")
+        trace.artifact(output_dir / "review" / "asset-candidate-workflows.md", "review")
+        trace.event("asset-candidates", "completed", "Asset candidate generation completed.", {"artifact_count": 4})
+        trace.finish("completed", {"artifact_count": 4})
+    except Exception as exc:
+        trace.event("asset-candidates", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Generated asset candidates in {output_dir / 'review'}")
+
+
+@app.command("recommend-workflow")
+def recommend_workflow_command(
+    repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True),
+    task: str = typer.Option(..., "--task", help="Task brief to evaluate against the workflow routing policy."),
+    task_id: str = typer.Option("manual-task", "--task-id", help="Stable task id for the recommendation artifact."),
+) -> None:
+    """Generate a review-only workflow recommendation for a task brief."""
+    trace = GenerationTrace.start(repo, "recommend-workflow")
+    try:
+        trace.event("workflow-recommendation", "started", "Workflow recommendation started.", {"task_id": task_id})
+        output_dir = recommend_workflow(repo, task_brief=task, task_id=task_id)
+        trace.artifact(output_dir / "review" / "workflow-routing-recommendation.yaml", "workflow_recommendation")
+        trace.artifact(output_dir / "review" / "workflow-routing-recommendation.md", "review")
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.event("workflow-recommendation", "completed", "Workflow recommendation completed.", {"artifact_count": 5})
+        trace.finish("completed", {"artifact_count": 5})
+    except Exception as exc:
+        trace.event("workflow-recommendation", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Generated workflow recommendation in {output_dir / 'review'}")
+
+
+@app.command("summarize-experience")
+def summarize_experience_command(repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True)) -> None:
+    """Run LLM semantic summarization over review-only Experience evidence."""
+    trace = GenerationTrace.start(repo, "summarize-experience")
+    try:
+        trace.event("experience-summary", "started", "LLM experience summary started.")
+        output_dir = summarize_experience(repo)
+        trace.artifact(output_dir / "experience" / "experience-summary.yaml", "experience_summary")
+        trace.artifact(output_dir / "experience" / "experience-summary.md", "experience")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.event("experience-summary", "completed", "LLM experience summary completed.", {"artifact_count": 3})
+        trace.finish("completed", {"artifact_count": 3})
+    except Exception as exc:
+        trace.event("experience-summary", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Generated experience summary in {output_dir / 'experience'}")
 
 
 def main() -> None:

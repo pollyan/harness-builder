@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 from harness_builder_agent.schemas.interaction_decision import InteractionDecisions
 from harness_builder_agent.tools.asset_writers.shared import record_artifact, write_text, write_yaml
 from harness_builder_agent.tools.generation_trace import GenerationTrace
@@ -18,9 +19,11 @@ def write_human_confirmation_assets(
     interaction_decisions: InteractionDecisions | None = None,
 ) -> None:
     decisions = interaction_decisions or default_non_interactive_decisions(str(ai.parent))
-    write_yaml(ai / "context-inputs.yaml", context_inputs)
+    context_payload = ContextInputs.model_validate(context_inputs).model_dump(mode="json")
+    questionnaire_payload = Questionnaire.model_validate(questionnaire).model_dump(mode="json")
+    write_yaml(ai / "context-inputs.yaml", context_payload)
     record_artifact(trace, ai / "context-inputs.yaml", "context_inputs")
-    write_yaml(ai / "questionnaire.yaml", questionnaire)
+    write_yaml(ai / "questionnaire.yaml", questionnaire_payload)
     record_artifact(trace, ai / "questionnaire.yaml", "questionnaire")
     write_yaml(ai / "interaction-decisions.yaml", decisions.model_dump(mode="json"))
     record_artifact(trace, ai / "interaction-decisions.yaml", "interaction_decisions")
@@ -32,6 +35,6 @@ def write_human_confirmation_assets(
         )
     write_text(
         ai / "human-input-needed.md",
-        human_input_markdown(context_inputs, questionnaire, interaction_decisions_markdown(decisions)),
+        human_input_markdown(context_payload, questionnaire_payload, interaction_decisions_markdown(decisions)),
     )
     record_artifact(trace, ai / "human-input-needed.md", "human_confirmation")

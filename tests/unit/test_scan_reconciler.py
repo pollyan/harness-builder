@@ -107,3 +107,68 @@ def test_reconcile_vetoes_impossible_dotnet_claim():
 
     with pytest.raises(ScanConflictError, match="dotnet"):
         reconcile_scan(evidence, proposal)
+
+
+def test_reconcile_warns_when_secondary_stack_claim_lacks_evidence():
+    evidence = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[EvidenceFile(path="pom.xml", kind="build", summary="maven")],
+        key_files=[EvidenceFile(path="pom.xml", kind="build", summary="maven")],
+    )
+    proposal = _proposal()
+    proposal.stacks = ["java", "maven", "node"]
+
+    inventory, _commands, metadata = reconcile_scan(evidence, proposal)
+
+    validation = inventory.stack_extensions["scan_validation"]
+    assert validation["checked_claims"] == ["java-spring", "node"]
+    assert validation["supported_claims"] == ["java-spring"]
+    assert validation["unsupported_claims"] == [
+        {
+            "stack": "node",
+            "reason": "LLM claimed node but no package.json or JS/TS/Vue evidence was found",
+        }
+    ]
+    assert any(warning.code == "llm_stack_claim_without_evidence" for warning in metadata.warnings)
+    assert inventory.stack_extensions["scan_warnings"] == [warning.model_dump(mode="json") for warning in metadata.warnings]
+
+
+def test_reconcile_does_not_treat_javascript_evidence_as_java_support():
+    evidence = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[
+            EvidenceFile(path="package.json", kind="build"),
+            EvidenceFile(path="src/app.js", kind="source"),
+        ],
+        key_files=[EvidenceFile(path="package.json", kind="build")],
+        source_samples=[EvidenceFile(path="src/app.js", kind="source")],
+    )
+    proposal = _proposal(command_source="package.json", gate="soft")
+    proposal.primary_stack = "node"
+    proposal.stacks = ["javascript", "java"]
+    proposal.command_candidates = []
+
+    inventory, _commands, metadata = reconcile_scan(evidence, proposal)
+
+    validation = inventory.stack_extensions["scan_validation"]
+    assert validation["checked_claims"] == ["node", "java-spring"]
+    assert validation["supported_claims"] == ["node"]
+    assert validation["unsupported_claims"][0]["stack"] == "java-spring"
+    assert any("java-spring" in warning.evidence for warning in metadata.warnings)
+
+
+def test_reconcile_vetoes_impossible_java_claim():
+    evidence = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[EvidenceFile(path="package.json", kind="build")],
+        key_files=[EvidenceFile(path="package.json", kind="build")],
+    )
+    proposal = _proposal(command_source="package.json")
+    proposal.primary_stack = "java-spring"
+    proposal.stacks = ["java"]
+
+    with pytest.raises(ScanConflictError, match="Java"):
+        reconcile_scan(evidence, proposal)

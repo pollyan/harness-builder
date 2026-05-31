@@ -18,8 +18,6 @@
 
 | Todo | 状态 | 优先级 | 说明 |
 | --- | --- | --- | --- |
-| [旧 scanner v2 实现审查与迁移评估](scanner-v2-review-and-migration.md) | open | high | 在当前 evidence depth v1 已完成的基础上，审查历史 scanner v2 是否还有可吸收的扫描能力 |
-| [删除 run 命令并收缩 Runtime 职责边界](remove-run-command-runtime-boundary.md) | open | high | `run` 命令承担了任务级 runtime/workflow 模拟职责，可能不属于 Harness Builder 的边界，应评估并移除 |
 
 ## 管理规则
 

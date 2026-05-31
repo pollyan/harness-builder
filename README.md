@@ -37,7 +37,6 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
 
 ```bash
 .venv/bin/harness-builder-agent init --repo tests/fixtures/mini-spring-boot
-.venv/bin/harness-builder-agent run --repo tests/fixtures/mini-spring-boot "修复登录接口错误提示不一致的问题"
 .venv/bin/harness-builder-agent assess --repo tests/fixtures/mini-spring-boot
 .venv/bin/harness-builder-agent improve --repo tests/fixtures/mini-spring-boot
 .venv/bin/harness-builder-agent benchmark --repo tests/fixtures/mini-spring-boot --profile java-spring
@@ -72,22 +71,25 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
   evolution-plan.md
 ```
 
-`run` 会生成任务级产物：
+Harness Builder 不提供任务级 `run` 命令。真实 AI Coding 工具执行 Workflow Skill 时，应按 Skill 中的 runtime artifact contract 生成任务级可观测产物：
 
 ```text
 .ai/task-runs/demo-task-001/
   harness-map.yaml
   sensor-report.yaml
+  runtime-summary.yaml
+  workflow-events.jsonl
+  used-guides.yaml
   decision-log.md
   handoff-summary.md
   experience-candidates.md
 ```
 
-`assess` 更新成熟度评估，`improve` 生成待确认改进候选，`benchmark` 会检查文件存在、schema、内容质量和 hard gate Sensor 结果。
+`assess` 更新成熟度评估，`improve` 生成待确认改进候选，`benchmark` 会检查 Harness 资产文件存在、schema、内容质量、Workflow Skill 引用和 hard gate command 证据。
 
 `benchmark-report.yaml` 中：
 
-- `status` 表示硬验收是否通过，缺文件、schema 错误或 hard gate failed/skipped 会让它变成 `failed`。
+- `status` 表示硬验收是否通过，缺文件、schema 错误、Workflow Skill 引用错误或 hard gate command 证据不足会让它变成 `failed`。
 - `quality_status` 表示质量评分结论：`passed`、`degraded` 或 `failed`。
 - `quality_scores` 给出 scan、guide、sensor、workflow 的分项评分、原因和建议。
 
@@ -105,13 +107,11 @@ git clone --depth 1 https://github.com/dotnet-architecture/eShopOnWeb.git .bench
 
 ```bash
 .venv/bin/harness-builder-agent init --non-interactive --repo .benchmarks/RuoYi-Vue
-.venv/bin/harness-builder-agent run --repo .benchmarks/RuoYi-Vue "修复登录接口错误提示不一致的问题"
 .venv/bin/harness-builder-agent assess --repo .benchmarks/RuoYi-Vue
 .venv/bin/harness-builder-agent improve --repo .benchmarks/RuoYi-Vue
 .venv/bin/harness-builder-agent benchmark --repo .benchmarks/RuoYi-Vue --profile java-spring
 
 .venv/bin/harness-builder-agent init --non-interactive --repo .benchmarks/eShopOnWeb
-.venv/bin/harness-builder-agent run --repo .benchmarks/eShopOnWeb "调整 Catalog 相关低风险文案"
 .venv/bin/harness-builder-agent assess --repo .benchmarks/eShopOnWeb
 .venv/bin/harness-builder-agent improve --repo .benchmarks/eShopOnWeb
 .venv/bin/harness-builder-agent benchmark --repo .benchmarks/eShopOnWeb --profile dotnet-aspnet

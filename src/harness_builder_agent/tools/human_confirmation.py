@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 
 SUMMARY_LIMIT = 1200
 
@@ -20,7 +21,7 @@ def read_context_inputs(paths: list[Path]) -> dict[str, Any]:
                 "truncated": len(text) > SUMMARY_LIMIT,
             }
         )
-    return {"schema_version": "1.0", "contexts": contexts}
+    return ContextInputs(contexts=contexts).model_dump(mode="json")
 
 
 def build_questionnaire(context_inputs: dict[str, Any], scan_metadata: dict[str, Any]) -> dict[str, Any]:
@@ -68,7 +69,7 @@ def build_questionnaire(context_inputs: dict[str, Any], scan_metadata: dict[str,
                 "reason": warning.get("message", "扫描阶段产生 warning，需要人工确认。"),
             }
         )
-    return {"schema_version": "1.0", "questions": questions}
+    return Questionnaire(questions=questions).model_dump(mode="json")
 
 
 def human_input_markdown(context_inputs: dict[str, Any], questionnaire: dict[str, Any], decision_markdown: str = "") -> str:
