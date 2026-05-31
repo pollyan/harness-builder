@@ -182,11 +182,48 @@ def test_review_maturity_with_llm_accepts_baseline_harness_asset_evidence():
     assert report.candidate_reviews[0].evidence_sources == [".ai/guides/project-context.md"]
 
 
+def test_review_maturity_with_llm_accepts_runtime_task_runs_contract_source():
+    report = review_maturity_with_llm(
+        _score(),
+        _evidence_pack(),
+        _candidates(),
+        caller=lambda _messages: json.dumps(
+            {
+                "schema_version": "1.0",
+                "summary": "Review summary.",
+                "reviewer_model": "deepseek-test",
+                "review_status": "pending_harness_maintainer_review",
+                "candidate_reviews": [
+                    {
+                        "candidate_id": "candidate-1",
+                        "decision": "defer",
+                        "rationale": "Runtime task-run contract has no observed task data yet.",
+                        "risks": ["No Runtime task evidence is available."],
+                        "suggested_acceptance_checks": ["Run benchmark."],
+                        "evidence_sources": [".ai/task-runs/"],
+                    }
+                ],
+                "missing_candidates": [],
+                "global_risks": [],
+            }
+        ),
+    )
+
+    assert report.candidate_reviews[0].evidence_sources == [".ai/task-runs/"]
+
+
 def test_maturity_evidence_allowlist_does_not_allow_arbitrary_guide_children():
     allowed = maturity_evidence_source_allowlist(_evidence_pack())
 
     assert ".ai/guides/project-context.md" in allowed
     assert ".ai/guides/missing.md" not in allowed
+
+
+def test_maturity_evidence_allowlist_does_not_allow_arbitrary_task_run_children():
+    allowed = maturity_evidence_source_allowlist(_evidence_pack())
+
+    assert ".ai/task-runs/" in allowed
+    assert ".ai/task-runs/task-1/runtime-summary.yaml" not in allowed
 
 
 def test_review_maturity_with_llm_rejects_unknown_candidate_id():

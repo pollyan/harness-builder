@@ -145,7 +145,7 @@ LLM schema 应表达稳定业务契约。
 - 对 experience summary 必须保留 kind、title、summary、review_status、confidence、suggested_follow_up 和 evidence_sources；`evidence_sources` 必须限制在提供给 LLM 的 `.ai/` 证据路径内。
 - 对 workflow recommendation 必须保留 task_id、task_brief、recommended_workflow、matched_rule_ids、risk_level、confidence、rationale、required_guides、required_sensors、human_confirmation_required、review_status 和 evidence_sources；`recommended_workflow` 和 `matched_rule_ids` 必须和当前 `harness-config.yaml` 对齐。
 - 对 workflow recommendation、maturity review、asset candidate 和 experience summary，`evidence_sources` 不只检查 `.ai/` 前缀，还必须属于 Builder 提供给该 LLM 阶段的 evidence allowlist；未知 `.ai/` 路径必须显式失败，不能作为可追溯证据接受。
-- `.ai/guides/`、`.ai/sensors/`、`.ai/skills/` 这类目录级 maturity input 不代表允许任意子路径；只有 Builder 固定生成的基线 Harness 资产路径可以作为精确 evidence source 加入 allowlist。
+- `.ai/guides/`、`.ai/sensors/`、`.ai/skills/`、`.ai/task-runs/` 这类目录级 maturity input 不代表允许任意子路径；只有 Builder 固定生成的基线 Harness 资产路径和明确声明的契约目录可以作为精确 evidence source 加入 allowlist。
 - 对注入到下游 prompt 的 experience summary，必须在 prompt 中明确它是 review-only semantic context，不是正式规则、不是已应用变更。
 
 ## 错误处理

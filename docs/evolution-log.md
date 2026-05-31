@@ -13,7 +13,7 @@
 - 价值切分说明：本轮只补“外部 Runtime 数据进入 Harness Builder 证据面”的纵向能力，为后续成熟度真实晋级和 self-improve 经验闭环打基础，不直接改成熟度 overall 评分。
 - 可执行验收标准及验证方式：unit 覆盖合法 / 缺失 / 不一致 Runtime task-run loader、Experience index、maturity evidence、experience summary source；integration 覆盖 benchmark absent / valid / invalid Runtime task-run。
 - 完成内容：新增 `RuntimeSummary` / `RuntimeTaskRunSummary` schema 与 `runtime_task_runs.py`；Experience index 改为统计 schema-valid task-runs；maturity evidence 增加 Runtime sensor / repair 汇总；benchmark 新增 `content:runtime-task-run-artifacts`；experience summary 注入 sensor / handoff / decision 详情；README 和 engineering docs 同步。
-- 全量回归修正：真实 DeepSeek 验收发现 maturity review 会引用 Builder 固定生成的 `.ai/guides/project-context.md`；已补精确基线 Harness 资产 evidence allowlist，仍拒绝任意未知 `.ai/guides/**` 路径。
+- 全量回归修正：真实 DeepSeek 验收发现 maturity review 会引用 Builder 固定生成的 `.ai/guides/project-context.md` 和 Runtime 契约目录 `.ai/task-runs/`；已补精确 evidence allowlist，仍拒绝任意未知 `.ai/guides/**` 或 `.ai/task-runs/<task-id>/**` 路径。
 - 验证结果：targeted regression `66 passed`；fast/full/push 结果见本轮提交记录。
 - Self-Harness Gate：长期 Runtime 分工和 benchmark 规则已同步。下一轮候选 gap：E2E 产物契约深度、过程文档中文 gate、self-improve 包被 benchmark 全量消费、成熟度 L3/L4 真实晋级语义。
 

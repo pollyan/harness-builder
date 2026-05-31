@@ -33,6 +33,7 @@ MATURITY_INPUTS = [
     ".ai/sensors/",
     ".ai/skills/",
     ".ai/runs/",
+    ".ai/task-runs/",
     ".ai/experience/experience-index.yaml",
     ".ai/experience/experience-summary.yaml",
     ".ai/experience/pending-improvements.md",
