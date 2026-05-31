@@ -1916,6 +1916,10 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert result.exit_code == 0, result.output
     assert "已存在 Harness" in result.output
     assert "当前成熟度" in result.output
+    assert "维护状态摘要（Maintenance overview）" in result.output
+    assert "质量门禁：尚未运行 benchmark；建议先运行菜单 `4` 的 `benchmark` 建立质量基线。" in result.output
+    assert "Workflow 路由：default=`lightweight`，standard escalation 已启用" in result.output
+    assert "优先动作：输入 `4` 运行 `benchmark`（reason=benchmark_not_run，source=.ai/benchmark-report.yaml）。" in result.output
     assert "质量门禁信号（Benchmark signals）" in result.output
     assert "benchmark_failed_checks=not_available" in result.output
     assert "Workflow 路由信号（Workflow routing signals）" in result.output
@@ -1975,6 +1979,9 @@ def test_guided_init_existing_harness_can_exit_with_numbered_action(tmp_path: Pa
     result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="1\n")
 
     assert result.exit_code == 0, result.output
+    assert "维护状态摘要（Maintenance overview）" in result.output
+    assert "质量门禁：尚未运行 benchmark；建议先运行菜单 `4` 的 `benchmark` 建立质量基线。" in result.output
+    assert "优先动作：输入 `4` 运行 `benchmark`（reason=benchmark_not_run，source=.ai/benchmark-report.yaml）。" in result.output
     assert "维护建议（Maintenance triage guidance）" in result.output
     assert "建议处理 1：先运行 `benchmark`" in result.output
     assert "推荐动作快捷选择（Maintenance action shortcuts）" in result.output

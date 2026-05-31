@@ -30,6 +30,7 @@ from harness_builder_agent.tools.existing_harness_actions import (
     existing_harness_action_menu_lines,
     normalize_existing_harness_action,
 )
+from harness_builder_agent.tools.existing_harness_status import render_existing_harness_status_overview_lines
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.human_input_governance import review_human_input
@@ -666,6 +667,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         score = MaturityReport.model_validate(yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8")))
     benchmark = _read_benchmark_status(ai)
     experience_lines = _experience_status_lines(ai)
+    maintenance_actions = build_maintenance_triage(ai, score)
 
     typer.echo("\n我发现这个仓库已存在 Harness。")
     typer.echo(f"- 仓库：`{inventory.repo_name}`")
@@ -677,6 +679,9 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     else:
         typer.echo("- 当前成熟度：未发现 `.ai/maturity-score.yaml`，建议先运行 assess。")
     typer.echo(f"- 最近 benchmark：{benchmark}")
+    typer.echo("- 维护状态摘要（Maintenance overview）:")
+    for line in render_existing_harness_status_overview_lines(ai, config, score, maintenance_actions):
+        typer.echo(f"  - {line}")
     typer.echo("- 质量门禁信号（Benchmark signals）:")
     for line in _benchmark_signal_lines(ai):
         typer.echo(f"  - {line}")
@@ -686,7 +691,6 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo("- 经验 / 审查信号（Experience / review signals）:")
     for line in experience_lines:
         typer.echo(f"  - {line}")
-    maintenance_actions = build_maintenance_triage(ai, score)
     typer.echo("- 维护优先级（Maintenance triage）:")
     for line in render_maintenance_triage_lines(maintenance_actions):
         typer.echo(f"  - {line}")
