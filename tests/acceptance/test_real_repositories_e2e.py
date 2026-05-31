@@ -8,6 +8,9 @@ from pathlib import Path
 
 import yaml
 
+from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
+from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
+
 ROOT = Path(__file__).resolve().parents[2]
 BENCHMARKS = ROOT / ".benchmarks"
 
@@ -32,7 +35,7 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _assert_real_repo(repo_name: str, profile: str) -> None:
+def _assert_real_repo(repo_name: str, profile: str, *, run_self_improve: bool = False) -> None:
     repo = BENCHMARKS / repo_name
     assert repo.exists(), f"Missing real benchmark repository: {repo}"
     report_path = repo / ".ai" / "benchmark-report.yaml"
@@ -48,6 +51,10 @@ def _assert_real_repo(repo_name: str, profile: str) -> None:
     improve_result = _run_cli("improve", "--repo", str(repo))
     assert improve_result.returncode == 0, improve_result.stderr + improve_result.stdout
 
+    if run_self_improve:
+        self_improve_result = _run_cli("self-improve", "--repo", str(repo))
+        assert self_improve_result.returncode == 0, self_improve_result.stderr + self_improve_result.stdout
+
     benchmark_result = _run_cli("benchmark", "--repo", str(repo), "--profile", profile)
     assert benchmark_result.returncode in (0, 1), benchmark_result.stderr + benchmark_result.stdout
 
@@ -58,6 +65,15 @@ def _assert_real_repo(repo_name: str, profile: str) -> None:
     assert (ai / "skills" / "bugfix" / "SKILL.md").exists()
     assert (ai / "skills" / "standard" / "SKILL.md").exists()
     assert not (ai / "task-runs").exists()
+    if run_self_improve:
+        manifest = SelfImprovePackageManifest.model_validate(
+            yaml.safe_load((ai / "review" / "self-improve-package.yaml").read_text())
+        )
+        asset_candidates = AssetCandidateReport.model_validate(
+            yaml.safe_load((ai / "review" / "asset-candidates.yaml").read_text())
+        )
+        assert manifest.review_status == "pending_harness_maintainer_review"
+        assert all(candidate.review_status == "pending_harness_maintainer_review" for candidate in asset_candidates.candidates)
     assert report_path.exists(), benchmark_result.stderr + benchmark_result.stdout
     report = yaml.safe_load(report_path.read_text())
     assert report["profile"] == profile
@@ -68,6 +84,15 @@ def _assert_real_repo(repo_name: str, profile: str) -> None:
     assert "content:generation-trace" in check_ids
     assert "content:hard-gate-command-evidence" in check_ids
     assert "content:runtime-workflow-trace" not in check_ids
+    if run_self_improve:
+        self_improve_check_ids = {
+            "content:maturity-review-artifact",
+            "content:asset-candidate-review",
+            "content:self-improve-package",
+        }
+        assert self_improve_check_ids <= check_ids
+        checks_by_id = {check["id"]: check for check in report["checks"]}
+        assert all(checks_by_id[check_id]["passed"] is True for check_id in self_improve_check_ids)
     if benchmark_result.returncode == 0:
         assert report["status"] == "passed"
     else:
@@ -75,6 +100,9 @@ def _assert_real_repo(repo_name: str, profile: str) -> None:
         hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-command-evidence")
         assert hard_gate_check["passed"] is False
         assert hard_gate_check["weak_commands"] or hard_gate_check["hard_gate_count"] == 0
+        if run_self_improve:
+            failed_check_ids = {check["id"] for check in report["checks"] if check["passed"] is False}
+            assert failed_check_ids == {"content:hard-gate-command-evidence"}
     runs = sorted((ai / "runs").iterdir())
     assert runs
     trace = yaml.safe_load((runs[-1] / "trace.yaml").read_text())
@@ -83,6 +111,9 @@ def _assert_real_repo(repo_name: str, profile: str) -> None:
     assert "benchmark" in trace["stages"]
 
 
-def test_real_repositories_init_and_benchmark_end_to_end():
-    _assert_real_repo("RuoYi-Vue", "java-spring")
+def test_ruoyi_vue_real_repository_with_self_improve():
+    _assert_real_repo("RuoYi-Vue", "java-spring", run_self_improve=True)
+
+
+def test_eshoponweb_real_repository_end_to_end():
     _assert_real_repo("eShopOnWeb", "dotnet-aspnet")

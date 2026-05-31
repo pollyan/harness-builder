@@ -162,6 +162,24 @@ def test_parse_maturity_review_response_rejects_invalid_json():
         parse_maturity_review_response("not json", {"candidate-1"})
 
 
+def test_parse_maturity_review_response_rejects_schema_invalid_review():
+    with pytest.raises(ValueError, match="failed schema validation"):
+        parse_maturity_review_response(
+            json.dumps(
+                {
+                    "summary": "Missing candidate review fields.",
+                    "candidate_reviews": [
+                        {
+                            "candidate_id": "candidate-1",
+                            "rationale": "Decision is missing.",
+                        }
+                    ],
+                }
+            ),
+            {"candidate-1"},
+        )
+
+
 def test_build_maturity_review_messages_includes_experience_summary_when_present():
     messages = build_maturity_review_messages(_score(), _evidence_pack(), _candidates(), experience_summary=_experience_summary())
     content = messages[-1]["content"]
@@ -170,6 +188,33 @@ def test_build_maturity_review_messages_includes_experience_summary_when_present
     assert "standard-escalation" in content
     assert "security_or_permission" in content
     assert "review-only Experience Summary findings" in content
+
+
+def test_build_maturity_review_messages_declares_complete_review_schema_and_template():
+    messages = build_maturity_review_messages(_score(), _evidence_pack(), _candidates())
+    content = messages[-1]["content"]
+
+    for field in (
+        "schema_version",
+        "summary",
+        "reviewer_model",
+        "candidate_reviews",
+        "candidate_reviews[].candidate_id",
+        "candidate_reviews[].decision",
+        "candidate_reviews[].rationale",
+        "candidate_reviews[].risks",
+        "candidate_reviews[].suggested_acceptance_checks",
+        "candidate_reviews[].evidence_sources",
+        "missing_candidates",
+        "global_risks",
+    ):
+        assert field in content
+    assert "The response object MUST include every top-level key" in content
+    assert "every candidate review object MUST include every candidate review key" in content
+    assert '"candidate_id": "existing-improvement-candidate-id"' in content
+    assert '"decision": "support"' in content
+    assert '"missing_candidates": []' in content
+    assert "Do not include markdown commentary, comments, trailing commas, or text outside the JSON object." in content
 
 
 def test_build_maturity_review_messages_guides_workflow_recommendation_candidate():

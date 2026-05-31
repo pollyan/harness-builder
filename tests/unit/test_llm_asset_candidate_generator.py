@@ -236,6 +236,31 @@ def test_build_asset_candidate_messages_includes_experience_summary_when_present
     assert "review-only Experience Summary findings" in content
 
 
+def test_build_asset_candidate_messages_declares_complete_candidate_schema_and_output_limits():
+    messages = build_asset_candidate_messages(_score(), _evidence_pack(), _improvement_candidates(), _maturity_review())
+    content = messages[-1]["content"]
+
+    for field in (
+        "candidates[].id",
+        "candidates[].kind",
+        "candidates[].source_candidate_id",
+        "candidates[].source_review_decision",
+        "candidates[].suggested_path",
+        "candidates[].title",
+        "candidates[].rationale",
+        "candidates[].draft_content",
+        "candidates[].evidence_sources",
+        "candidates[].acceptance_checks",
+        "candidates[].risk_level",
+        "candidates[].review_status",
+    ):
+        assert field in content
+    assert "At most 5 candidates" in content
+    assert '"id": "stable-kebab-case-id"' in content
+    assert '"title": "Human review title"' in content
+    assert '"rationale": "Why this candidate follows from the reviewed maturity evidence."' in content
+
+
 def test_build_asset_candidate_messages_guides_workflow_recommendation_candidate():
     evidence = _evidence_pack()
     evidence.maturity_inputs.append(".ai/review/workflow-routing-recommendation.yaml")

@@ -18,7 +18,6 @@
 
 | Todo | 状态 | 优先级 | 说明 |
 | --- | --- | --- | --- |
-| [Self-Improve 真实 LLM Acceptance 覆盖](self-improve-acceptance-coverage.md) | open | medium | 为 `self-improve` 增加真实 DeepSeek / 开源仓库 acceptance，验证智能自改进包在真实 LLM 下仍保持 schema、review-only 和 benchmark 契约。 |
 
 ## 管理规则
 

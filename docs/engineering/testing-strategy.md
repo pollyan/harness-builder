@@ -36,6 +36,14 @@ scripts/test-fast.sh
 scripts/test-acceptance.sh
 ```
 
+开发过程中如果只触及某条 LLM 或真实仓库链路，可以先运行对应 targeted acceptance，例如单个 `tests/acceptance/...` 文件；发布、push 前或跨链路风险较高时再运行 `scripts/test-full.sh`。targeted acceptance 只能缩短开发反馈，不能替代进入远端前的 full acceptance。
+
+`scripts/test-acceptance.sh` 支持透传 pytest 目标：
+
+```bash
+scripts/test-acceptance.sh tests/acceptance/test_real_repositories_e2e.py::test_ruoyi_vue_real_repository_with_self_improve
+```
+
 完整本地验收：
 
 ```bash
@@ -98,7 +106,7 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 
 - `RuoYi-Vue` 对应 `java-spring`。
 - `eShopOnWeb` 对应 `dotnet-aspnet`。
-- 跑通 `init/assess/improve/benchmark`。`self-improve` 真实 LLM acceptance 覆盖作为独立 todo 跟进。
+- 跑通 `init/assess/improve/benchmark`，并在至少一个真实仓库上额外跑通 `self-improve`，验证真实 DeepSeek 生成的 review-only 自改进包仍符合 schema 与 benchmark 契约。
 - benchmark passed 时必须真的通过。
 - benchmark failed 时必须有明确 hard gate command 证据失败项和摘要。
 

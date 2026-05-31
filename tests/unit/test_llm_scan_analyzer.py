@@ -253,3 +253,76 @@ def test_call_deepseek_requests_json_object_response(monkeypatch: pytest.MonkeyP
     assert content == "{}"
     assert captured["body"]["response_format"] == {"type": "json_object"}
     assert captured["timeout"] == 12
+
+
+def test_call_deepseek_retries_transient_empty_content(monkeypatch: pytest.MonkeyPatch):
+    responses = [
+        {"choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": "", "reasoning_content": "thinking"}}]},
+        {"choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": "{}"}}]},
+    ]
+
+    class FakeResponse:
+        def __init__(self, body):
+            self.body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return json.dumps(self.body).encode("utf-8")
+
+    def fake_urlopen(_request, timeout):
+        assert timeout == 60
+        return FakeResponse(responses.pop(0))
+
+    monkeypatch.setattr("harness_builder_agent.tools.deepseek_client.urllib.request.urlopen", fake_urlopen)
+
+    content = call_deepseek(
+        [{"role": "user", "content": "return json"}],
+        config=DeepSeekConfig(api_key="sk-test", model="deepseek-test"),
+    )
+
+    assert content == "{}"
+    assert responses == []
+
+
+def test_call_deepseek_fails_after_empty_content_retries(monkeypatch: pytest.MonkeyPatch):
+    calls = 0
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"role": "assistant", "content": "", "reasoning_content": "thinking"},
+                        }
+                    ]
+                }
+            ).encode("utf-8")
+
+    def fake_urlopen(_request, timeout):
+        assert timeout == 60
+        nonlocal calls
+        calls += 1
+        return FakeResponse()
+
+    monkeypatch.setattr("harness_builder_agent.tools.deepseek_client.urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(ValueError, match="DeepSeek response content is empty"):
+        call_deepseek(
+            [{"role": "user", "content": "return json"}],
+            config=DeepSeekConfig(api_key="sk-test", model="deepseek-test"),
+        )
+
+    assert calls == 2

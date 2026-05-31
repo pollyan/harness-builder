@@ -10,5 +10,8 @@ else
   echo "Using fallback python from PATH because .venv/bin/python is not available."
 fi
 
-"$PYTHON" -m pytest tests/acceptance -q
-
+if [ "$#" -gt 0 ]; then
+  "$PYTHON" -m pytest "$@" -q
+else
+  "$PYTHON" -m pytest tests/acceptance -q
+fi

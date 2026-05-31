@@ -80,6 +80,7 @@ Harness Builder 的扫描策略是 LLM-first。
 允许的行为：
 
 - 在错误信息中说明需要配置 DeepSeek。
+- 对 DeepSeek 返回空 `content` 这类瞬时 API 响应异常做有限重试；重试仍失败时必须显式失败并暴露 `finish_reason`、message keys 等非敏感诊断信息。
 - 在调和阶段降低置信度。
 - 对无法确认的信息标记 `needs_human_confirmation`。
 - 在 Markdown 中明确写出“未发现证据”或“需要人工确认”。
@@ -102,9 +103,12 @@ Prompt 是系统行为的一部分，应当可维护。
 
 当前规则：
 
-- Prompt 内容应集中在 LLM 相关模块中，避免散落在多个 writer 或 CLI 里。
+- 机器消费型 LLM Prompt 内容必须集中在 `src/harness_builder_agent/prompts/`，避免散落在多个 `tools/llm_*.py`、writer 或 CLI 里。
+- Prompt asset 必须使用 `## System Message` 和 `## User Message` 章节，并通过共享 loader 加载。
+- Python 模块负责向 Prompt 注入结构化 JSON payload，Prompt 文件不直接承载动态数据拼接逻辑。
 - Prompt 修改必须有测试或 acceptance 验证。
 - Prompt 应明确要求 JSON object 和固定 schema。
+- 面向机器消费输出的 Prompt 必须显式枚举对应 Pydantic schema 的必填字段；真实 LLM 返回合法 JSON 但 schema-invalid 时，应优先收紧 Prompt 和测试，而不是放宽 schema、跳过验收或生成 fallback。
 - Prompt 不应要求 LLM 直接输出最终文件内容。
 - LLM maturity review 只能输出结构化 review judgment，不能声称已经修改 Guides、Sensors、Workflow 或其他正式 Harness 资产。
 - LLM maturity review 遇到 `experience-workflow-recommendation-review` 改进候选时，应消费 `.ai/review/workflow-routing-recommendation.yaml` 作为 review-only workflow recommendation evidence，并与 `maturity_evidence.harness_assets.workflow_routing_rules` 对照后给出 `support`、`revise` 或 `defer`；review 不能声称推荐已执行、已应用或已写入正式 Harness 资产。
@@ -117,8 +121,6 @@ Prompt 是系统行为的一部分，应当可维护。
 - LLM asset candidate generation 在生成 `workflow_policy` 候选时，应显式消费 `maturity_evidence.harness_assets.workflow_routing_rules`，但这些 routing rules 只能作为 review-only evidence；候选必须保持 `pending_harness_maintainer_review`，不能声称已经修改或应用 `.ai/harness-config.yaml`。
 - LLM asset candidate generation 遇到 `experience-workflow-recommendation-review` 改进候选时，应消费 `.ai/review/workflow-routing-recommendation.yaml` 作为 review-only workflow recommendation evidence，并优先生成指向 `.ai/harness-config.yaml` 的 `workflow_policy` 草案；草案必须保持 `pending_harness_maintainer_review`，不能声称推荐已执行或已应用。
 - LLM experience summary 可以在 `.ai/review/workflow-routing-recommendation.yaml` 存在时把它作为 review-only evidence 消费，用于总结 workflow gap、routing signal 或 improvement signal；不能把该推荐当成已执行 workflow 或已应用的正式 Harness 变更。
-
-未来如果 Prompt 数量增加，应考虑拆到专门目录，例如 `src/harness_builder_agent/prompts/`。
 
 ## Schema 规则
 
@@ -146,6 +148,7 @@ LLM 相关错误应该让用户知道真实问题。
 - 哪个阶段失败。
 - 是配置缺失、请求失败、超时、JSON 解析失败还是 schema 失败。
 - 用户下一步可以检查什么。
+- DeepSeek 返回空 `content` 时，应包含非敏感响应元数据，例如 `finish_reason`、message keys、是否存在 `reasoning_content`。
 
 错误信息不应该：
 

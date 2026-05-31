@@ -13,8 +13,10 @@ from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
+from harness_builder_agent.prompts.loader import load_prompt_sections
 
-REVIEW_PROMPT_VERSION = "llm-maturity-review-v1"
+REVIEW_PROMPT_VERSION = "llm-maturity-review-v2"
+REVIEW_PROMPT_RESOURCE = "llm_maturity_review_v2.md"
 
 
 def review_maturity_with_llm(
@@ -39,36 +41,7 @@ def build_maturity_review_messages(
     candidates: ImprovementCandidateReport,
     experience_summary: ExperienceSummaryReport | None = None,
 ) -> list[dict[str, str]]:
-    schema_contract = """
-Return one JSON object only. Do not include markdown commentary.
-
-Field contract:
-- schema_version: "1.0".
-- summary: short review summary.
-- reviewer_model: model name if known, otherwise null.
-- candidate_reviews: array of candidate review objects.
-- candidate_reviews[].candidate_id must reference an existing improvement candidate id.
-- candidate_reviews[].decision must be one of support, revise, defer.
-- candidate_reviews[].rationale must explain the judgment using maturity evidence.
-- candidate_reviews[].risks must be an array of concrete risks.
-- candidate_reviews[].suggested_acceptance_checks must be an array of concrete checks.
-- candidate_reviews[].evidence_sources must reference provided .ai evidence paths.
-- missing_candidates: array of missing improvement ideas, strings only.
-- global_risks: array of cross-candidate risks.
-
-Do not claim any Harness asset was edited. This is review-only output.
-Prefer "revise" when a candidate is directionally useful but underspecified.
-Prefer "defer" when evidence is too weak.
-Use review-only Experience Summary findings when judging recurring gaps, sensor feedback, workflow gaps, and risk signals.
-Do not treat Experience Summary findings as formal rules or applied changes.
-Use maturity_evidence.experience.sources as a review-only source index. Inspect each source path, kind, and item_count to identify available pending improvement, maturity review, asset candidate, workflow recommendation, or runtime evidence.
-Prefer evidence_sources that cite paths present in maturity_evidence.experience.sources when those sources support the judgment.
-Experience sources are not applied Harness changes; do not treat review-only source entries as formal Guides, Sensors, Workflow, or config updates.
-When improvement candidate experience-workflow-recommendation-review is present, inspect review-only workflow recommendation evidence from .ai/review/workflow-routing-recommendation.yaml when available in maturity inputs or candidate evidence sources.
-Compare the recommendation with maturity_evidence.harness_assets.workflow_routing_rules before deciding whether current routing already covers it.
-Prefer support or revise when evidence indicates routing policy, escalation, required guide, required sensor, or human confirmation adjustments should be drafted later.
-The review must not claim the recommendation was executed, applied, or written into formal Harness assets.
-""".strip()
+    system_prompt, user_prompt = load_prompt_sections(REVIEW_PROMPT_RESOURCE)
     payload = {
         "prompt_version": REVIEW_PROMPT_VERSION,
         "maturity_score": score.model_dump(mode="json"),
@@ -79,14 +52,11 @@ The review must not claim the recommendation was executed, applied, or written i
     return [
         {
             "role": "system",
-            "content": (
-                "You are the LLM maturity reviewer for Harness Builder. "
-                "You review deterministic improvement candidates and return strict JSON only."
-            ),
+            "content": system_prompt,
         },
         {
             "role": "user",
-            "content": f"{schema_contract}\n\nReview input JSON:\n{json.dumps(payload, ensure_ascii=False)}",
+            "content": f"{user_prompt}\n\nReview input JSON:\n{json.dumps(payload, ensure_ascii=False)}",
         },
     ]
 

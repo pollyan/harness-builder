@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable
-from importlib import resources
 
 from pydantic import ValidationError
 
 from harness_builder_agent.schemas.scan import EvidenceBundle, LLMScanProposal
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
+from harness_builder_agent.prompts.loader import load_prompt_sections
 
 SCAN_PROMPT_VERSION = "llm-first-scan-v2"
 SCAN_PROMPT_RESOURCE = ("prompts", "llm_first_scan_v2.md")
@@ -45,20 +45,7 @@ def build_scan_messages(evidence: EvidenceBundle) -> list[dict[str, str]]:
 
 
 def _load_scan_prompt() -> tuple[str, str]:
-    prompt = (
-        resources.files("harness_builder_agent")
-        .joinpath(*SCAN_PROMPT_RESOURCE)
-        .read_text(encoding="utf-8")
-        .strip()
-    )
-    system_marker = "## System Message"
-    user_marker = "## User Message"
-    if system_marker not in prompt or user_marker not in prompt:
-        raise ValueError("Scan prompt asset must contain System Message and User Message sections")
-    system_text, user_text = prompt.split(user_marker, 1)
-    system_text = system_text.replace(system_marker, "", 1).strip()
-    user_text = user_text.strip()
-    return system_text, user_text
+    return load_prompt_sections(SCAN_PROMPT_RESOURCE[-1])
 
 
 def parse_llm_scan_response(content: str) -> LLMScanProposal:

@@ -132,6 +132,14 @@ scripts/test-full.sh
 
 `scripts/test-acceptance.sh` 会实际请求 DeepSeek，并运行真实开源仓库验收；没有 `DEEPSEEK_API_KEY` 或缺少 `.benchmarks/` 真实仓库会失败，不会跳过。
 
+开发时可以把 pytest 目标透传给 acceptance 脚本，只运行当前相关的真实链路，例如：
+
+```bash
+scripts/test-acceptance.sh tests/acceptance/test_real_repositories_e2e.py::test_ruoyi_vue_real_repository_with_self_improve
+```
+
+targeted acceptance 只用于缩短开发反馈；推送或发布前仍以 `scripts/test-full.sh` 为准。
+
 `scripts/test-full.sh` 先运行 fast，再运行 acceptance，适合发布前、目标模式完成前或扫描/LLM/真实仓库验收相关改动后执行。
 
 ## 本地提交保护

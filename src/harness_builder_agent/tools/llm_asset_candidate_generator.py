@@ -14,8 +14,10 @@ from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
+from harness_builder_agent.prompts.loader import load_prompt_sections
 
-ASSET_CANDIDATE_PROMPT_VERSION = "llm-asset-candidate-v1"
+ASSET_CANDIDATE_PROMPT_VERSION = "llm-asset-candidate-v2"
+ASSET_CANDIDATE_PROMPT_RESOURCE = "llm_asset_candidate_v2.md"
 
 
 def generate_asset_candidates_with_llm(
@@ -48,36 +50,7 @@ def build_asset_candidate_messages(
     maturity_review: MaturityReviewReport,
     experience_summary: ExperienceSummaryReport | None = None,
 ) -> list[dict[str, str]]:
-    schema_contract = """
-Return one JSON object only. Do not include markdown commentary.
-
-Field contract:
-- schema_version: "1.0".
-- source: "llm_maturity_review".
-- candidates: array of review-only draft asset candidates.
-- candidates[].kind must be one of guide, sensor, workflow_policy.
-- candidates[].source_candidate_id must reference an existing improvement candidate id, unless source_review_decision is missing.
-- candidates[].source_review_decision must be support, revise, defer, or missing.
-- candidates[].suggested_path must start with .ai/.
-- candidates[].draft_content is proposed content only; do not claim it has been applied.
-- candidates[].review_status must be pending_harness_maintainer_review.
-
-Do not overwrite formal Guides, Sensors, Workflow Skills, or harness-config.
-Generate concrete draft content that a Harness Maintainer can review later.
-When drafting workflow_policy candidates, inspect maturity_evidence.harness_assets.workflow_routing_rules.
-Use routing rule ids, selected workflow, triggers, required guides, required sensors, human confirmation, and rationale as evidence.
-Prefer .ai/harness-config.yaml for workflow_policy suggestions that adjust routing rules or escalation conditions.
-Workflow policy candidates remain review-only and must keep review_status pending_harness_maintainer_review.
-Never claim workflow routing changes were applied.
-Use maturity_evidence.experience.sources as a review-only source index. Inspect each source path, kind, and item_count to locate maturity review, asset candidate, workflow recommendation, pending improvement, or runtime evidence for draft candidates.
-Ground candidate evidence_sources in paths that are present in maturity_evidence.experience.sources or other provided .ai evidence.
-Do not invent missing source paths, and do not treat review-only source entries as applied Harness rules.
-When improvement candidate experience-workflow-recommendation-review is present, inspect review-only workflow recommendation evidence from .ai/review/workflow-routing-recommendation.yaml when available in maturity inputs or candidate evidence sources.
-If maturity review supports or revises that candidate, prefer a workflow_policy draft targeting .ai/harness-config.yaml that explains routing rule, escalation, required guide, required sensor, or human confirmation adjustments.
-The draft must remain pending_harness_maintainer_review and must not claim the recommendation was executed or applied.
-Use review-only Experience Summary findings when drafting candidates for recurring gaps, sensor feedback, workflow gaps, and risk signals.
-Do not treat Experience Summary findings as formal rules or applied changes.
-""".strip()
+    system_prompt, user_prompt = load_prompt_sections(ASSET_CANDIDATE_PROMPT_RESOURCE)
     payload = {
         "prompt_version": ASSET_CANDIDATE_PROMPT_VERSION,
         "maturity_score": score.model_dump(mode="json"),
@@ -89,14 +62,11 @@ Do not treat Experience Summary findings as formal rules or applied changes.
     return [
         {
             "role": "system",
-            "content": (
-                "You are the asset candidate generator for Harness Builder. "
-                "You transform reviewed maturity recommendations into strict JSON draft asset candidates."
-            ),
+            "content": system_prompt,
         },
         {
             "role": "user",
-            "content": f"{schema_contract}\n\nCandidate generation input JSON:\n{json.dumps(payload, ensure_ascii=False)}",
+            "content": f"{user_prompt}\n\nCandidate generation input JSON:\n{json.dumps(payload, ensure_ascii=False)}",
         },
     ]
 
