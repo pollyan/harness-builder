@@ -62,6 +62,7 @@
 - 2026-06-01：迁移 Existing Harness 维护入口的编号菜单、维护动作 normalization 和 `Maintenance triage guidance`。当前 guided `init` 在已有 Harness 入口支持输入 `1` 到 `8` 选择动作，并把 top maintenance actions 翻译成中文处理建议。
 - 2026-06-01：迁移 Human Input 待确认回访入口。当前 `human-input-needed.md` 包含 `## 扫描待确认摘要` 和 `## 处理方式`，已有 Harness 维护入口会展示 questionnaire 状态、待确认总数、scan 类确认数量、前几个 interaction id 和 `.ai/human-input-needed.md#处理方式`。
 - 2026-06-01：迁移 Existing Harness Benchmark / Workflow routing 只读信号。当前维护入口会展示 `Benchmark signals`、`Workflow routing signals`、benchmark failed check 中文解释、error / missing / weak command detail，以及 hard gate weak command / project-context evidence 专属 triage reason。
+- 2026-06-01：迁移 Init Summary 待确认处理入口。当前 `init-summary.md` 包含 `## 待人工确认`，会列出前几个 `confirm:*` ID、`.ai/human-input-needed.md#处理方式` 入口和 scan warning action hint；CLI completion message 复用同一待确认摘要，benchmark `content:init-summary` 会校验章节、处理入口和 questionnaire ID 对齐。
 
 ## 理想状态
 
@@ -93,7 +94,9 @@
    - `.ai/human-input-needed.md#处理方式`。
      - 已迁移：2026-06-01。
    - `init-summary.md` 与 questionnaire 的 `confirm:*` ID 对齐。
+     - 已迁移：2026-06-01。
    - scan warning action hints。
+     - 已迁移：2026-06-01（summary / CLI completion 复用；后续如需更细状态仍可继续扩展）。
    - Existing Harness 对 confirmation backlog 的显示和 triage。
      - 已迁移：2026-06-01（backlog 显示；triage 排序仍待后续评估）。
 

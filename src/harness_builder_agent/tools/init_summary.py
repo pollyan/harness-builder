@@ -10,6 +10,10 @@ from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.human_confirmation import Questionnaire
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.tools.human_confirmation import (
+    scan_warning_action_hint,
+    scan_warning_code_from_interaction_id,
+)
 
 
 def write_init_summary(
@@ -65,6 +69,8 @@ def build_init_summary_markdown(
         f"{_user_supplement_lines(interaction_decisions)}\n\n"
         "## 资产如何补齐缺口\n\n"
         f"{_asset_gap_link_lines(score, inventory, commands, interaction_decisions)}\n\n"
+        "## 待人工确认\n\n"
+        f"{_pending_confirmation_lines(ai)}\n\n"
         "## Benchmark 健康度\n\n"
         f"{_benchmark_readiness(ai)}\n\n"
         "## 推荐入口文件\n\n"
@@ -159,18 +165,28 @@ def _priority_entry_lines(ai: Path) -> str:
     )
 
 
-def _pending_confirmation_lines(ai: Path) -> str:
+def _pending_confirmation_lines(ai: Path | None) -> str:
+    if ai is None:
+        return "1. 未提供 `.ai` 路径；请查看生成后的 `.ai/human-input-needed.md#处理方式`。"
     path = ai / "questionnaire.yaml"
     if not path.exists():
-        return "1. 未找到 `.ai/questionnaire.yaml`；请查看 `.ai/human-input-needed.md`。"
+        return "1. 未找到 `.ai/questionnaire.yaml`；请查看 `.ai/human-input-needed.md#处理方式`。"
     questionnaire = Questionnaire.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
     lines = [
-        f"{index}. `{item.interaction_id}`：{item.question}（confidence={item.confidence}）"
-        for index, item in enumerate(questionnaire.questions[:3], start=1)
+        "1. 处理入口：查看 `.ai/human-input-needed.md#处理方式`，按对应 `confirm:*` ID 处理后运行 benchmark 验收。"
     ]
+    for item in questionnaire.questions[:3]:
+        lines.append(
+            f"{len(lines) + 1}. `{item.interaction_id}`：{item.question}（confidence={item.confidence}）"
+        )
+        if item.interaction_type == "scan_warning_confirmation":
+            code = scan_warning_code_from_interaction_id(item.interaction_id)
+            lines.append(f"   - scan_warning_action:{code}={scan_warning_action_hint(code)}")
     if len(questionnaire.questions) > 3:
-        lines.append(f"{len(lines) + 1}. 还有 {len(questionnaire.questions) - 3} 个问题，详见 `.ai/human-input-needed.md`。")
-    return "\n".join(lines) or "1. 暂无待确认问题。"
+        lines.append(f"{len(lines) + 1}. 还有 {len(questionnaire.questions) - 3} 个问题，详见 `.ai/human-input-needed.md#处理方式`。")
+    if not questionnaire.questions:
+        lines.append("2. 暂无待确认问题。")
+    return "\n".join(lines)
 
 
 def _repository_fact_lines(inventory: ProjectInventory | None, commands: CommandCatalog | None) -> str:

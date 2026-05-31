@@ -581,6 +581,24 @@ def test_benchmark_reports_absent_runtime_task_runs_as_optional(tmp_path: Path, 
     assert check["present"] is False
 
 
+def test_benchmark_fails_when_init_summary_missing_confirmation_entry(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    summary_path = repo / ".ai" / "init-summary.md"
+    text = summary_path.read_text(encoding="utf-8")
+    text = text.replace("## 待人工确认", "## 人工确认")
+    text = text.replace(".ai/human-input-needed.md#处理方式", ".ai/human-input-needed.md")
+    summary_path.write_text(text, encoding="utf-8")
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.assess_maturity", lambda repo_path: repo_path / ".ai")
+
+    report = run_benchmark(repo)
+    check = next(item for item in report["checks"] if item["id"] == "content:init-summary")
+
+    assert check["passed"] is False
+    assert report["status"] == "failed"
+    assert "## 待人工确认" in check["missing"]
+    assert ".ai/human-input-needed.md#处理方式" in check["missing"]
+
+
 def test_benchmark_validates_present_runtime_task_runs(tmp_path: Path, monkeypatch):
     repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
     _write_runtime_task_run(repo / ".ai", task_id="task-1", sensor_status="failed")

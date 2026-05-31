@@ -233,7 +233,7 @@ def _action_guidance_line(question: dict[str, Any]) -> str:
     interaction_id = str(question.get("interaction_id", "confirm:unknown"))
     interaction_type = str(question.get("interaction_type", "unknown"))
     if interaction_type == "scan_warning_confirmation":
-        return f"- `{interaction_id}`：{_scan_warning_action_hint(_scan_warning_code_from_interaction_id(interaction_id))}"
+        return f"- `{interaction_id}`：{scan_warning_action_hint(scan_warning_code_from_interaction_id(interaction_id))}"
     guidance_by_type = {
         "context_confirmation": "用 `harness-builder-agent init --repo <repo> --context <file>` 补充团队规范、架构约束或测试策略。",
         "candidate_asset_confirmation": "用 `review-candidate --candidate-id <id> --decision accepted|deferred|rejected|applied` 治理 review-only Guide / Sensor 候选。",
@@ -249,14 +249,14 @@ def _action_guidance_line(question: dict[str, Any]) -> str:
     return f"- `{interaction_id}`：{guidance}"
 
 
-def _scan_warning_code_from_interaction_id(interaction_id: str) -> str:
+def scan_warning_code_from_interaction_id(interaction_id: str) -> str:
     prefix = "confirm:scan-warning:"
     if interaction_id.startswith(prefix):
         return interaction_id[len(prefix):] or "unknown"
     return "unknown"
 
 
-def _scan_warning_action_hint(code: str) -> str:
+def scan_warning_action_hint(code: str) -> str:
     hints = {
         "test_evidence_not_found": "补充测试命令：`command=ID|命令|test|hard|来源|置信度`，或用 `--context <file>` 补充测试策略。",
         "command_without_evidence": "补充带真实 source 的验证命令，例如 `command=ID|命令|test|hard|docs/testing.md|high`。",

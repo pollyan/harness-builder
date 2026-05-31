@@ -127,6 +127,52 @@ def test_init_completion_message_is_cli_first_delivery_summary(tmp_path: Path):
     assert ".ai/sensors/verification.md" in message
 
 
+def test_init_summary_links_pending_confirmations_to_action_entry(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    (ai / "questionnaire.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "questions": [
+                    {
+                        "interaction_type": "scan_warning_confirmation",
+                        "interaction_id": "confirm:scan-warning:test_evidence_not_found",
+                        "question": "是否需要补充测试入口？",
+                        "options": ["补充 command", "保持待确认"],
+                        "confidence": "low",
+                        "reason": "No dedicated test evidence bucket was found.",
+                    },
+                    {
+                        "interaction_type": "context_confirmation",
+                        "interaction_id": "confirm:team-context",
+                        "question": "是否有团队规则需要加入 Harness？",
+                        "options": ["补充", "暂缓"],
+                        "confidence": "medium",
+                        "reason": "团队规则会影响 Guides。",
+                    },
+                ],
+            },
+            allow_unicode=True,
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    (ai / "maturity-score.yaml").write_text(yaml.safe_dump(_score().model_dump(mode="json")), encoding="utf-8")
+
+    markdown = build_init_summary_markdown(_score(), ai=ai)
+    message = render_init_completion_message(ai)
+
+    assert "## 待人工确认" in markdown
+    assert ".ai/human-input-needed.md#处理方式" in markdown
+    assert "confirm:scan-warning:test_evidence_not_found" in markdown
+    assert "confirm:team-context" in markdown
+    assert "scan_warning_action:test_evidence_not_found" in markdown
+    assert "command=ID|命令|test|hard|来源|置信度" in markdown
+    assert ".ai/human-input-needed.md#处理方式" in message
+    assert "scan_warning_action:test_evidence_not_found" in message
+
+
 def test_init_summary_records_repository_facts_user_supplements_and_asset_gap_links(tmp_path: Path):
     ai = tmp_path / ".ai"
     ai.mkdir()

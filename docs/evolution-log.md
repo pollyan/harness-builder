@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Init Summary 待确认处理入口迁移
+
+- North Star 模块：Progressive Collaboration、CLI Experience、Maturity & Evolution、Sensor & Quality Gate。
+- init North Star 旅程阶段：写入后的交付摘要；仍需人工确认的问题和下一步处理入口。
+- Gap Analysis 摘要：当前唯一 open todo 是本地独有 / 更细能力迁移。对比当前 main 与 `backup/local-61-before-migration` 后，本轮候选包括 Init Summary 待确认处理入口、Benchmark / quality gate 深层迁移、Scan evidence 可审计细节。当前 `human-input-needed.md` 和已有 Harness 维护入口已经有 `.ai/human-input-needed.md#处理方式`，但首次 `init-summary.md` 仍缺少稳定 `## 待人工确认` 章节和 questionnaire ID 对齐，因此优先补齐交付摘要闭环。
+- 用户故事：作为首次运行 `init` 后阅读 `.ai/init-summary.md` 的 Harness Maintainer，当我看到 `## 待人工确认` 时，我可以直接知道这些 `confirm:*` 问题应去 `.ai/human-input-needed.md#处理方式` 处理，并且 scan warning 会显示对应 action hint，从而把交付报告里的风险解释连接到可执行补充动作。
+- 当前代码 gap：`build_init_summary_markdown()` 没有 `## 待人工确认`；CLI completion 的待确认区只列问题，不说明处理入口；benchmark `content:init-summary` 不校验 confirmation 处理入口或 questionnaire ID 对齐。
+- 关键决策 / 取舍：不新增 schema，复用 `Questionnaire`；将 scan warning action hint 从 human confirmation 内部 helper 提取为公共 helper，避免 `human-input-needed.md`、`init-summary.md` 和 CLI completion 文案漂移；summary 只展示前几个问题，完整处理建议仍以 `.ai/human-input-needed.md#处理方式` 为准。
+- Assumptions / risks：`init-summary.md` 是首次 init 后团队会共享的持久化入口，因此必须能独立指向人工确认处理方式；旧 Harness 如果没有该章节，benchmark 可暴露为内容契约失败；action hint 只是处理建议，不代表 Builder 自动修正扫描结论。
+- Sub agent 使用情况：尝试启动 explorer 做只读旧分支对比，但当前 agent thread limit reached；本轮由主线程用当前文件和 `git show` 完成对比。
+- 价值切分说明：本轮聚焦首次 init 交付摘要和待确认处理入口，不把 Benchmark 深层 quality gate 或 Scan evidence writer 迁入同一轮。
+- 可执行验收标准及验证方式：unit 覆盖 summary / CLI completion 的 `## 待人工确认`、处理入口、`confirm:*` ID 和 scan warning action hint；integration 覆盖 Java / .NET fixture init 产物；benchmark integration 覆盖 `content:init-summary` 缺处理入口时失败。
+- 完成内容：`init-summary.md` 新增 `## 待人工确认`；`render_init_completion_message()` 复用同一待确认摘要；`benchmark` 增强 `content:init-summary` 检查；README、init workflow、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted unit / integration 已通过；`git diff --check` 通过；`scripts/test-fast.sh` 通过，结果为 `347 passed in 17.77s`。
+- Self-Harness Gate：长期文档已同步；Runtime 边界未变化，未创建 `.ai/task-runs`。下一轮候选 gap 继续来自迁移 todo：优先审视 Benchmark / quality gate 细化，或进入 Scan evidence 可审计细节。
+
 ## 2026-06-01 Existing Harness Benchmark / Routing Signals 迁移
 
 - North Star 模块：CLI Experience、Maturity & Evolution、Sensor & Quality Gate、Runtime Boundary。

@@ -342,6 +342,7 @@ def _init_summary_check(ai: Path) -> dict[str, Any]:
         "## 当前成熟度",
         "## 主要阻断项",
         "## 建议下一步",
+        "## 待人工确认",
         "## Benchmark 健康度",
         "## 推荐入口文件",
         "## 本次未执行的事项",
@@ -349,17 +350,41 @@ def _init_summary_check(ai: Path) -> dict[str, Any]:
     required_entries = [
         ".ai/maturity-report.md",
         ".ai/human-input-needed.md",
+        ".ai/human-input-needed.md#处理方式",
         ".ai/sensors/verification.md",
         "benchmark_status=",
         "quality_status=",
         ".ai/task-runs",
     ]
-    missing = [item for item in [*required_sections, *required_entries] if item not in text]
+    missing = [
+        item
+        for item in [
+            *required_sections,
+            *required_entries,
+            *_missing_init_summary_confirmation_ids(ai, text),
+        ]
+        if item not in text
+    ]
     return {
         "id": "content:init-summary",
         "passed": not missing,
         "missing": missing,
     }
+
+
+def _missing_init_summary_confirmation_ids(ai: Path, text: str) -> list[str]:
+    path = ai / "questionnaire.yaml"
+    if not path.exists():
+        return []
+    try:
+        questionnaire = Questionnaire.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    except Exception:
+        return ["schema:questionnaire"]
+    return [
+        question.interaction_id
+        for question in questionnaire.questions[:3]
+        if question.interaction_id not in text
+    ]
 
 
 def _workflow_skills_check(ai: Path) -> dict[str, Any]:

@@ -224,6 +224,11 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert "## 建议下一步" in init_summary
     assert "## 本次吸收的用户补充" in init_summary
     assert "## 资产如何补齐缺口" in init_summary
+    assert "## 待人工确认" in init_summary
+    assert ".ai/human-input-needed.md#处理方式" in init_summary
+    assert "confirm:team-context" in init_summary
+    assert "confirm:guide-candidates" in init_summary
+    assert "confirm:sensor-gates" in init_summary
     assert "## Benchmark 健康度" in init_summary
     assert "benchmark_status=not_run" in init_summary
     assert "quality_status=not_available" in init_summary
