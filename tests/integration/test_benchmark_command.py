@@ -187,6 +187,43 @@ def _write_valid_maturity_review(ai: Path) -> None:
     )
 
 
+def _write_valid_experience_summary(ai: Path) -> None:
+    experience = ai / "experience"
+    experience.mkdir(parents=True, exist_ok=True)
+    (experience / "experience-summary.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_experience_summary",
+                "review_status": "pending_harness_maintainer_review",
+                "summary": "Sensor coverage is the main experience signal.",
+                "findings": [
+                    {
+                        "id": "sensor-coverage-gap",
+                        "kind": "sensor_feedback",
+                        "title": "Sensor coverage gap",
+                        "summary": "Pending improvements point to missing sensor coverage.",
+                        "evidence_sources": [".ai/experience/pending-improvements.md"],
+                        "confidence": "high",
+                        "suggested_follow_up": "Draft a reviewed sensor candidate.",
+                    }
+                ],
+                "warnings": ["Runtime task-runs are absent."],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (experience / "experience-summary.md").write_text(
+        "# Experience Summary\n\n"
+        "## Summary\n\nSensor coverage is the main experience signal.\n\n"
+        "## Findings\n\n### Sensor coverage gap\n\n- evidence: `.ai/experience/pending-improvements.md`\n\n"
+        "## Warnings\n\n- Runtime task-runs are absent.\n",
+        encoding="utf-8",
+    )
+
+
 def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: str = "mini-spring-boot", profile: str = "java-spring") -> Path:
     repo = tmp_path / fixture_name
     shutil.copytree(FIXTURES / fixture_name, repo)
@@ -225,6 +262,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-recommendation-review" in check_ids
     assert "content:maturity-review-artifact" in check_ids
     assert "content:asset-candidate-review" in check_ids
+    assert "content:experience-summary-artifact" in check_ids
     assert "content:guides-quality" in check_ids
     assert "content:stack-specific-guides" in check_ids
     assert "content:sensors-quality" in check_ids
@@ -621,3 +659,48 @@ def test_benchmark_fails_when_workflow_recommendation_markdown_sections_are_miss
     recommendation = next(check for check in checks if check["id"] == "content:workflow-recommendation-review")
     assert recommendation["passed"] is False
     assert "missing_markdown_sections" in recommendation["errors"]
+
+
+def test_benchmark_accepts_valid_experience_summary_artifacts(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_experience_summary(ai)
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    summary = next(check for check in checks if check["id"] == "content:experience-summary-artifact")
+    assert summary["passed"] is True
+    assert summary["present"] is True
+    assert summary["finding_count"] == 1
+
+
+def test_benchmark_fails_experience_summary_with_outside_ai_evidence(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_experience_summary(ai)
+    path = ai / "experience" / "experience-summary.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["findings"][0]["evidence_sources"] = ["README.md"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    summary = next(check for check in checks if check["id"] == "content:experience-summary-artifact")
+    assert summary["passed"] is False
+    assert "evidence_source_outside_ai" in summary["errors"]
+
+
+def test_benchmark_fails_experience_summary_when_markdown_sections_are_missing(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_experience_summary(ai)
+    (ai / "experience" / "experience-summary.md").write_text("# Experience Summary\n", encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    summary = next(check for check in checks if check["id"] == "content:experience-summary-artifact")
+    assert summary["passed"] is False
+    assert "missing_markdown_sections" in summary["errors"]

@@ -10,6 +10,7 @@ from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
+from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
@@ -289,6 +290,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _workflow_recommendation_review_check(ai),
         _maturity_review_artifact_check(ai),
         _asset_candidate_review_check(ai),
+        _experience_summary_artifact_check(ai),
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
         _sensor_quality_check(ai),
@@ -550,6 +552,40 @@ def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
         "passed": not errors,
         "present": True,
         "candidate_count": len(report.candidates),
+        "errors": sorted(set(errors)),
+    }
+
+
+def _experience_summary_artifact_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "experience" / "experience-summary.yaml"
+    markdown_path = ai / "experience" / "experience-summary.md"
+    if not yaml_path.exists() and not markdown_path.exists():
+        return {"id": "content:experience-summary-artifact", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or not markdown_path.exists():
+        errors.append("incomplete_experience_summary_artifact_pair")
+
+    try:
+        report = ExperienceSummaryReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:experience-summary-artifact", "passed": False, "present": True, "errors": [str(exc)]}
+
+    if report.review_status != "pending_harness_maintainer_review":
+        errors.append("summary_not_review_only")
+    if any(not source.startswith(".ai/") for finding in report.findings for source in finding.evidence_sources):
+        errors.append("evidence_source_outside_ai")
+
+    markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+    required_sections = ["# Experience Summary", "## Summary", "## Findings", "## Warnings"]
+    if any(section not in markdown for section in required_sections):
+        errors.append("missing_markdown_sections")
+
+    return {
+        "id": "content:experience-summary-artifact",
+        "passed": not errors,
+        "present": True,
+        "finding_count": len(report.findings),
         "errors": sorted(set(errors)),
     }
 
