@@ -70,6 +70,42 @@ def collect_evidence(repo: Path, max_summary_chars: int = 600, max_source_sample
     )
 
 
+def expand_evidence_with_requested_paths(
+    repo: Path,
+    evidence: EvidenceBundle,
+    requested_paths: list[str],
+    *,
+    max_summary_chars: int = 1200,
+) -> EvidenceBundle:
+    root = repo.resolve()
+    known_paths = {item.path for item in evidence.files}
+    requested: list[EvidenceFile] = []
+    seen: set[str] = set()
+    for relative_path in requested_paths:
+        if relative_path in seen:
+            continue
+        seen.add(relative_path)
+        if relative_path not in known_paths:
+            raise ValueError(f"unknown evidence path requested by LLM planner: {relative_path}")
+        path = (root / relative_path).resolve()
+        try:
+            path.relative_to(root)
+        except ValueError as exc:
+            raise ValueError(f"LLM planner requested path outside repository: {relative_path}") from exc
+        requested.append(
+            _evidence_file(
+                path,
+                root,
+                "llm_requested",
+                max_summary_chars,
+                bucket="llm_requested",
+                priority="high",
+                reason="LLM evidence planner requested this file.",
+            )
+        )
+    return evidence.model_copy(update={"llm_requested_files": requested})
+
+
 def _walk_files(root: Path) -> list[Path]:
     found: list[Path] = []
     for path in root.rglob("*"):

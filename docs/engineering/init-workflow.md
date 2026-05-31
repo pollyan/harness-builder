@@ -62,6 +62,7 @@ Evidence 收集负责从目标仓库抽取事实，例如：
 - Evidence 是事实输入，不是最终判断。
 - 不应该假设企业代码库一定符合标准目录结构。
 - 不应该因为没找到 `tests/` 就断定项目没有测试。
+- 初始 evidence 之后可以执行 LLM-guided evidence expansion：LLM 只能从已发现文件索引中请求少量补充文件，Python 负责路径 allowlist 校验和摘要读取，再把补充文件作为 `llm_requested_files` 提供给最终 LLM scan。
 
 ### 2. LLM 结构化扫描
 

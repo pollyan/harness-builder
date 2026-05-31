@@ -1,5 +1,23 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 LLM-Guided Evidence Expansion
+
+- North Star 模块：Scanner & Analyzer、Prompt Contract、Maturity & Evolution、智能化职责边界。
+- Gap Analysis 摘要：当前扫描已经是 LLM-first，但 evidence 选择仍主要由确定性 bucket、排序和 source sample 上限决定。复杂遗留仓库中关键业务风险文件可能不在固定采样前几项，导致最终 scan proposal 仍受脚本采样偏差限制。
+- 用户故事：作为遗留仓库的 Harness Maintainer，当仓库文件结构不规范、关键风险代码没有落在固定采样前几项时，我希望 Harness Builder 先让 LLM 基于初始 evidence 规划需要深入读取的补充文件，再生成最终 scan proposal，从而让模块、风险区和验证建议更贴近真实代码。
+- 当前代码 gap：`scan_repository()` 直接执行 `collect_evidence -> analyze_evidence_with_llm -> reconcile_scan`；`EvidenceBundle.files` 虽有完整轻量文件索引，但模型不能先选择补充读取文件。
+- 决策：新增 `llm-evidence-plan-v1` 机器 prompt、`LLMEvidencePlan` schema 和 `llm_evidence_planner.py`；planner 只输出路径计划，不生成最终扫描结论。
+- 决策：Python 按 allowlist 校验 requested paths，只允许来自 `EvidenceBundle.files` 的仓库内文件；非法、未知、`.ai/` 或仓库外路径显式失败，不能 fallback 成固定采样成功。
+- 决策：真实无 caller 扫描路径默认执行 planner；现有 mock `llm_caller` 测试保持只注入最终 scan，显式 `evidence_planner_caller` 才测试两阶段链路。
+- Assumptions / risks：多一次真实 LLM 调用会增加 acceptance 成本，但这是提升扫描智能化的核心投入；本轮最多请求 8 个文件，避免 prompt 体积失控。
+- 边界与失败模式：不改变最终 `LLMScanProposal` schema，不让 LLM 直接读写文件，不恢复旧 scanner 包，不跳过 reconcile stack conflict 校验。
+- Sub agent 使用：使用两个只读 explorer 子代理并行做整体 gap 和 Prompt/LLM 智能化调研；其中 Prompt/LLM 调研明确推荐 LLM-guided evidence expansion 作为最直接回应“确定性脚本太多”的下一 milestone。
+- 价值切分：本轮不是单纯新增 prompt 或字段，而是让扫描从“固定采样后 LLM 判断”推进到“LLM 参与选择补充证据”的纵向智能化能力。
+- 可执行验收标准及验证方式：unit 覆盖 planner JSON/schema/path allowlist 失败、被固定 source sampling 跳过的文件可进入 `llm_requested_files`、scan_repository 两阶段调用、prompt registry 自动发现资产清单。
+- 完成内容：新增 evidence planner prompt / schema / tool；`EvidenceBundle` 增加 `llm_requested_files`；collector 支持 allowlisted expansion；scan_repository 接入两阶段规划；prompt asset 测试移除第二份静态清单；LLM contracts、architecture、scanner todo、spec/plan 同步。
+- 验证结果：RED targeted unit failed with missing expansion implementation；GREEN targeted unit 13 passed；fast regression 见提交前验证。
+- Self-Harness Gate：长期 LLM / 架构规则已同步；未新增正式 `.ai` 产物契约。本轮未跑真实 DeepSeek acceptance，后续候选 gap 包括真实仓库 acceptance 验证两阶段扫描效果、maintenance triage queue、workflow recommendation 到 routing policy 的治理闭环。
+
 ## 2026-05-31 First Init Benchmark Readiness
 
 - North Star 模块：CLI Experience、Benchmark / Review Intelligence、Maturity & Evolution。

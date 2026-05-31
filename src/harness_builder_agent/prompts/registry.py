@@ -21,6 +21,12 @@ LLM_FIRST_SCAN_V2 = MachinePromptAsset(
     filename="llm_first_scan_v2.md",
     input_heading="Evidence JSON",
 )
+LLM_EVIDENCE_PLAN_V1 = MachinePromptAsset(
+    key="llm-evidence-plan-v1",
+    version="llm-evidence-plan-v1",
+    filename="llm_evidence_plan_v1.md",
+    input_heading="Evidence planning input JSON",
+)
 LLM_MATURITY_REVIEW_V2 = MachinePromptAsset(
     key="llm-maturity-review-v2",
     version="llm-maturity-review-v2",
@@ -50,6 +56,7 @@ MACHINE_PROMPTS: dict[str, MachinePromptAsset] = {
     asset.key: asset
     for asset in (
         LLM_FIRST_SCAN_V2,
+        LLM_EVIDENCE_PLAN_V1,
         LLM_MATURITY_REVIEW_V2,
         LLM_ASSET_CANDIDATE_V2,
         LLM_EXPERIENCE_SUMMARY_V1,

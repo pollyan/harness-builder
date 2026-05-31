@@ -61,8 +61,10 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 规则：
 
 - `evidence_collector` 只能收集事实，不能成为最终技术栈裁决器。
+- `llm_evidence_planner` 可以在最终 LLM scan 前基于初始文件索引选择少量补充 evidence；它只输出结构化路径计划，不能直接读取任意文件或生成最终结论。
 - `llm_scan_analyzer` 负责 LLM-first 分析，并输出结构化 proposal。
 - `scan_reconciler` 负责把 LLM proposal 和 evidence 调和成稳定的 `ProjectInventory` 与 `CommandCatalog`。
+- 补充 evidence 读取必须由 Python 按 allowlist 执行，路径必须来自已发现文件索引，不能包含 `.ai/`、依赖目录、构建产物或仓库外路径。
 - 如果 LLM 输出和 evidence 明显冲突，应该降级置信度、标记人工确认或失败，不能默默接受。
 - 不允许新增“LLM 不可用时用确定性扫描冒充成功”的 fallback。
 

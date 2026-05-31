@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from harness_builder_agent.tools.evidence_collector import collect_evidence
+from harness_builder_agent.tools.evidence_collector import collect_evidence, expand_evidence_with_requested_paths
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -101,3 +101,26 @@ def test_collect_evidence_keeps_full_file_index_lightweight(tmp_path: Path):
     assert ordinary_index.truncated is False
     selected_source = next(item for item in bundle.source_samples if item.path == "src/Ordinary0.java")
     assert selected_source.summary == "class Ordinary {}"
+
+
+def test_expand_evidence_adds_llm_requested_file_skipped_by_source_sampling(tmp_path: Path):
+    for index in range(8):
+        _write(tmp_path / "src" / f"Ordinary{index:02d}.java", f"class Ordinary{index:02d} {{}}")
+    _write(tmp_path / "src" / "zz" / "RefundRiskService.java", "class RefundRiskService { void refund() {} }")
+
+    bundle = collect_evidence(tmp_path, max_source_samples=2)
+
+    assert all(item.path != "src/zz/RefundRiskService.java" for item in bundle.source_samples)
+
+    expanded = expand_evidence_with_requested_paths(
+        tmp_path,
+        bundle,
+        ["src/zz/RefundRiskService.java"],
+        max_summary_chars=80,
+    )
+
+    requested = next(item for item in expanded.llm_requested_files if item.path == "src/zz/RefundRiskService.java")
+    assert requested.kind == "llm_requested"
+    assert requested.bucket == "llm_requested"
+    assert requested.priority == "high"
+    assert requested.summary == "class RefundRiskService { void refund() {} }"

@@ -24,6 +24,7 @@ Harness Builder 的扫描策略是 LLM-first。
 - module list。
 - risk areas。
 - architecture signals。
+- evidence expansion plan。
 - maturity review report。
 - asset candidate report。
 - experience summary report。
@@ -92,6 +93,8 @@ Evidence 是 LLM 的输入，也是调和阶段的审计依据。
 规则：
 
 - Evidence collector 收集事实，不做最终业务判断。
+- LLM evidence planner 可以基于初始 `EvidenceBundle.files` 选择少量需要深入读取的补充文件；它只能引用已发现的仓库内路径，Python 必须用 Pydantic schema 和 allowlist 校验后再读取摘要。
+- LLM-guided evidence expansion 不允许读取 `.ai/`、依赖目录、构建产物、仓库外路径或模型发明的路径；非法请求必须显式失败，不能回退成确定性采样成功。
 - Prompt 应向 LLM 提供足够 evidence，而不是只给文件名。
 - LLM proposal 应保留 reasoning summary。
 - Reconciler 应使用 evidence 约束 LLM 幻觉。

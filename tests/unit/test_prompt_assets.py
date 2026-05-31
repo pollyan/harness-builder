@@ -7,19 +7,19 @@ from harness_builder_agent.prompts.loader import load_prompt_sections
 from harness_builder_agent.prompts.registry import MACHINE_PROMPTS, build_machine_prompt_messages
 
 
-PROMPT_ASSETS = {
-    "llm_first_scan_v2.md",
-    "llm_maturity_review_v2.md",
-    "llm_asset_candidate_v2.md",
-    "llm_experience_summary_v1.md",
-    "llm_workflow_router_v1.md",
-}
+def _prompt_assets() -> set[str]:
+    prompt_dir = resources.files("harness_builder_agent").joinpath("prompts")
+    return {
+        path.name
+        for path in prompt_dir.iterdir()
+        if path.name.endswith(".md")
+    }
 
 
 def test_all_llm_prompt_assets_are_loadable():
     prompt_dir = resources.files("harness_builder_agent").joinpath("prompts")
 
-    for filename in PROMPT_ASSETS:
+    for filename in _prompt_assets():
         prompt = prompt_dir.joinpath(filename)
         assert prompt.is_file(), filename
         system, user = load_prompt_sections(filename)
@@ -46,13 +46,14 @@ def test_llm_tool_modules_do_not_embed_machine_prompt_contracts():
 
 
 def test_machine_prompt_registry_is_the_single_prompt_inventory():
-    assert {asset.filename for asset in MACHINE_PROMPTS.values()} == PROMPT_ASSETS
+    prompt_assets = _prompt_assets()
+    assert {asset.filename for asset in MACHINE_PROMPTS.values()} == prompt_assets
 
     for key, asset in MACHINE_PROMPTS.items():
         assert key
         assert asset.version
         assert asset.input_heading.endswith("JSON")
-        assert asset.filename in PROMPT_ASSETS
+        assert asset.filename in prompt_assets
 
 
 def test_build_machine_prompt_messages_loads_registered_asset():

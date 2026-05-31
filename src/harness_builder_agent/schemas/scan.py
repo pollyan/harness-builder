@@ -51,10 +51,19 @@ class EvidenceBundle(BaseModel):
     test_files: list[EvidenceFile] = Field(default_factory=list)
     api_entrypoints: list[EvidenceFile] = Field(default_factory=list)
     risk_files: list[EvidenceFile] = Field(default_factory=list)
+    llm_requested_files: list[EvidenceFile] = Field(default_factory=list)
     coverage: EvidenceCoverage | None = None
     extension_counts: dict[str, int] = Field(default_factory=dict)
     detected_file_count: int = 0
     truncations: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class LLMEvidencePlan(BaseModel):
+    schema_version: str = "1.0"
+    requested_paths: list[str] = Field(default_factory=list, max_length=8)
+    risk_focus: list[str] = Field(default_factory=list, max_length=8)
+    rationale: str
+    confidence: Confidence = "medium"
 
 
 class LLMCommandCandidate(BaseModel):

@@ -10,7 +10,7 @@
 
 ## 背景
 
-当前 `harness_builder_agent` 的扫描链路已经是 LLM-first，并且大仓库 evidence 深度增强已经完成第一版实现。当前代码已经支持分桶采样、priority evidence、coverage metadata、coverage warnings，以及将 coverage 写入 `scan-metadata.yaml` 并提供给 LLM prompt。原来的“大仓库 Evidence 扫描深度增强”事项已经归档到 `docs/todos/archive.md`。
+当前 `harness_builder_agent` 的扫描链路已经是 LLM-first，并且大仓库 evidence 深度增强已经完成第一版实现。当前代码已经支持分桶采样、priority evidence、coverage metadata、coverage warnings、LLM-guided evidence expansion，以及将 coverage 写入 `scan-metadata.yaml` 并提供给 LLM prompt。原来的“大仓库 Evidence 扫描深度增强”事项已经归档到 `docs/todos/archive.md`。
 
 Git 历史里曾经存在一套更深的 scanner v2 实现，位于旧包名 `harness_builder/scanner/` 下。该实现后来在 `50413fc chore: remove legacy scanner package` 中被整包删除，但相关研究和 smoke test 文档仍保留在 `docs/research/scanner-v2-smoke-test.md`。
 
@@ -41,6 +41,7 @@ Git 历史里曾经存在一套更深的 scanner v2 实现，位于旧包名 `ha
 - `evidence_collector.py` 已从简单源码样本截取升级为分桶采样和重点 evidence 优先。
 - `scan-metadata.yaml` 已记录 coverage、truncation、skipped bucket 和 scan warnings。
 - LLM prompt 已引入 coverage、priority evidence、test/API/risk evidence 的阅读规则。
+- LLM evidence planner 已能基于初始文件索引请求少量补充文件，Python 按 allowlist 读取摘要后作为 `llm_requested_files` 提供给最终 scan analyzer。
 
 当前仍值得对比旧 scanner v2 的潜在增量包括：
 
