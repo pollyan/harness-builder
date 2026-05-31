@@ -260,7 +260,7 @@ Harness Builder 的直接用户是 Harness Maintainer。产品体验应像一个
 4. 向导是目标体验，不只是现有命令的包装层。如果现有能力、schema、产物或命令边界不能支撑向导式旅程，应以向导目标为准反向补齐或调整底层能力。
 5. 用户确认工程判断。交互中让用户确认的是技术栈、模块边界、团队规范、风险区域、Sensor 严格度、Workflow 建议和候选变更，而不是内部字段名。
 6. 先解释，再选择。每个关键步骤都应说明发现、依据、影响和可调整方式，再让用户确认、补充或跳过。
-7. 默认建立基线，不默认自改进。首次 `init` 默认生成初版 Harness、成熟度评估、benchmark 和下一步建议；不默认执行 `self-improve` 或深度 LLM asset candidate generation，只在末尾提示后续可进入自演进。
+7. 默认建立基线，不默认自改进。首次 `init` 默认生成初版 Harness、成熟度评估、benchmark readiness 和下一步建议；不默认执行 `benchmark`、`self-improve` 或深度 LLM asset candidate generation，只在末尾提示后续可进入质量验收和自演进。
 8. 再次执行 `init` 是维护入口。如果已有 Harness，`init` 应先展示当前状态：成熟度、benchmark、待处理候选、pending improvements、human-input-needed 和 schema / contract 问题，再引导用户选择复评、更新、处理候选或退出。
 9. 高风险内容保持候选态。高风险、低置信度、影响正式规则或 hard gate 的内容，不自动写入正式 Harness；应进入 candidate / review-only，并在写入前展示摘要。
 10. 输出下一步，而不是甩文件列表。向导结束时应明确告诉用户下一步最该看什么、处理什么、为什么，而不是只列出 `.ai` 目录下的所有文件。

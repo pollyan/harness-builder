@@ -336,6 +336,7 @@ def _init_summary_check(ai: Path) -> dict[str, Any]:
         "## 当前成熟度",
         "## 主要阻断项",
         "## 建议下一步",
+        "## Benchmark 健康度",
         "## 推荐入口文件",
         "## 本次未执行的事项",
     ]
@@ -343,6 +344,8 @@ def _init_summary_check(ai: Path) -> dict[str, Any]:
         ".ai/maturity-report.md",
         ".ai/human-input-needed.md",
         ".ai/sensors/verification.md",
+        "benchmark_status=",
+        "quality_status=",
         ".ai/task-runs",
     ]
     missing = [item for item in [*required_sections, *required_entries] if item not in text]

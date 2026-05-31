@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 First Init Benchmark Readiness
+
+- North Star 模块：CLI Experience、Benchmark / Review Intelligence、Maturity & Evolution。
+- Gap Analysis 摘要：首次 `init` 已生成成熟度摘要和下一步入口，但没有解释 benchmark 是否已运行、质量门禁状态是否已证明通过，以及下一步如何触发验收。已有 Harness 维护入口能显示 benchmark 状态，首次 0->1 用户仍可能把“资产生成成功”误解为“benchmark passed”。
+- 用户故事：作为第一次为仓库建立 Harness 的 Harness Maintainer，当 `init` 完成第一版 `.ai` 资产生成后，我可以直接看到 benchmark 健康度目前是未运行、为什么不默认运行、应该用哪个入口完成首次质量验收，以及验收会检查哪些方面，从而知道第一版 Harness 还没有被质量门禁证明通过。
+- 当前代码 gap：`init-summary.md` 只有成熟度、阻断项、下一步和 Runtime 边界；CLI completion message 只列成熟度、阻断项、下一步和入口文件；两者都不读取或解释 `.ai/benchmark-report.yaml`。
+- 决策：首次 `init` 不默认运行 benchmark，只展示 benchmark readiness 和 next command，保持首次初始化反馈快速且不引入额外质量门禁写入；已有 benchmark report 时通过 `BenchmarkReport` schema 展示 status、quality status 和 failed check count。
+- 决策：把 `## Benchmark 健康度` 纳入 `init-summary.md` 稳定章节，并让 benchmark 自身检查该章节和 `benchmark_status=` / `quality_status=`，防止后续摘要退化。
+- Assumptions / risks：当前 POC 更适合显式 benchmark；未来可增加“初始化后立即运行 benchmark”的可选动作。本轮只解释 readiness，不改变真实验收边界。
+- 边界与失败模式：不调用 `run_benchmark()`，不生成 `.ai/benchmark-report.yaml`，不改变 standalone / existing-Harness guided `benchmark` 行为；已有 benchmark report schema 错误时显式失败。
+- Sub agent 使用：使用 explorer 子代理只读审查首次 init benchmark readiness 的边界、是否默认运行 benchmark、验收测试和长期文档影响；结论支持先做 readiness，不默认执行 benchmark。
+- 价值切分：本轮服务首次用户“知道 Harness 尚未验收”的独立价值，不是内部字段或测试补丁。
+- 可执行验收标准及验证方式：integration 覆盖首次 init Markdown 和 CLI 输出包含 benchmark readiness / next command，并确认不创建 `.ai/benchmark-report.yaml`；unit 覆盖已有 benchmark report 时 readiness 通过 schema 展示 failed checks；benchmark 内容检查覆盖 `## Benchmark 健康度`。
+- 完成内容：`init_summary.py` 新增 benchmark readiness helper；`init-summary.md` 和 completion message 输出 readiness；benchmark 检查、README、init workflow、testing strategy、sensor/gate rules、strategy、todo、spec/plan 和演进记录同步。
+- 验证结果：RED targeted integration failed；GREEN targeted integration + unit passed；fast regression 见提交前验证。
+- Self-Harness Gate：长期规则已同步到 strategy / engineering / todo；无新增机器契约。下一轮候选 gap：更完整的候选列表浏览 / 编号选择；可选立即运行 benchmark 的 guided 交互；或拆分 `interactive_init.py` 维护入口降低后续迭代成本。
+
 ## 2026-05-31 Guided Candidate Apply Preview
 
 - North Star 模块：CLI Experience、Experience & Self-Improve、Maturity & Evolution、Governance & Auditability。

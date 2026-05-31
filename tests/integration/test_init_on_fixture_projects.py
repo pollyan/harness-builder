@@ -182,6 +182,11 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert "## 当前成熟度" in init_summary
     assert "## 主要阻断项" in init_summary
     assert "## 建议下一步" in init_summary
+    assert "## Benchmark 健康度" in init_summary
+    assert "benchmark_status=not_run" in init_summary
+    assert "quality_status=not_available" in init_summary
+    assert "harness-builder-agent benchmark --repo" in init_summary
+    assert "not equivalent to benchmark passed" in init_summary
     assert "## 推荐入口文件" in init_summary
     assert "## 本次未执行的事项" in init_summary
     assert ".ai/maturity-report.md" in init_summary
@@ -266,9 +271,14 @@ def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert "当前成熟度" in result.output
+    assert "Benchmark 健康度" in result.output
+    assert "benchmark_status=not_run" in result.output
+    assert "quality_status=not_available" in result.output
+    assert "harness-builder-agent benchmark --repo" in result.output
     assert ".ai/init-summary.md" in result.output
     assert ".ai/maturity-report.md" in result.output
     _assert_init_outputs(repo, "java-spring", expected_context_text="团队规则")
+    assert not (repo / ".ai" / "benchmark-report.yaml").exists()
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
     assert "## 团队上下文" in project_context
     assert "Controller 只能调用 Service" in project_context

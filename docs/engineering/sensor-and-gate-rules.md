@@ -109,6 +109,8 @@ Benchmark 质量评分应覆盖：
 
 质量评分不能替代 hard gate。`status` 仍表示硬验收 pass/fail；`quality_status` 表示质量评分结论，可以是 `passed`、`degraded` 或 `failed`。hard gate command 证据不足时，benchmark hard status 必须是 `failed`。
 
+首次 `init` 只在 `.ai/init-summary.md` 和 CLI 完成输出中解释 benchmark readiness，不默认运行 benchmark，也不生成 `.ai/benchmark-report.yaml`。正式质量验收仍以显式 `benchmark` 命令生成的 `BenchmarkReport` 为准。
+
 ## Runtime Sensor Report 规则
 
 Sensor report 是未来宿主 AI Coding Runtime 执行 Workflow Skill 时应写出的任务级 runtime artifact，不是 Harness Builder 当前生成的正式产物。它应能被程序读取。

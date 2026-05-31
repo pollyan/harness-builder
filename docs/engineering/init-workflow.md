@@ -146,7 +146,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - `.ai/experience/pending-improvements.md`
 - `.ai/experience/deprecated-experience.md`
 
-其中 `.ai/init-summary.md` 是首次初始化完成后的成熟度驱动入口摘要，必须保留 `## 当前成熟度`、`## 主要阻断项`、`## 建议下一步`、`## 推荐入口文件` 和 `## 本次未执行的事项` 章节。它面向 Harness Maintainer，解释初始化结果、下一步优先查看的文件，以及 `init` 未默认执行 self-improve / Runtime task-run 的边界。
+其中 `.ai/init-summary.md` 是首次初始化完成后的成熟度驱动入口摘要，必须保留 `## 当前成熟度`、`## 主要阻断项`、`## 建议下一步`、`## Benchmark 健康度`、`## 推荐入口文件` 和 `## 本次未执行的事项` 章节。它面向 Harness Maintainer，解释初始化结果、下一步优先查看的文件，以及 `init` 未默认执行 self-improve / Runtime task-run 的边界。首次 `init` 不默认运行 benchmark；当 `.ai/benchmark-report.yaml` 缺失时，摘要必须显示 `benchmark_status=not_run`、`quality_status=not_available`、建议 benchmark 命令，并明确资产生成成功不等同于 benchmark passed。若 benchmark report 已存在，摘要必须通过 `BenchmarkReport` schema 校验后展示 status、quality status 和 failed check count。
 
 显式运行 `summarize-experience` 后生成的 review-only Experience 语义摘要：
 

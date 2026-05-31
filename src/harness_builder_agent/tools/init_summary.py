@@ -4,16 +4,17 @@ from pathlib import Path
 
 import yaml
 
+from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 
 
 def write_init_summary(ai: Path, score: MaturityReport) -> Path:
     path = ai / "init-summary.md"
-    path.write_text(build_init_summary_markdown(score), encoding="utf-8")
+    path.write_text(build_init_summary_markdown(score, ai=ai), encoding="utf-8")
     return path
 
 
-def build_init_summary_markdown(score: MaturityReport) -> str:
+def build_init_summary_markdown(score: MaturityReport, ai: Path | None = None) -> str:
     blockers = _bullet_lines(score.blocking_reasons[:5])
     next_steps = _bullet_lines(score.recommended_next_steps[:5])
     dimensions = "\n".join(
@@ -31,6 +32,8 @@ def build_init_summary_markdown(score: MaturityReport) -> str:
         f"{blockers}\n\n"
         "## 建议下一步\n\n"
         f"{next_steps}\n\n"
+        "## Benchmark 健康度\n\n"
+        f"{_benchmark_readiness(ai)}\n\n"
         "## 推荐入口文件\n\n"
         "- `.ai/maturity-report.md`：查看完整成熟度评分、证据和下一等级要求。\n"
         "- `.ai/human-input-needed.md`：补充团队规则、风险边界和待确认项。\n"
@@ -57,6 +60,8 @@ def render_init_completion_message(ai: Path) -> str:
         f"{blockers}\n\n"
         "建议下一步：\n"
         f"{next_steps}\n\n"
+        "Benchmark 健康度：\n"
+        f"{_benchmark_readiness(ai)}\n\n"
         "推荐入口：\n"
         "- `.ai/init-summary.md`\n"
         "- `.ai/maturity-report.md`\n"
@@ -74,3 +79,32 @@ def _numbered_lines(items: list[str]) -> str:
     if not items:
         return "1. 暂无明确事项。"
     return "\n".join(f"{index}. {item}" for index, item in enumerate(items, start=1))
+
+
+def _benchmark_readiness(ai: Path | None) -> str:
+    benchmark_command = "harness-builder-agent benchmark --repo <repo>"
+    if ai is not None:
+        benchmark_command = f"harness-builder-agent benchmark --repo {ai.parent}"
+        report_path = ai / "benchmark-report.yaml"
+        if report_path.exists():
+            report = BenchmarkReport.model_validate(yaml.safe_load(report_path.read_text(encoding="utf-8")))
+            failed_checks = sum(1 for check in report.checks if not check.passed)
+            return "\n".join(
+                [
+                    f"- benchmark_status={report.status}",
+                    f"- quality_status={report.quality_status}",
+                    f"- failed_checks={failed_checks}",
+                    "- source=.ai/benchmark-report.yaml",
+                    "- status 表示硬验收结果，quality_status 表示质量评分结果。",
+                ]
+            )
+
+    return "\n".join(
+        [
+            "- benchmark_status=not_run",
+            "- quality_status=not_available",
+            f"- next_command=`{benchmark_command}`",
+            "- status 表示硬验收结果，quality_status 表示质量评分结果。",
+            "- 初次 init 生成资产不等同于 benchmark passed; not equivalent to benchmark passed.",
+        ]
+    )

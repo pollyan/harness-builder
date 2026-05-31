@@ -6,6 +6,7 @@
 - 优先级：high
 - 发现日期：2026-05-31
 - 已完成切片：首次 `init` 生成 `.ai/init-summary.md`，并在 CLI 完成输出中展示当前成熟度、主要阻断项、建议下一步和推荐入口文件。
+- 已完成切片：首次 `init` 的 `.ai/init-summary.md` 和 CLI 完成输出展示 Benchmark readiness，说明当前 `benchmark_status=not_run`、建议 benchmark 命令，以及资产生成不等同于 benchmark passed。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时先展示状态摘要，并支持 `exit` 只读退出，不覆盖正式资产。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `assess` 复评成熟度，刷新 maturity 产物和 `init-summary.md`，不重新扫描或覆盖正式 Harness 资产。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `improve` 生成 maturity-driven review-only 改进候选，并在生成前刷新 Experience index 与 maturity evidence。
@@ -44,7 +45,7 @@
 当前剩余问题：
 
 - 用户仍需要理解哪些动作只是 review-only，哪些专家命令可能应用正式资产。
-- 首次 `init` 已有完成摘要，但还没有在写入前后形成完整的 benchmark 健康度解释和下一步治理节奏。
+- 首次 `init` 已有完成摘要和 benchmark readiness，但还没有在写入前后形成可选立即运行 benchmark 的交互节奏。
 - 再次执行 `init` 已具备主要维护动作、单个 Guide / Sensor 候选 applied 闭环、guided apply 前 diff / summary 和 latest workflow recommendation history signal，但还缺少更完整的候选列表浏览、完整 recommendation 历史浏览和更明确的 schema / contract 修复引导。
 - 底层专家命令的能力和普通用户向导旅程之间仍需要进一步压缩认知负担。
 
@@ -82,7 +83,7 @@
    每个关键步骤都应说明发现了什么、依据是什么、影响是什么、用户可以怎么调整，再让用户确认、补充或跳过。
 
 7. 默认建立基线，不默认自改进。
-   首次 `init` 默认生成初版 Harness、成熟度评估、benchmark 和下一步建议；不默认执行 `self-improve` 或深度 LLM asset candidate generation，只在末尾提示后续可进入自演进。
+   首次 `init` 默认生成初版 Harness、成熟度评估、benchmark readiness 和下一步建议；不默认执行 `benchmark`、`self-improve` 或深度 LLM asset candidate generation，只在末尾提示后续可进入质量验收和自演进。
 
 8. 再次执行 `init` 是维护入口。
    如果已有 Harness，`init` 应先展示当前状态：成熟度、benchmark、待处理候选、pending improvements、human-input-needed 和 schema / contract 问题，再引导用户选择复评、更新、处理候选或退出。
