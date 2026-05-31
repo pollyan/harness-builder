@@ -68,6 +68,12 @@ def _fake_scan(repo: Path, primary_stack: str):
     return scan_repository(repo, llm_caller=lambda _messages: json.dumps(response))
 
 
+def _fake_scan_with_risk(repo: Path, primary_stack: str, risk_path: str, reason: str = "核心控制器变更影响请求路径。"):
+    inventory, commands = _fake_scan(repo, primary_stack)
+    inventory.stack_extensions["risk_areas"] = [{"path": risk_path, "reason": reason}]
+    return inventory, commands
+
+
 def _latest_trace(repo: Path) -> dict:
     runs = sorted((repo / ".ai" / "runs").iterdir())
     assert runs
@@ -502,6 +508,39 @@ def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: st
     return repo
 
 
+def _add_consistent_risk_context(ai: Path, risk_path: str, reason: str = "核心控制器变更影响请求路径。") -> ProjectInventory:
+    inventory_path = ai / "project-inventory.json"
+    inventory_payload = json.loads(inventory_path.read_text(encoding="utf-8"))
+    inventory_payload.setdefault("stack_extensions", {})["risk_areas"] = [{"path": risk_path, "reason": reason}]
+    inventory_path.write_text(json.dumps(inventory_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    guide_path = ai / "guides" / "project-context.md"
+    guide_path.write_text(
+        guide_path.read_text(encoding="utf-8") + f"\n\n- 风险路径：`{risk_path}` - {reason}\n",
+        encoding="utf-8",
+    )
+
+    sensor_path = ai / "sensors" / "verification.md"
+    sensor_path.write_text(
+        sensor_path.read_text(encoding="utf-8") + f"\n\n- 风险路径：`{risk_path}` - 待确认验证覆盖。\n",
+        encoding="utf-8",
+    )
+
+    config_path = ai / "harness-config.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    standard = next(rule for rule in config["workflow_routing"]["rules"] if rule["id"] == "standard-escalation")
+    trigger = f"risk_area:{risk_path}"
+    if trigger not in standard["triggers"]:
+        standard["triggers"].append(trigger)
+    standard["rationale"] = (
+        standard["rationale"].rstrip(".")
+        + f". Scanned risk area `{risk_path}` requires standard workflow review: {reason}"
+    )
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    return ProjectInventory.model_validate_json(inventory_path.read_text(encoding="utf-8"))
+
+
 def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture_repo(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
@@ -528,6 +567,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-skills" in check_ids
     assert "content:workflow-skill-config-reference" in check_ids
     assert "content:workflow-routing-policy" in check_ids
+    assert "content:risk-context-consistency" in check_ids
     assert "content:maturity-routing-evidence" in check_ids
     assert "content:workflow-recommendation-review" in check_ids
     assert "content:maturity-review-artifact" in check_ids
@@ -569,6 +609,27 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert trace["command"] == "benchmark"
     assert trace["status"] == "completed"
     assert "benchmark" in trace["stages"]
+
+
+def test_benchmark_generates_consistent_risk_context_for_scan_risk(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture_repo(tmp_path, "mini-spring-boot")
+    risk_path = "src/main/java/com/example/demo/DemoController.java"
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.benchmark.scan_repository",
+        lambda repo_path: _fake_scan_with_risk(repo_path, "java-spring", risk_path),
+    )
+
+    result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "java-spring"])
+
+    assert result.exit_code == 0, result.output
+    report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
+    check = next(item for item in report["checks"] if item["id"] == "content:risk-context-consistency")
+    config = HarnessConfig.model_validate(yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8")))
+    standard = next(rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation")
+    assert report["status"] == "passed"
+    assert check["passed"] is True
+    assert check["risk_area_count"] == 1
+    assert f"risk_area:{risk_path}" in standard.triggers
 
 
 def test_benchmark_reports_absent_runtime_task_runs_as_optional(tmp_path: Path, monkeypatch):
@@ -694,6 +755,73 @@ def test_benchmark_fails_when_hard_gate_command_source_path_escapes_repo(tmp_pat
     assert hard_gate_check["weak_commands"] == [
         {"id": "unit_test", "source": "../outside.md", "confidence": "high", "reason": "source_path_outside_repo"}
     ]
+
+
+def test_benchmark_passes_when_scan_risk_context_is_consistent(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_risk_context(ai, "src/main/java/com/example/demo/DemoController.java")
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:risk-context-consistency")
+    assert check["passed"] is True
+    assert check["risk_area_count"] == 1
+
+
+def test_benchmark_fails_when_project_context_omits_scan_risk_path(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    risk_path = "src/main/java/com/example/demo/DemoController.java"
+    inventory = _add_consistent_risk_context(ai, risk_path)
+    guide_path = ai / "guides" / "project-context.md"
+    guide_path.write_text(
+        guide_path.read_text(encoding="utf-8").replace(risk_path, "src/main/java/com/example/demo/OtherController.java"),
+        encoding="utf-8",
+    )
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:risk-context-consistency")
+    assert check["passed"] is False
+    assert f"missing_project_context_risk:{risk_path}" in check["errors"]
+
+
+def test_benchmark_fails_when_verification_sensor_omits_scan_risk_path(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    risk_path = "src/main/java/com/example/demo/DemoController.java"
+    inventory = _add_consistent_risk_context(ai, risk_path)
+    sensor_path = ai / "sensors" / "verification.md"
+    sensor_path.write_text(
+        sensor_path.read_text(encoding="utf-8").replace(risk_path, "src/main/java/com/example/demo/OtherController.java"),
+        encoding="utf-8",
+    )
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:risk-context-consistency")
+    assert check["passed"] is False
+    assert f"missing_verification_sensor_risk:{risk_path}" in check["errors"]
+
+
+def test_benchmark_fails_when_routing_policy_omits_scan_risk_path_for_consistency(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    risk_path = "src/main/java/com/example/demo/DemoController.java"
+    inventory = _add_consistent_risk_context(ai, risk_path)
+    config_path = ai / "harness-config.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    standard = next(rule for rule in config["workflow_routing"]["rules"] if rule["id"] == "standard-escalation")
+    standard["triggers"] = [trigger for trigger in standard["triggers"] if trigger != f"risk_area:{risk_path}"]
+    standard["rationale"] = "Generic standard escalation."
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:risk-context-consistency")
+    assert check["passed"] is False
+    assert f"missing_routing_risk:{risk_path}" in check["errors"]
 
 
 def test_benchmark_fails_weapon_library_candidates_with_invalid_status(tmp_path: Path, monkeypatch):

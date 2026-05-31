@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
@@ -29,7 +30,7 @@ def write_initial_assets(
     interaction_decisions: InteractionDecisions | None = None,
 ) -> Path:
     ai = repo / ".ai"
-    config = HarnessConfig.default()
+    config = build_harness_config(inventory)
     weapon_selection = select_weapon_library(inventory, commands)
     scan_metadata_payload = scan_metadata(inventory)
     llm_scan_proposal_payload = llm_scan_proposal(inventory)
@@ -85,3 +86,37 @@ def write_initial_assets(
     if trace:
         trace.event("asset-write", "completed", "Initial harness asset writing completed.", {"artifact_count": len(trace.artifacts)})
     return ai
+
+
+def build_harness_config(inventory: ProjectInventory) -> HarnessConfig:
+    config = HarnessConfig.default()
+    standard = next((rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation"), None)
+    if standard is None:
+        return config
+
+    rationale_notes: list[str] = []
+    for risk in _risk_areas(inventory)[:5]:
+        path = str(risk.get("path") or risk.get("area") or "").strip()
+        if not path:
+            continue
+        reason = str(risk.get("reason") or risk.get("summary") or "需要人工确认。").strip()
+        trigger = f"risk_area:{path}"
+        if trigger not in standard.triggers:
+            standard.triggers.append(trigger)
+        rationale_notes.append(f"Scanned risk area `{path}` requires standard workflow review: {reason}")
+
+    if rationale_notes:
+        standard.rationale = standard.rationale.rstrip(".") + ". " + " ".join(rationale_notes)
+    return config
+
+
+def _risk_areas(inventory: ProjectInventory) -> list[dict[str, Any]]:
+    risk_areas = inventory.stack_extensions.get("risk_areas", [])
+    if isinstance(risk_areas, list) and risk_areas:
+        return [item for item in risk_areas if isinstance(item, dict)]
+    proposal = inventory.stack_extensions.get("llm_scan_proposal", {})
+    if isinstance(proposal, dict):
+        proposal_risks = proposal.get("risk_areas", [])
+        if isinstance(proposal_risks, list):
+            return [item for item in proposal_risks if isinstance(item, dict)]
+    return []

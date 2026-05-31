@@ -318,6 +318,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _workflow_skills_check(ai),
         _workflow_skill_config_reference_check(ai),
         _workflow_routing_policy_check(ai),
+        _risk_context_consistency_check(ai, inventory),
         _maturity_routing_evidence_check(ai),
         _workflow_recommendation_review_check(ai),
         _maturity_review_artifact_check(ai),
@@ -466,6 +467,67 @@ def _workflow_routing_policy_check(ai: Path) -> dict[str, Any]:
         "id": "content:workflow-routing-policy",
         "passed": not errors,
         "rule_count": len(rules),
+        "errors": errors,
+    }
+
+
+def _benchmark_risk_areas(inventory: ProjectInventory) -> list[dict[str, Any]]:
+    risk_areas = inventory.stack_extensions.get("risk_areas", [])
+    if isinstance(risk_areas, list) and risk_areas:
+        return [item for item in risk_areas if isinstance(item, dict)]
+    proposal = inventory.stack_extensions.get("llm_scan_proposal", {})
+    if isinstance(proposal, dict):
+        proposal_risks = proposal.get("risk_areas", [])
+        if isinstance(proposal_risks, list):
+            return [item for item in proposal_risks if isinstance(item, dict)]
+    return []
+
+
+def _risk_context_consistency_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
+    risk_paths = [
+        str(risk.get("path") or risk.get("area") or "unknown")
+        for risk in _benchmark_risk_areas(inventory)[:5]
+    ]
+    if not risk_paths:
+        return {
+            "id": "content:risk-context-consistency",
+            "passed": True,
+            "risk_area_count": 0,
+            "errors": [],
+        }
+
+    guide_path = ai / "guides" / "project-context.md"
+    sensor_path = ai / "sensors" / "verification.md"
+    guide_text = guide_path.read_text(encoding="utf-8") if guide_path.exists() else ""
+    sensor_text = sensor_path.read_text(encoding="utf-8") if sensor_path.exists() else ""
+    try:
+        config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover
+        return {
+            "id": "content:risk-context-consistency",
+            "passed": False,
+            "risk_area_count": len(risk_paths),
+            "errors": [str(exc)],
+        }
+
+    standard_rules = [rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation"]
+    standard_rule = standard_rules[0] if standard_rules else None
+    standard_triggers = set(standard_rule.triggers) if standard_rule else set()
+    standard_rationale = standard_rule.rationale if standard_rule else ""
+
+    errors: list[str] = []
+    for risk_path in risk_paths:
+        if risk_path not in guide_text:
+            errors.append(f"missing_project_context_risk:{risk_path}")
+        if risk_path not in sensor_text:
+            errors.append(f"missing_verification_sensor_risk:{risk_path}")
+        if f"risk_area:{risk_path}" not in standard_triggers and risk_path not in standard_rationale:
+            errors.append(f"missing_routing_risk:{risk_path}")
+
+    return {
+        "id": "content:risk-context-consistency",
+        "passed": not errors,
+        "risk_area_count": len(risk_paths),
         "errors": errors,
     }
 

@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Risk Context Consistency Benchmark 迁移
+
+- North Star 模块：Sensor & Quality Gate、Workflow Toolkit、Maturity & Evolution。
+- init North Star 旅程阶段：写入后质量门禁；风险区域解释、验证策略和 Workflow routing 的一致性。
+- Gap Analysis 摘要：当前唯一 open todo 仍是本地独有 / 更细能力迁移。本轮候选包括 risk context consistency、project-context evidence context gate 和 scan evidence reason/report visibility。当前维护入口已能识别 `content:risk-context-consistency`，Guide / Sensor 已渲染风险路径，但 benchmark 主体没有该 check，生成的 `harness-config.yaml` 也不会把扫描风险路径写入 standard escalation，因此优先补齐风险上下文质量门禁闭环。
+- 工程信任故事：作为 Harness Maintainer，当我运行 `benchmark` 验收包含扫描风险区域的 Harness 时，我可以确认每个 scan risk path 同时出现在 project-context Guide、verification Sensor 和 standard escalation routing 中；如果任一环缺失，benchmark 会给出精确 `missing_*_risk:<path>` 错误。
+- 当前代码 gap：`content:risk-context-consistency` 不存在；维护入口虽然有 risk context triage 分支，但没有 benchmark check 产生该信号；默认 config 只含泛化 `high_risk_module`，不含仓库具体风险路径。
+- 关键决策 / 取舍：新增独立 `content:risk-context-consistency`，不塞进 `content:workflow-routing-policy`；routing 认可 `risk_area:<path>` trigger 或 rationale path；只取前 5 个风险路径，避免报告过长；不判断风险是否已人工确认。
+- Assumptions / risks：`ProjectInventory.stack_extensions.risk_areas` 或 `llm_scan_proposal.risk_areas` 是 scan risk path 来源；旧 Harness 如果手工删掉 Guide / Sensor / routing 中任一风险路径，会被 benchmark 显式标为 failed。
+- Sub agent 使用情况：尝试启动 explorer 做只读方案审查，但当前 agent thread limit reached；本轮由主线程对比旧分支实现和当前代码。
+- 价值切分说明：本轮只迁移风险上下文一致性，不混入 project-context evidence context gate 或 scan evidence writer 深化。
+- 可执行验收标准及验证方式：integration 覆盖生成风险路径时 benchmark 通过并写出 `risk_area:<path>` trigger；三类负向缺失分别报告 Guide、Sensor、Routing 缺失；Java fixture check id 列表包含 `content:risk-context-consistency`。
+- 完成内容：`benchmark.py` 新增 `_risk_context_consistency_check()`；`write_assets.py` 新增 `build_harness_config()`，把扫描风险路径写入 standard escalation trigger / rationale；README、init workflow、sensor/gate 规则、testing strategy、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted benchmark integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：Runtime 边界未变化，未执行任务、不创建 `.ai/task-runs`。下一轮候选 gap 来自迁移 todo：project-context evidence context gate 与 Scan evidence 可审计细节可合并评估。
+
 ## 2026-06-01 Hard Gate Source Path Benchmark 迁移
 
 - North Star 模块：Sensor & Quality Gate、Maturity & Evolution、Runtime Boundary。

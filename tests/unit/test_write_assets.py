@@ -126,7 +126,10 @@ def test_write_initial_assets_generates_core_guides_sensors_skills_candidates_an
     assert "docs/a.json" in human_input
 
     config = yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8"))
-    assert "docs/a.json" not in yaml.safe_dump(config, allow_unicode=True)
+    standard = next(rule for rule in config["workflow_routing"]["rules"] if rule["id"] == "standard-escalation")
+    assert "risk_area:src/main/resources/application.yml" in standard["triggers"]
+    assert "risk_area:docs/a.json" in standard["triggers"]
+    assert "Scanned risk area `docs/a.json` requires standard workflow review" in standard["rationale"]
 
     candidates = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
     assert candidates["source"] == "llm_scan_proposal"

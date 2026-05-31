@@ -64,6 +64,7 @@
 - 2026-06-01：迁移 Existing Harness Benchmark / Workflow routing 只读信号。当前维护入口会展示 `Benchmark signals`、`Workflow routing signals`、benchmark failed check 中文解释、error / missing / weak command detail，以及 hard gate weak command / project-context evidence 专属 triage reason。
 - 2026-06-01：迁移 Init Summary 待确认处理入口。当前 `init-summary.md` 包含 `## 待人工确认`，会列出前几个 `confirm:*` ID、`.ai/human-input-needed.md#处理方式` 入口和 scan warning action hint；CLI completion message 复用同一待确认摘要，benchmark `content:init-summary` 会校验章节、处理入口和 questionnaire ID 对齐。
 - 2026-06-01：迁移 hard gate command source path benchmark 校验。当前 `content:hard-gate-command-evidence` 会检查 hard gate source 为空、low confidence、source path 不存在和 source path 逃出仓库，并在 `weak_commands.reason` 保留可行动原因。
+- 2026-06-01：迁移 risk context consistency benchmark 校验。当前 `content:risk-context-consistency` 会检查 scan risk path 是否同时出现在 project-context Guide、verification Sensor 和 standard escalation routing 中；`write_initial_assets()` 会把扫描风险路径写入 `risk_area:<path>` trigger 和 routing rationale。
 
 ## 理想状态
 
@@ -87,8 +88,9 @@
 
 2. **Benchmark / quality gate 细化**
    - hard gate command evidence / source path / weak command detail。
-     - 已部分迁移：2026-06-01（source 为空、low confidence、source path missing / outside repo 和 weak command reason；更宽 risk context / project-context gate 仍待后续）。
+     - 已部分迁移：2026-06-01（source 为空、low confidence、source path missing / outside repo 和 weak command reason；project-context gate 仍待后续）。
    - risk context consistency。
+     - 已迁移：2026-06-01。
    - project-context evidence context gate。
    - failed check missing / errors / detail preservation。
 

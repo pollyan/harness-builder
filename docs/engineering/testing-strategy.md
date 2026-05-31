@@ -217,6 +217,7 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 - schema 错误能失败。
 - 必需章节缺失能失败。
 - workflow skill 引用错误能失败。
+- scan risk path 缺少 Guide、Sensor 或 standard routing 任一环时能通过 `content:risk-context-consistency` 报告。
 - hard gate command 缺少 evidence/source、source path 不存在、source path 逃出仓库或 low confidence 能被报告。
 - 报告自身符合 `BenchmarkReport` schema。
 
