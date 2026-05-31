@@ -14,6 +14,7 @@ from harness_builder_agent.schemas.command_catalog import CommandCatalog, Comman
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.human_confirmation import Questionnaire
+from harness_builder_agent.schemas.human_input_governance import HumanInputGovernanceLog
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.interaction_decision import CandidateDecision, WorkflowConfirmation
 from harness_builder_agent.schemas.maturity_report import MaturityReport
@@ -28,6 +29,7 @@ from harness_builder_agent.tools.candidate_governance import review_candidate
 from harness_builder_agent.tools.experience_index import write_experience_index
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.human_input_governance import review_human_input
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
 from harness_builder_agent.tools.maintenance_triage import (
@@ -990,6 +992,77 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         )
         typer.echo(_candidate_governance_summary(latest.candidate_id, latest.decision, latest.reviewer, len(latest.applied_paths)))
         return output_dir
+    if action == "review-human-input":
+        interaction_id = typer.prompt("Human input interaction ID", default="", show_default=False).strip()
+        decision = typer.prompt("决策 resolved/reopened", default="resolved").strip().lower()
+        rationale = typer.prompt("决策理由", default="", show_default=False).strip()
+        reviewer = typer.prompt("Reviewer", default="harness-maintainer").strip() or "harness-maintainer"
+        typer.echo("正在记录 human-input 治理决策...")
+        trace.event(
+            "existing-harness",
+            "started",
+            "Existing Harness detected; user chose human input governance.",
+            {"primary_stack": inventory.primary_stack, "action": "review-human-input", "interaction_id": interaction_id, "decision": decision},
+        )
+        try:
+            output_dir = review_human_input(repo, interaction_id, decision, rationale, reviewer)
+        except (FileNotFoundError, ValueError) as exc:
+            trace.event(
+                "existing-harness",
+                "failed",
+                "Existing Harness human input governance failed.",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "action": "review-human-input",
+                    "interaction_id": interaction_id,
+                    "decision": decision,
+                    "error": str(exc),
+                },
+            )
+            trace.finish(
+                "failed",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "existing_harness_action": "review-human-input",
+                    "interaction_id": interaction_id,
+                    "decision": decision,
+                    "error": str(exc),
+                },
+            )
+            raise typer.BadParameter(str(exc)) from exc
+        governance = HumanInputGovernanceLog.model_validate(
+            yaml.safe_load((output_dir / "review" / "human-input-governance.yaml").read_text(encoding="utf-8"))
+        )
+        latest = governance.decisions[-1]
+        trace.artifact(output_dir / "questionnaire.yaml", "questionnaire")
+        trace.artifact(output_dir / "human-input-needed.md", "human_confirmation")
+        trace.artifact(output_dir / "review" / "human-input-governance.yaml", "human_input_governance")
+        trace.artifact(output_dir / "review" / "human-input-governance.md", "review")
+        trace.event(
+            "existing-harness",
+            "completed",
+            "Existing Harness human input governance decision recorded.",
+            {
+                "primary_stack": inventory.primary_stack,
+                "action": "review-human-input",
+                "interaction_id": latest.interaction_id,
+                "decision": latest.decision,
+                "reviewer": latest.reviewer,
+            },
+        )
+        trace.finish(
+            "completed",
+            {
+                "primary_stack": inventory.primary_stack,
+                "existing_harness_action": "review-human-input",
+                "interaction_id": latest.interaction_id,
+                "decision": latest.decision,
+                "reviewer": latest.reviewer,
+                "new_response_status": latest.new_response_status,
+            },
+        )
+        typer.echo(_human_input_governance_summary(latest.interaction_id, latest.decision, latest.reviewer, latest.new_response_status))
+        return output_dir
     if action == "self-improve":
         typer.echo("正在生成 review-only 自改进审查包...")
         trace.event(
@@ -1074,8 +1147,9 @@ def _existing_harness_action_menu_lines() -> list[str]:
         "4. benchmark：运行 Harness 质量门禁，刷新 benchmark / maturity / improvement 派生产物，不覆盖正式 Harness 资产。",
         "5. recommend-workflow：输入任务说明，生成 review-only Workflow 推荐，不执行任务或修改正式 routing policy。",
         "6. review-candidate：记录候选 accepted / deferred / rejected；Guide/Sensor 可显式 applied，workflow_policy 仍需专家命令。",
-        "7. self-improve：生成 review-only 自改进审查包，不应用正式资产或执行 Runtime。",
-        "8. reinit：继续重新扫描并进入当前生成向导。",
+        "7. review-human-input：处理 scan follow-up 人工复核 resolved / reopened，不修改正式 Harness 资产。",
+        "8. self-improve：生成 review-only 自改进审查包，不应用正式资产或执行 Runtime。",
+        "9. reinit：继续重新扫描并进入当前生成向导。",
     ]
 
 
@@ -1114,12 +1188,20 @@ def _normalize_existing_harness_action(value: str) -> str:
         "governance": "review-candidate",
         "候选": "review-candidate",
         "治理": "review-candidate",
-        "7": "self-improve",
+        "7": "review-human-input",
+        "review-human-input": "review-human-input",
+        "human-input": "review-human-input",
+        "human": "review-human-input",
+        "input": "review-human-input",
+        "人工输入": "review-human-input",
+        "待确认": "review-human-input",
+        "复核": "review-human-input",
+        "8": "self-improve",
         "self-improve": "self-improve",
         "self": "self-improve",
         "自改进": "self-improve",
         "智能改进": "self-improve",
-        "8": "reinit",
+        "9": "reinit",
         "reinit": "reinit",
         "重新生成": "reinit",
         "regenerate": "reinit",
@@ -1176,6 +1258,22 @@ def _candidate_governance_summary(candidate_id: str, decision: str, reviewer: st
             "- `.ai/review/candidate-governance.yaml`",
             "- `.ai/review/candidate-governance.md`",
             "- `.ai/experience/experience-index.yaml`",
+        ]
+    )
+
+
+def _human_input_governance_summary(interaction_id: str, decision: str, reviewer: str, new_response_status: str) -> str:
+    return "\n".join(
+        [
+            "human-input 治理决策已记录。",
+            f"- interaction_id={interaction_id}",
+            f"- decision={decision}",
+            f"- reviewer={reviewer}",
+            f"- new_response_status={new_response_status}",
+            "- `.ai/questionnaire.yaml`",
+            "- `.ai/human-input-needed.md`",
+            "- `.ai/review/human-input-governance.yaml`",
+            "- `.ai/review/human-input-governance.md`",
         ]
     )
 

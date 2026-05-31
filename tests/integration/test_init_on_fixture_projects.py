@@ -1391,6 +1391,82 @@ def test_review_human_input_command_marks_scan_followup_resolved_without_overwri
     assert "human_input_scan_followups_resolved=1" in existing_result.output
 
 
+def test_guided_init_existing_harness_can_review_human_input_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    runner = CliRunner()
+
+    init_result = runner.invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "command=unit_test|mvn test|test|hard|pom.xml|high\n"
+            "\n\n\n\n"
+            "\n"
+            "confirm\n"
+        ),
+    )
+    assert init_result.exit_code == 0, init_result.output
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness human-input review must reuse existing Harness state, not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = runner.invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "review-human-input\n"
+            "confirm:scan-followup:test-evidence\n"
+            "resolved\n"
+            "Maintainer confirmed mvn test is the stable test gate.\n"
+            "lead-reviewer\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "已存在 Harness" in result.output
+    assert "review-human-input" in result.output
+    assert "human-input 治理决策已记录" in result.output
+    assert "confirm:scan-followup:test-evidence" in result.output
+    assert "resolved" in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+    assert not (repo / ".ai" / "task-runs").exists()
+
+    questionnaire = Questionnaire.model_validate(
+        yaml.safe_load((repo / ".ai" / "questionnaire.yaml").read_text(encoding="utf-8"))
+    )
+    question = next(item for item in questionnaire.questions if item.interaction_id == "confirm:scan-followup:test-evidence")
+    assert question.response_status == "reviewed_resolved_by_harness_maintainer"
+    governance = yaml.safe_load((repo / ".ai" / "review" / "human-input-governance.yaml").read_text(encoding="utf-8"))
+    assert governance["decisions"][0]["interaction_id"] == "confirm:scan-followup:test-evidence"
+    assert governance["decisions"][0]["decision"] == "resolved"
+    assert governance["decisions"][0]["reviewer"] == "lead-reviewer"
+    human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
+    assert "response_status=reviewed_resolved_by_harness_maintainer" in human_input
+    governance_md = (repo / ".ai" / "review" / "human-input-governance.md").read_text(encoding="utf-8")
+    assert "## Review Boundary" in governance_md
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert "scan" not in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "review-human-input"
+    assert trace["summary"]["interaction_id"] == "confirm:scan-followup:test-evidence"
+    assert trace["summary"]["decision"] == "resolved"
+    assert trace["summary"]["reviewer"] == "lead-reviewer"
+    artifacts = _latest_init_artifacts(repo)
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/questionnaire.yaml" in artifact_paths
+    assert ".ai/human-input-needed.md" in artifact_paths
+    assert ".ai/review/human-input-governance.yaml" in artifact_paths
+    assert ".ai/review/human-input-governance.md" in artifact_paths
+
+
 def test_guided_init_stack_correction_updates_inventory_and_decisions(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
@@ -1866,7 +1942,8 @@ def test_guided_init_existing_harness_can_exit_with_numbered_action(tmp_path: Pa
     assert "建议处理 1：先运行 `benchmark`" in result.output
     assert "1. exit" in result.output
     assert "2. assess" in result.output
-    assert "8. reinit" in result.output
+    assert "7. review-human-input" in result.output
+    assert "9. reinit" in result.output
     assert "human_input_questionnaire=present" in result.output
     assert "human_input_action_entry=.ai/human-input-needed.md#处理方式" in result.output
     _assert_formal_assets_unchanged(repo, formal_before)

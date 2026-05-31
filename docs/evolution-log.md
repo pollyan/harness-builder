@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Human Input Review 维护入口
+
+- North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、资产生成与审核接管。
+- init North Star 旅程阶段：已有 Harness 维护入口、human-input 待确认闭环、审查接管。
+- Gap Analysis 摘要：当前 `docs/todos/` 没有 open todo，本地旧能力迁移已归档；远端同步候选仍被 push 前 full regression 的外部前置阻塞（缺 `DEEPSEEK_API_KEY` 与 `.benchmarks`），真实 DeepSeek targeted acceptance 也依赖同一前置。重新读取事实源后，本轮选择可本地完成且服务 init 维护入口的 gap：standalone `review-human-input` 已能治理 scan follow-up，但 existing Harness guided `init` 菜单没有该动作。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 并看到 human-input-needed 中存在 scan follow-up 待复核项时，我可以在已有 Harness 维护菜单中选择 `review-human-input`，输入 interaction id、resolved / reopened 决策和理由后，让系统写入可审计治理日志并刷新 human-input 状态，从而不离开 init 维护入口也能关闭或重新打开扫描追问。
+- 当前代码 gap：维护入口已展示 questionnaire 状态、scan follow-up resolved / partial / unaddressed 计数和 `.ai/human-input-needed.md#处理方式`，但菜单只能进入 assess / improve / benchmark / recommend-workflow / review-candidate / self-improve / reinit；human-input 治理仍要求用户记住 standalone 命令。
+- 关键决策 / 取舍：复用 `review_human_input()` 和 `HumanInputGovernanceLog`，不新增第二套治理逻辑；`resolved` 仍只表示 Maintainer 人工复核完成，不代表 Builder 自动重扫或验证事实；该 guided action 不自动选择 item，仍要求输入稳定 interaction id，避免误关错误追问。
+- Assumptions / risks：Maintainer 可以从维护入口状态行或 `.ai/human-input-needed.md#处理方式` 读取 interaction id；菜单动作增多可能增加选择成本，本轮通过编号、英文和中文别名降低记忆成本。
+- 边界情况 / 失败模式：未知 interaction id、非法 decision 或空 rationale 继续由现有 human-input governance 显式失败；本轮不重新扫描、不修改正式 Guides / Sensors / Workflow Skills / `harness-config.yaml` / inventory / command catalog，不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：按目标模式尝试启动 explorer 只读调研接入点，但当前返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只补齐 `existing Harness status -> guided review-human-input -> governance log -> refreshed questionnaire / human-input-needed -> trace` 的纵向闭环，不把 triage 自动推荐或真实 acceptance 混入同一轮。
+- 可执行验收标准及验证方式：unit 覆盖菜单数字和中英文别名；integration 覆盖 guided `init` 选择 `review-human-input` 后写 governance、刷新 questionnaire / human-input Markdown、记录 trace artifacts、正式资产快照不变且不创建 `.ai/task-runs`。
+- 完成内容：existing Harness 菜单新增 `7. review-human-input`，`self-improve` / `reinit` 编号后移；guided 分支收集 interaction id、decision、rationale、reviewer 并复用 `review_human_input()`；README、`docs/engineering/init-workflow.md`、spec 和 plan 同步。
+- 验证结果：TDD 红测先因 `review-human-input` 未识别失败；实现后目标 unit / human-input governance unit 12 passed；目标 guided integration 2 passed；完整 guided init integration 42 passed；`git diff --check` 通过；`scripts/test-fast.sh` 通过，403 passed。
+- Self-Harness Gate：长期文档已同步；`docs/todos/` 暂不新增。下一轮候选 gap：push 前 full regression / 远端同步（需 `DEEPSEEK_API_KEY` 与 `.benchmarks`）、真实 DeepSeek targeted acceptance 验证 Workflow note asset candidate prompt 效果，或维护入口 triage 是否应在 human-input backlog 非零时推荐 `review-human-input`。
+
 ## 2026-06-01 Workflow Note 资产候选闭环
 
 - North Star 模块：CLI Experience、Workflow Toolkit、Maturity & Evolution、Experience & Self-Improve、资产生成与审核接管。
