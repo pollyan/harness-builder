@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init 扫描补充即时影响说明
+
+- North Star 模块：CLI Experience、Maturity & Evolution、资产生成与审核接管。
+- init North Star 旅程阶段：扫描理解对齐、成熟度初评、用户补充吸收、设计预览前的渐进式协作。
+- Gap Analysis 摘要：旧 61 提交迁移 todo 已 implemented 并归档，当前 open todo 为空。本轮重新读取事实源后，候选 gap 包括扫描补充后的即时影响说明、`InteractionDecisions` 结构化 impact 字段、团队规则即时影响说明和 push 前 full regression 先决条件。选择扫描补充即时影响说明，因为当前代码已经把补充写入 inventory、command catalog、interaction decisions 和正式语义资产，但 CLI 直到最终确认才系统性复述影响；这晚于 North Star 要求的“收到补充后立即整理理解并说明影响”。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的扫描理解阶段补充自然语言说明或结构化 `module` / `command` / `risk` 修正时，我可以在进入团队规则和设计候选前立即看到 Harness Builder 如何理解这些补充、会如何影响成熟度缺口判断和后续 Harness 推荐，从而确认交互输入已经进入决策链路，而不是只在最终确认阶段被动展示。
+- 当前代码 gap：`_apply_scan_overrides()` 已在团队规则和候选审查前更新内存态 inventory / commands，但用户可见的“已吸收补充 / 补充影响”只在 `_confirm_summary()` 中出现。
+- 关键决策 / 取舍：新增 scan 补充后的即时 CLI 区块，复用现有 `GuidedScanOverrides` 和 `human_overrides` 数据流，不新增 schema 字段；最终确认摘要保留，作为写入前复核。
+- Assumptions / risks：当前补充应用发生在 weapon selection、candidate generation 和写入前 maturity preview 之前，因此即时复述能准确表达后续影响；文案增加会拉长 guided CLI，本轮限制为两个短区块。
+- 边界情况 / 失败模式：无补充时不输出新区块；结构化命令 source 是否真实存在仍由 hard gate command evidence benchmark 负责；本轮不执行 Runtime、不创建 `.ai/task-runs`、不默认运行 benchmark。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer，但当前返回 `agent thread limit reached`，未能使用子代理；主线程完成调研与验证。
+- 价值切分说明：本轮只补扫描补充这一处最关键的前置决策反馈；团队规则即时反馈和结构化 impact schema 留给后续 Gap Analysis。
+- 可执行验收标准及验证方式：integration 测试断言 `扫描补充理解` 和 `扫描补充影响` 出现在 `你的补充或修正` 之后、`\n团队规则` 之前，并包含自然语言 note、module、command、risk、成熟度缺口判断、Guides、Sensors、Workflow 升级和 human-input-needed；同时保留产物中的 inventory / command catalog / init summary / project context / verification 断言。
+- 完成内容：`interactive_init.py` 在首次 scan supplement 和 back-to-scan 修改后立即输出补充理解与影响说明；`docs/engineering/init-workflow.md` 固化该规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 integration 测试通过；commit 前 fast regression 见本轮提交前验证。
+- Self-Harness Gate：README 当前已说明 guided init 支持自然语言和结构化修正，暂不需要更新；`docs/todos/` 无需新增，因为后续候选可继续由下一轮 Current State Gap Analysis 评估。下一轮候选 gap 包括团队规则即时影响说明、结构化 impact schema、以及已有 14 个本地 commit push 前的 full regression 先决条件处理。
+
 ## 2026-06-01 本地独有能力迁移收口归档
 
 - North Star 模块：Goal Mode / 工程治理、CLI Experience、Deep Scan Evidence、Benchmark / Review Intelligence。

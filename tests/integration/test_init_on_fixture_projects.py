@@ -1033,7 +1033,7 @@ def test_guided_init_structured_scan_corrections_update_modules_commands_and_ris
         ["init", "--repo", str(repo)],
         input=(
             "\n"
-            "module=frontend|frontend|frontend; command=frontend_test|npm test|test|hard|frontend/package.json|high; risk=frontend/package.json|前端依赖需要单独确认\n"
+            "frontend 还包含批处理入口; module=frontend|frontend|frontend; command=frontend_test|npm test|test|hard|frontend/package.json|high; risk=frontend/package.json|前端依赖需要单独确认\n"
             "\n\n\n\n"
             "\n"
             "confirm\n"
@@ -1041,11 +1041,28 @@ def test_guided_init_structured_scan_corrections_update_modules_commands_and_ris
     )
 
     assert result.exit_code == 0, result.output
+    prompt_index = result.output.index("你的补充或修正")
+    immediate_summary_index = result.output.index("扫描补充理解")
+    impact_index = result.output.index("扫描补充影响")
+    team_rules_index = result.output.index("\n团队规则")
+    assert prompt_index < immediate_summary_index < impact_index < team_rules_index
+    immediate_summary = result.output[immediate_summary_index:team_rules_index]
+    assert "frontend 还包含批处理入口" in immediate_summary
+    assert "frontend" in immediate_summary
+    assert "npm test" in immediate_summary
+    assert "frontend/package.json" in immediate_summary
+    assert "前端依赖需要单独确认" in immediate_summary
+    assert "成熟度缺口判断" in immediate_summary
+    assert "Guides" in immediate_summary
+    assert "Sensors" in immediate_summary
+    assert "Workflow 升级" in immediate_summary
+    assert "human-input-needed" in immediate_summary
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
     assert {"name": "frontend", "path": "frontend", "kind": "frontend"} in inventory["modules"]
     assert {"path": "frontend/package.json", "reason": "前端依赖需要单独确认"} in inventory["stack_extensions"]["risk_areas"]
     assert inventory["stack_extensions"]["human_overrides"]["modules"][0]["path"] == "frontend"
     assert inventory["stack_extensions"]["human_overrides"]["risk_areas"][0]["path"] == "frontend/package.json"
+    assert any("frontend 还包含批处理入口" in note for note in inventory["stack_extensions"]["human_overrides"]["scan_notes"])
     catalog = yaml.safe_load((repo / ".ai" / "command-catalog.yaml").read_text(encoding="utf-8"))
     assert any(command["id"] == "frontend_test" and command["command"] == "npm test" for command in catalog["commands"])
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")

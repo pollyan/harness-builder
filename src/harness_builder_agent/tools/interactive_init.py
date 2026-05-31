@@ -120,6 +120,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     _show_scan_maturity_snapshot(repo, inventory, commands)
     scan_overrides = _collect_scan_supplement(inventory)
     _apply_scan_overrides(inventory, commands, scan_overrides)
+    _show_scan_supplement_immediate_summary(scan_overrides)
 
     inline_contexts: list[str] = _collect_team_rules()
     weapon_selection = select_weapon_library(inventory, commands)
@@ -147,6 +148,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             _show_scan_findings(inventory, commands)
             scan_overrides = _collect_scan_supplement(inventory)
             _apply_scan_overrides(inventory, commands, scan_overrides)
+            _show_scan_supplement_immediate_summary(scan_overrides)
             weapon_selection = select_weapon_library(inventory, commands)
             candidate_report = build_llm_enhancement_candidates(inventory, commands)
             candidate_ids = [item.id for item in candidate_report.candidates]
@@ -1841,6 +1843,42 @@ def _show_supplement_impact_summary(
             typer.echo(line)
     else:
         typer.echo("- 当前将按扫描结果和内置 Harness 基线生成。")
+
+
+def _show_scan_supplement_immediate_summary(scan_overrides: GuidedScanOverrides) -> None:
+    if not (
+        scan_overrides.primary_stack
+        or scan_overrides.notes
+        or scan_overrides.modules
+        or scan_overrides.commands
+        or scan_overrides.risk_areas
+    ):
+        return
+
+    typer.echo("\n扫描补充理解")
+    if scan_overrides.primary_stack:
+        typer.echo(f"- 技术栈修正：`{scan_overrides.primary_stack}`。")
+    for note in scan_overrides.notes[:5]:
+        typer.echo(f"- 用户补充：{note}")
+    if len(scan_overrides.notes) > 5:
+        typer.echo(f"- 还有 {len(scan_overrides.notes) - 5} 条扫描补充会进入 interaction-decisions。")
+    for module in scan_overrides.modules[:5]:
+        typer.echo(f"- 结构化模块：`{module['path']}`（{module['kind']}，{module['name']}）。")
+    for command in scan_overrides.commands[:5]:
+        typer.echo(f"- 结构化验证命令：`{command.command}`，gate={command.gate}，source=`{command.source}`。")
+    for risk in scan_overrides.risk_areas[:5]:
+        typer.echo(f"- 结构化风险区域：`{risk['path']}`，{risk['reason']}。")
+
+    typer.echo("\n扫描补充影响")
+    typer.echo("- 这些补充会更新写入前成熟度缺口判断和后续 Harness 推荐；当前仍属于用户补充，不会被伪装成已验证扫描事实。")
+    if scan_overrides.primary_stack:
+        typer.echo("- 技术栈修正会影响武器库选择、stack-specific Guides / Sensors 和写入前成熟度预览。")
+    if scan_overrides.modules or scan_overrides.notes:
+        typer.echo("- 模块和自然语言补充会进入 project inventory / project-context，并影响 Guides 的项目事实叙事。")
+    if scan_overrides.commands:
+        typer.echo("- 验证命令会进入 command catalog，并影响 Sensors、hard gate 摘要和后续 benchmark 证据检查。")
+    if scan_overrides.risk_areas:
+        typer.echo("- 风险区域会影响 Workflow 升级、人工确认项和 human-input-needed。")
 
 
 def _apply_scan_overrides(

@@ -125,12 +125,13 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 ### 6. 用户补充复述与影响说明
 
-首次 guided `init` 在最终确认前，必须复述用户已经提供的扫描补充、团队规则和 Workflow 补充，并说明这些补充会影响哪些后续决策或产物。
+首次 guided `init` 收到 scan 补充后，必须在进入团队规则、候选审查和 Workflow 设计之前立即复述系统如何理解这些补充，并说明它们会如何影响成熟度缺口判断、Guides、Sensors、Workflow 升级或人工确认。最终确认前还必须再次汇总用户已经提供的扫描补充、团队规则和 Workflow 补充，并说明这些补充会影响哪些后续决策或产物。
 
 规则：
 
 - 结构化 scan 补充必须说明会影响 project inventory、command catalog、risk hints、Guides、Sensors 或写入前成熟度预览。
 - 自然语言 scan 补充必须明确标记为人工补充说明，进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`，不能伪装成扫描事实。
+- scan 补充的即时复述必须发生在 `_apply_scan_overrides()` 更新内存态 inventory / command catalog 之后，让用户知道后续 weapon selection、maturity preview 和正式资产生成将基于已吸收的补充继续推进。
 - 团队规则必须说明会进入团队上下文 Guide 和 `human-input-needed.md`。
 - Workflow 补充必须说明会进入 Workflow 说明和人工确认记录；除非经过候选治理或结构化 policy patch，不能直接修改正式 routing policy。
 - 最终确认摘要不能只显示补充数量，必须展示具体补充内容的可读摘要，让用户在写入前确认系统理解了输入。
