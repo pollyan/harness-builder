@@ -14,6 +14,12 @@
 - 修改产品定位、成熟度框架、Experience / Self-Improve、智能改进、Workflow Toolkit 或长期路线图前，阅读 `docs/strategy/README.md`，再按需阅读其中的全景规划或 POC 历史规划。
 - 只在任务需要时加载对应专题文档，不要把所有工程文档一次性塞进上下文。
 
+## 目标模式选题规则
+
+- 每轮选择新的 milestone / 话题前，必须先检查 `docs/todos/` 中未完成的工作项。
+- 如果存在未完成 todo 且符合当前产品北极星和用户最新优先级，应优先消化 todo；只有没有合适 todo 时，才从新的 gap analysis 中选择全新话题。
+- 选择 todo 时仍需保持单轮只做一个独立可验收切片，并在 spec / plan / evolution log 中说明该切片对应的 todo 和用户价值。
+
 ## 硬约束
 
 - 不允许添加静默 fallback 逻辑。No silent fallback.

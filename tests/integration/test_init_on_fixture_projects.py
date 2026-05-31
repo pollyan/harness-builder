@@ -366,6 +366,7 @@ def test_init_non_interactive_generates_existing_assets(tmp_path: Path, monkeypa
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert decisions["mode"] == "non_interactive"
     assert decisions["final_confirmation"]["status"] == "not_confirmed"
+    assert "== 启动说明 ==" not in result.output
     assert "当前阶段：收集仓库 evidence" not in result.output
     assert "扫描后的成熟度初评" not in result.output
 
@@ -385,7 +386,19 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     )
 
     assert result.exit_code == 0, result.output
-    assert "扫描仓库" in result.output
+    scan_stage = "\n扫描仓库\n"
+    assert "== 启动说明 ==" in result.output
+    assert result.output.index("== 启动说明 ==") < result.output.index("继续生成 Harness?")
+    assert result.output.index("== 启动说明 ==") < result.output.index(scan_stage)
+    assert "将扫描仓库文件、构建配置、CI、测试、文档和源码样本证据" in result.output
+    assert "需要你确认或补充技术栈、模块边界、风险区域、验证命令、团队规则和 Workflow 说明" in result.output
+    assert "最终确认写入后将生成 project inventory、command catalog、Guides、Sensors、Workflow Skills、成熟度报告和待确认项" in result.output
+    assert "本次会话会记录 generation trace，用于审计取消、失败和完成结果" in result.output
+    assert "不会执行 Runtime" in result.output
+    assert "不会创建 `.ai/task-runs`" in result.output
+    assert "不会默认运行 benchmark" in result.output
+    assert "最终输入 `confirm` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程" in result.output
+    assert scan_stage in result.output
     assert "正在收集仓库文件、构建配置、CI、测试和文档证据" in result.output
     assert "正在请求 LLM 做结构化扫描" in result.output
     assert "正在调和 LLM 判断与 evidence" in result.output
@@ -396,7 +409,7 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "当前阶段：请求 LLM 做最终结构化扫描" in result.output
     assert "当前阶段：调和扫描结果" in result.output
     assert result.output.index("当前阶段：收集仓库 evidence") < result.output.index("扫描完成")
-    assert result.output.index("扫描仓库") < result.output.index("扫描发现")
+    assert result.output.index(scan_stage) < result.output.index("扫描发现")
     assert result.output.index("扫描完成") < result.output.index("扫描发现")
     assert "扫描发现" in result.output
     assert "风险区域" in result.output
@@ -415,7 +428,7 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert result.output.index("扫描发现") < result.output.index("扫描后的成熟度初评")
     assert result.output.index("扫描后的成熟度初评") < result.output.index("需要你补充或修正的地方")
     assert result.output.index("扫描后的成熟度初评") < result.output.index("当前 Harness 成熟度初评")
-    assert result.output.index("建议补充") < result.output.index("团队规则")
+    assert result.output.index("建议补充") < result.output.index("\n团队规则")
     assert "主要技术栈" in result.output
     assert "团队规则" in result.output
     assert "建议生成的规则" in result.output
@@ -431,7 +444,7 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "将生成的 Guides" in result.output
     assert "将生成的 Sensors" in result.output
     assert "Workflow routing" in result.output
-    preview = result.output[result.output.index("写入前 Harness 设计预览") : result.output.index("最终确认")]
+    preview = result.output[result.output.index("写入前 Harness 设计预览") : result.output.index("\n最终确认\n")]
     guides_preview = preview[preview.index("将生成的 Guides") : preview.index("将生成的 Sensors")]
     sensors_preview = preview[preview.index("将生成的 Sensors") : preview.index("Workflow routing")]
     assert "关联成熟度" in guides_preview
@@ -447,7 +460,7 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "standard-escalation" in result.output
     assert "高风险" in result.output
     assert "最终确认" in result.output
-    assert result.output.index("当前 Harness 成熟度初评") < result.output.index("最终确认")
+    assert result.output.index("当前 Harness 成熟度初评") < result.output.index("\n最终确认\n")
     assert "当前成熟度" in result.output
     assert "== 初始化完成 ==" in result.output
     assert "本次已生成" in result.output
@@ -564,7 +577,7 @@ def test_guided_init_groups_scan_risks_uncertainties_and_validation_gaps(tmp_pat
     assert "低置信度验证命令" in result.output
     assert "建议补充" in result.output
     assert "真实可执行的 hard gate 命令" in result.output
-    assert result.output.index("\n风险区域") < result.output.index("团队规则")
+    assert result.output.index("\n风险区域") < result.output.index("\n团队规则")
 
 
 def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):
@@ -800,6 +813,7 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert "human_input_needed=" in result.output
     assert "schema_content_failed_checks=" in result.output
     assert "exit" in result.output
+    assert "== 启动说明 ==" not in result.output
     assert "== 初始化完成 ==" not in result.output
     assert "本次已生成" not in result.output
     assert (repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8") == inventory_before

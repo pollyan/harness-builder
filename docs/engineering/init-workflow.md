@@ -89,6 +89,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - LLM 声称的 stack 必须能被 evidence 支持，否则要降级或标记风险。
 - 命令候选必须包含来源、置信度和 gate 类型。
 - 对明显危险、缺乏证据或过重的命令，不能盲目标记为 hard gate。
+- 首次 guided `init` 在询问是否继续生成 Harness 之前，必须输出稳定的 `== 启动说明 ==` 区块，说明本次将扫描哪些 evidence、后续需要用户确认或补充哪些关键判断、最终确认写入后会生成哪些正式 Harness 资产，以及本次不会执行 Runtime、不会创建 `.ai/task-runs`、不会默认运行 benchmark、最终输入 `confirm` 前不会写入或覆盖正式 Harness 资产。generation trace 可以从会话开始记录取消、失败和完成过程，但必须在文案中与正式 Harness 资产写入边界区分。
 - 首次 guided `init` 在收集用户 scan 补充前，必须把调和后的扫描结果翻译成面向用户的关注点分组，至少包含风险区域、不确定性、验证缺口和建议补充。
 - 风险区域来自 LLM / scan reconcile / 用户补充已确认前的 `risk_areas` 线索，只能作为关注点展示，不能伪装成已验证事实。
 - 不确定性必须覆盖 LLM 低置信度、scan warning、需要人工确认、模块边界不清或低置信度命令等用户需要优先确认的事项。

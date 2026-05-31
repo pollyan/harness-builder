@@ -1,5 +1,17 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 启动边界说明
+
+- North Star 模块：CLI Experience、Progressive Collaboration、Maturity & Evolution。
+- init North Star 旅程阶段：启动与目标说明、CLI 视觉焦点。
+- Gap Analysis 摘要：首次 guided `init` 在扫描前只有泛化的 `.ai` 资产说明和 `继续生成 Harness?`，用户还不知道扫描范围、后续确认范围、预计生成资产，以及 Runtime、`.ai/task-runs`、benchmark 和正式写入边界。
+- 用户故事：作为首次使用 Harness Builder 的 Harness Maintainer，我希望在等待扫描前先理解本次流程会做什么、不会做什么、何时才写入正式资产，从而能判断是否继续进入耗时扫描。
+- 关键决策 / 取舍：新增稳定的 `== 启动说明 ==` CLI 区块，放在已有 Harness 维护入口之后、`继续生成 Harness?` 之前；本轮只增强首次生成向导，不改变非交互输出、扫描、LLM、成熟度评分或资产 schema；generation trace 从会话开始记录，但文案明确它不同于最终确认后写入的正式 Harness 资产。
+- Assumptions / risks：启动说明保持短列表，避免把首次 CLI 变成说明书；目标输出目录和已有 `.ai` 状态的更细展示留给后续阶段标题和状态 contract 切片。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行审查启动说明缺口和用户补充分流缺口；本轮采纳启动说明切片，将“自然语言补充不应伪装成扫描事实”记录为后续更大契约切片。
+- 验收标准及验证方式：integration 覆盖 `== 启动说明 ==` 在 `继续生成 Harness?` 和 `扫描仓库` 之前出现，包含扫描范围、确认范围、生成资产、Runtime / `.ai/task-runs` / benchmark 和最终 `confirm` 写入边界；同时断言 `--non-interactive` 不输出该 guided 启动说明。
+- Self-Harness Gate：下一轮候选 gap 首选“用户扫描补充后的结构化吸收与自然语言说明分流”，避免自由文本被表达成已验证扫描事实；其次是 CLI 阶段标题统一。
+
 ## 2026-05-31 Init CLI 交付摘要增强
 
 - North Star 模块：CLI Experience、Maturity & Evolution、Guides / Sensors、Progressive Collaboration。
