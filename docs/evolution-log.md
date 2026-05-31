@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 本地独有能力迁移 Todo 收敛
+
+- 关联 todo：`docs/todos/local-unique-capability-migration.md`。
+- North Star 模块：目标模式执行系统、Init Experience、Maturity & Evolution、工程可持续性。
+- init North Star 旅程阶段：本轮不改用户旅程，先收敛后续迁移基线，避免并行实现继续污染 `init` 主线。
+- Gap Analysis 摘要：最新远端 `origin/main` 已包含 guided init 进度、maturity preview、LLM evidence plan、scan follow-up 和 self-check 等 30 个提交；本地旧 `main` 另有 61 个未 push 提交，且两边在 `interactive_init.py`、`init_summary.py`、`scan_repo.py`、`human_confirmation.py` 等核心文件高度重叠。用户明确要求先处理合并问题、剩余重复 commit 可以丢掉，因此本轮选择基线收敛，而不是继续功能迁移。
+- 工程信任故事：作为 Harness Builder 维护者，当本地 61 个提交和远端 30 个提交已经并行演进且决定放弃整包 merge 时，我可以在最新 `origin/main` 基线上保留旧实现备份、把当前 open todo 收敛为“本地独有 / 更细能力迁移”，从而让后续目标模式只按小步迁移独有增量，而不是继续尝试合并两套实现。
+- 当前代码 gap：`main` 已 reset 到最新 `origin/main` 后，远端仍有两个 open todo，会让目标模式继续按旧大主题推进；迁移策略 todo 曾在旧工作树里写好，但需要恢复到新基线，并记录备份分支 / stash 事实。
+- 关键决策 / 取舍：以最新 `origin/main` 为主线；旧 61 个提交保留在 `backup/local-61-before-migration`；reset 前未提交工作树保留在 `stash@{0}: local-worktree-before-origin-main-reset`；`guided-init-ai4se-real-repo-findings.md` 与 `maturity-driven-init-wizard.md` 暂停为背景参考；本轮不迁移功能代码。
+- Assumptions / risks：备份分支是本地引用，后续如需共享旧实现需要单独推送或导出；stash 序号可能变化，因此 todo 记录 stash message；暂停旧 todo 不是否定其价值，而是避免绕开迁移决策。
+- Sub agent 使用情况：未使用 sub agent。本轮是 git / 文档基线收敛，范围小且不涉及并行代码调研。
+- 价值切分说明：本轮完成后，后续目标模式有一个干净远端基线和唯一迁移入口，能把冲突风险从“整包合并 61 个提交”降为“逐个迁移独有能力”。
+- 验收标准及验证方式：`main` 与 `origin/main` 对齐；备份分支存在；`docs/todos` 只有迁移 todo 为 open；`git diff --check` 和 `scripts/test-fast.sh` 通过。
+- 完成内容：恢复并更新 `local-unique-capability-migration.md`；更新 todo README；暂停两个旧 open todo；新增本轮 spec / plan。
+- 验证结果：open todo 检查只返回迁移 todo；备份分支存在；`git diff --check` 通过；`scripts/test-fast.sh` 通过，334 passed。
+- Self-Harness Gate：下一轮应从迁移 todo 的推荐顺序中选择第一个小步迁移切片，优先 Existing Harness 维护入口独有能力；不要直接 merge 或 cherry-pick 整组旧提交。
+
 ## 2026-06-01 Guided Init 扫描失败退出边界硬化
 
 - 关联 todo：`docs/todos/maturity-driven-init-wizard.md`、`docs/todos/testing-coverage-and-acceptance-strategy.md`。

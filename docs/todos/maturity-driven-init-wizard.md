@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态：open
+- 状态：paused
 - 优先级：high
 - 发现日期：2026-05-31
 - 已完成切片：首次 `init` 生成 `.ai/init-summary.md`，并在 CLI 完成输出中展示当前成熟度、主要阻断项、建议下一步和推荐入口文件。
@@ -23,6 +23,8 @@
 - 相关命令：`harness-builder-agent init`、`assess`、`improve`、`benchmark`、`recommend-workflow`、`self-improve`
 - 相关工程规则：`docs/engineering/init-workflow.md`、`docs/engineering/testing-strategy.md`、`docs/engineering/architecture.md`
 - 相关产品方向：`docs/strategy/Harness Builder — 面向遗留代码库治理的 AI Coding Harness 生成器.md`
+
+> 当前说明：该 todo 的大部分切片已经在最新 `origin/main` 或本地备份分支中实现，剩余工作暂不作为独立 open todo 推进。当前优先事项改为 [本地独有 / 更细能力合并与迁移](local-unique-capability-migration.md)，后续应以最新 `origin/main` 和 North Star 重新做 gap analysis，再决定是否重新拆分新的 init 主线 todo。
 
 ## 背景
 
