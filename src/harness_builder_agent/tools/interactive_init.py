@@ -29,7 +29,11 @@ from harness_builder_agent.tools.generate_improvements import generate_improveme
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
-from harness_builder_agent.tools.maintenance_triage import build_maintenance_triage, render_maintenance_triage_lines
+from harness_builder_agent.tools.maintenance_triage import (
+    build_maintenance_triage,
+    render_maintenance_triage_guidance_lines,
+    render_maintenance_triage_lines,
+)
 from harness_builder_agent.tools.maturity_model import build_maturity_report
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
 from harness_builder_agent.tools.risk_signals import classify_risk_area, high_impact_risk_areas
@@ -623,21 +627,19 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo("- Experience / review signals:")
     for line in experience_lines:
         typer.echo(f"  - {line}")
+    maintenance_actions = build_maintenance_triage(ai, score)
     typer.echo("- Maintenance triage:")
-    for line in render_maintenance_triage_lines(build_maintenance_triage(ai, score)):
+    for line in render_maintenance_triage_lines(maintenance_actions):
+        typer.echo(f"  - {line}")
+    typer.echo("- Maintenance triage guidance:")
+    for line in render_maintenance_triage_guidance_lines(maintenance_actions):
         typer.echo(f"  - {line}")
     typer.echo("\n可选动作")
-    typer.echo("- exit：退出，不覆盖现有 Harness。")
-    typer.echo("- assess：重新评估成熟度，只刷新 maturity 和 init summary 产物。")
-    typer.echo("- improve：基于成熟度缺口生成 review-only 改进候选，不覆盖正式 Harness 资产。")
-    typer.echo("- benchmark：运行 Harness 质量门禁，刷新 benchmark / maturity / improvement 派生产物，不覆盖正式 Harness 资产。")
-    typer.echo("- recommend-workflow：输入任务说明，生成 review-only Workflow 推荐，不执行任务或修改正式 routing policy。")
-    typer.echo("- review-candidate：记录候选 accepted / deferred / rejected；Guide/Sensor 可显式 applied，workflow_policy 仍需专家命令。")
-    typer.echo("- self-improve：生成 review-only 自改进审查包，不应用正式资产或执行 Runtime。")
-    typer.echo("- reinit：继续重新扫描并进入当前生成向导。")
+    for line in _existing_harness_action_menu_lines():
+        typer.echo(line)
 
-    action = typer.prompt("你的选择", default="exit").strip().lower()
-    if action in {"exit", "quit", "q"}:
+    action = _normalize_existing_harness_action(typer.prompt("你的选择", default="1").strip())
+    if action == "exit":
         trace.event(
             "existing-harness",
             "completed",
@@ -652,7 +654,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
             },
         )
         return ai
-    if action in {"assess", "reassess", "复评", "重新评估"}:
+    if action == "assess":
         typer.echo("正在重新评估现有 Harness 成熟度...")
         trace.event(
             "existing-harness",
@@ -685,7 +687,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         typer.echo("- `.ai/maturity-evidence.yaml`")
         typer.echo("- `.ai/init-summary.md`")
         return output_dir
-    if action in {"improve", "recommendations", "建议", "改进"}:
+    if action == "improve":
         typer.echo("正在生成成熟度驱动的改进候选...")
         trace.event(
             "existing-harness",
@@ -725,7 +727,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         typer.echo("- `.ai/experience/pending-improvements.md`")
         typer.echo("- `.ai/experience/experience-index.yaml`")
         return output_dir
-    if action in {"benchmark", "bench", "质量", "验收"}:
+    if action == "benchmark":
         typer.echo("正在运行 Harness benchmark...")
         trace.event(
             "existing-harness",
@@ -770,7 +772,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         )
         typer.echo(_benchmark_summary(report))
         return output_dir
-    if action in {"recommend-workflow", "recommend", "workflow", "工作流", "路由"}:
+    if action == "recommend-workflow":
         task_brief = typer.prompt("任务说明", default="", show_default=False).strip()
         if not task_brief:
             trace.event(
@@ -834,7 +836,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         )
         typer.echo(_workflow_recommendation_summary(recommendation))
         return output_dir
-    if action in {"review-candidate", "candidate", "governance", "候选", "治理"}:
+    if action == "review-candidate":
         candidate_report = _show_asset_candidate_summary(ai / "review" / "asset-candidates.yaml")
         candidate_id = typer.prompt("候选 ID", default="", show_default=False).strip()
         candidate = _find_asset_candidate(candidate_report, candidate_id)
@@ -943,7 +945,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         )
         typer.echo(_candidate_governance_summary(latest.candidate_id, latest.decision, latest.reviewer, len(latest.applied_paths)))
         return output_dir
-    if action in {"self-improve", "self", "自改进", "智能改进"}:
+    if action == "self-improve":
         typer.echo("正在生成 review-only 自改进审查包...")
         trace.event(
             "existing-harness",
@@ -994,7 +996,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         )
         typer.echo(_self_improve_summary(manifest))
         return output_dir
-    if action in {"reinit", "重新生成", "regenerate"}:
+    if action == "reinit":
         trace.event(
             "existing-harness",
             "completed",
@@ -1017,6 +1019,67 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         },
     )
     return ai
+
+
+def _existing_harness_action_menu_lines() -> list[str]:
+    return [
+        "1. exit：退出，不覆盖现有 Harness。",
+        "2. assess：重新评估成熟度，只刷新 maturity 和 init summary 产物。",
+        "3. improve：基于成熟度缺口生成 review-only 改进候选，不覆盖正式 Harness 资产。",
+        "4. benchmark：运行 Harness 质量门禁，刷新 benchmark / maturity / improvement 派生产物，不覆盖正式 Harness 资产。",
+        "5. recommend-workflow：输入任务说明，生成 review-only Workflow 推荐，不执行任务或修改正式 routing policy。",
+        "6. review-candidate：记录候选 accepted / deferred / rejected；Guide/Sensor 可显式 applied，workflow_policy 仍需专家命令。",
+        "7. self-improve：生成 review-only 自改进审查包，不应用正式资产或执行 Runtime。",
+        "8. reinit：继续重新扫描并进入当前生成向导。",
+    ]
+
+
+def _normalize_existing_harness_action(value: str) -> str:
+    action = value.strip().lower()
+    aliases = {
+        "1": "exit",
+        "exit": "exit",
+        "quit": "exit",
+        "q": "exit",
+        "退出": "exit",
+        "2": "assess",
+        "assess": "assess",
+        "reassess": "assess",
+        "复评": "assess",
+        "重新评估": "assess",
+        "3": "improve",
+        "improve": "improve",
+        "recommendations": "improve",
+        "建议": "improve",
+        "改进": "improve",
+        "4": "benchmark",
+        "benchmark": "benchmark",
+        "bench": "benchmark",
+        "质量": "benchmark",
+        "验收": "benchmark",
+        "5": "recommend-workflow",
+        "recommend-workflow": "recommend-workflow",
+        "recommend": "recommend-workflow",
+        "workflow": "recommend-workflow",
+        "工作流": "recommend-workflow",
+        "路由": "recommend-workflow",
+        "6": "review-candidate",
+        "review-candidate": "review-candidate",
+        "candidate": "review-candidate",
+        "governance": "review-candidate",
+        "候选": "review-candidate",
+        "治理": "review-candidate",
+        "7": "self-improve",
+        "self-improve": "self-improve",
+        "self": "self-improve",
+        "自改进": "self-improve",
+        "智能改进": "self-improve",
+        "8": "reinit",
+        "reinit": "reinit",
+        "重新生成": "reinit",
+        "regenerate": "reinit",
+    }
+    return aliases.get(action, action)
 
 
 def _benchmark_summary(report: BenchmarkReport) -> str:

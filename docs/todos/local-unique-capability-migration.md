@@ -57,6 +57,10 @@
 
 当前需要从 `backup/local-61-before-migration` 中把“本地独有 / 本地更细”的能力迁移到最新 `origin/main`，而不是把本地 61 个提交整包合入。
 
+## 已迁移切片
+
+- 2026-06-01：迁移 Existing Harness 维护入口的编号菜单、维护动作 normalization 和 `Maintenance triage guidance`。当前 guided `init` 在已有 Harness 入口支持输入 `1` 到 `8` 选择动作，并把 top maintenance actions 翻译成中文处理建议。未迁移项仍包括 routing signals、benchmark failed preview 和 human-input-needed signals。
+
 ## 理想状态
 
 以最新 `origin/main` 为基线，逐项吸收本地真正有增量价值的能力：
@@ -71,8 +75,8 @@
 
 1. **Existing Harness 维护入口独有能力**
    - Maintenance triage top actions。
-   - Maintenance triage guidance。
-   - 编号菜单。
+   - Maintenance triage guidance。（已迁移：2026-06-01）
+   - 编号菜单。（已迁移：2026-06-01）
    - routing signals。
    - benchmark failed preview。
    - human-input-needed signals。

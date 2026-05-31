@@ -143,6 +143,38 @@ def render_maintenance_triage_lines(actions: list[MaintenanceAction]) -> list[st
     return lines
 
 
+def render_maintenance_triage_guidance_lines(actions: list[MaintenanceAction]) -> list[str]:
+    return [_maintenance_action_guidance(index, action) for index, action in enumerate(actions[:3], start=1)]
+
+
+def _maintenance_action_guidance(index: int, action: MaintenanceAction) -> str:
+    prefix = f"建议处理 {index}："
+    if action.reason == "maturity_score_missing":
+        return f"{prefix}先运行 `assess` 刷新成熟度评分和入口摘要，再决定后续维护动作。"
+    if action.reason == "benchmark_not_run":
+        return f"{prefix}先运行 `benchmark` 生成质量门禁报告，再回到 guided `init` 查看 Benchmark signals。"
+    if action.reason == "schema_content_failed_checks":
+        count = f"{action.count} 个 " if action.count else ""
+        return f"{prefix}查看 `.ai/benchmark-report.yaml` 中的 {count}schema/content 失败项，修复 Harness 资产后运行 `benchmark`。"
+    if action.reason == "benchmark_failed_checks":
+        count = f"{action.count} 个 " if action.count else ""
+        return f"{prefix}查看 `.ai/benchmark-report.yaml` 中的 {count}失败项，修复后运行 `benchmark`。"
+    if action.reason == "experience_index_missing":
+        return f"{prefix}运行 `improve` 刷新 Experience index 和成熟度派生证据。"
+    if action.reason == "asset_candidates_pending":
+        count = f"{action.count} 个 " if action.count else ""
+        return f"{prefix}运行 `review-candidate` 处理 {count}review-only 候选，确认 accepted / deferred / rejected。"
+    if action.reason == "workflow_recommendations_pending":
+        count = f"{action.count} 条 " if action.count else ""
+        return f"{prefix}运行 `improve` 把 {count}Workflow 推荐转成可审查的 routing policy 改进候选。"
+    if action.reason == "pending_improvements_need_review_package":
+        count = f"{action.count} 条 " if action.count else ""
+        return f"{prefix}运行 `self-improve` 把 {count}pending improvements 打包成 review-only 自改进审查包。"
+    if action.reason == "no_pending_maintenance_signal":
+        return f"{prefix}输入一个真实任务说明，运行 `recommend-workflow` 生成 review-only Workflow 推荐；Builder 不执行 Runtime。"
+    return f"{prefix}运行 `{action.next_action}` 处理 `{action.reason}`，来源 `{action.source}`。"
+
+
 def _read_benchmark(ai: Path) -> BenchmarkReport | None:
     path = ai / "benchmark-report.yaml"
     if not path.exists():

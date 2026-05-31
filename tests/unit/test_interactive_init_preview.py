@@ -5,6 +5,7 @@ from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry
 from harness_builder_agent.tools.interactive_init import (
+    _normalize_existing_harness_action,
     _weapon_blocker_summary,
     _weapon_maturity_dimension_keys,
     _weapon_next_lift_summary,
@@ -66,3 +67,19 @@ def test_sensor_weapon_links_to_sensor_and_verification_blockers():
     assert "no-executable-sensors" in _weapon_blocker_summary(keys, planned)
     assert "verification-not-mapped-to-task-risk" in _weapon_blocker_summary(keys, planned)
     assert "建立可执行 Sensor 基线" in _weapon_next_lift_summary(keys, planned)
+
+
+def test_existing_harness_action_normalization_accepts_numbers_and_aliases():
+    assert _normalize_existing_harness_action("1") == "exit"
+    assert _normalize_existing_harness_action("2") == "assess"
+    assert _normalize_existing_harness_action("3") == "improve"
+    assert _normalize_existing_harness_action("4") == "benchmark"
+    assert _normalize_existing_harness_action("5") == "recommend-workflow"
+    assert _normalize_existing_harness_action("6") == "review-candidate"
+    assert _normalize_existing_harness_action("7") == "self-improve"
+    assert _normalize_existing_harness_action("8") == "reinit"
+    assert _normalize_existing_harness_action("quit") == "exit"
+    assert _normalize_existing_harness_action("质量") == "benchmark"
+    assert _normalize_existing_harness_action("治理") == "review-candidate"
+    assert _normalize_existing_harness_action("重新生成") == "reinit"
+    assert _normalize_existing_harness_action("unknown") == "unknown"

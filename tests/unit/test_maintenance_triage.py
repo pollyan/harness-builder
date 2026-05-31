@@ -5,7 +5,11 @@ from pathlib import Path
 import yaml
 
 from harness_builder_agent.schemas.maturity_report import MaturityReport
-from harness_builder_agent.tools.maintenance_triage import build_maintenance_triage, render_maintenance_triage_lines
+from harness_builder_agent.tools.maintenance_triage import (
+    build_maintenance_triage,
+    render_maintenance_triage_guidance_lines,
+    render_maintenance_triage_lines,
+)
 
 
 def _score() -> MaturityReport:
@@ -126,3 +130,24 @@ def test_maintenance_triage_recommends_real_task_when_no_pending_signals(tmp_pat
     assert len(actions) == 1
     assert actions[0].action == "recommend-workflow"
     assert actions[0].reason == "no_pending_maintenance_signal"
+
+
+def test_maintenance_triage_guidance_explains_next_actions(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_experience_index(ai, asset_candidates=3, governance=1)
+
+    actions = build_maintenance_triage(ai, score=_score())
+    lines = render_maintenance_triage_guidance_lines(actions)
+
+    assert lines[0] == "建议处理 1：先运行 `benchmark` 生成质量门禁报告，再回到 guided `init` 查看 Benchmark signals。"
+    assert "运行 `review-candidate` 处理 2 个 review-only 候选" in lines[1]
+
+    _write_benchmark(ai)
+    _write_experience_index(ai)
+
+    lines = render_maintenance_triage_guidance_lines(build_maintenance_triage(ai, score=_score()))
+
+    assert lines == [
+        "建议处理 1：输入一个真实任务说明，运行 `recommend-workflow` 生成 review-only Workflow 推荐；Builder 不执行 Runtime。"
+    ]

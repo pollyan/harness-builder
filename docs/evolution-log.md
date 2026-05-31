@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 编号菜单与维护指引迁移
+
+- North Star 模块：CLI Experience、Maturity & Evolution、Experience & Self-Improve。
+- init North Star 旅程阶段：再次进入已有 Harness。
+- Gap Analysis 摘要：当前唯一 open todo 是本地独有 / 更细能力迁移。对比当前主线和 `backup/local-61-before-migration` 后，本轮候选包括 Existing Harness 编号菜单与 guidance、benchmark failed preview、human-input-needed backlog、Workflow routing signals。编号菜单与 guidance 最小且直接提升维护入口可用性，因此先迁移。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 进入已有 Harness 维护入口时，我可以看到带编号的维护动作菜单，并按编号选择只读退出或后续维护动作，同时从 Maintenance triage guidance 中理解 top actions 应该如何处理，从而不用记英文命令或自行解读 reason code。
+- 当前代码 gap：已有入口只输出英文命令列表和 `top_action_* reason/source/next`，没有编号选择，也没有中文处理建议。
+- 关键决策 / 取舍：本轮只迁移编号菜单、action normalization 和 triage guidance；benchmark 失败细节、human-input backlog、routing signals 保留为迁移 todo 的后续候选。
+- Assumptions / risks：编号菜单不改变任何正式资产写入边界；未知输入仍默认只读退出。sub agent 已尝试启用但线程 agent 数量达到上限，本轮改为主线程本地对比。
+- 边界情况 / 失败模式：`1` 到 `8`、英文命令和常见中文别名都规范化到稳定 action；未知输入保持原有保守退出路径；`exit` 不触发 scan、不覆盖正式 Harness 资产。
+- 价值切分说明：该切片围绕“已有 Harness 维护入口能被低成本操作”这一用户故事，不把更细 benchmark/human-input/routing 信号混入同一轮。
+- 可执行验收标准及验证方式：unit 覆盖 action normalization 和 guidance 渲染；integration 覆盖输入 `1` 只读退出、编号菜单输出、guidance 输出、formal assets 不变；文档和迁移 todo 同步。
+- 完成内容：新增 `render_maintenance_triage_guidance_lines()`；existing-Harness guided entry 输出 `Maintenance triage guidance` 和编号菜单；新增 `_normalize_existing_harness_action()`；同步 README、init workflow、迁移 todo、spec 和 plan。
+- 验证结果：targeted unit / integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：长期文档已同步；无新增 schema 或 benchmark 契约。下一轮候选 gap：benchmark failed preview 与更细 failure detail、human-input-needed backlog 状态、Workflow routing signals，仍需下一轮 Current State Gap Analysis 重新排序。
+
 ## 2026-06-01 本地独有能力迁移 Todo 收敛
 
 - 关联 todo：`docs/todos/local-unique-capability-migration.md`。
