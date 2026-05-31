@@ -50,6 +50,7 @@ def _inventory(repo: Path) -> ProjectInventory:
                 "needs_human_confirmation": False,
                 "reasoning_summary": "Maven project.",
             },
+            "risk_areas": [{"path": "src/main/resources/application.yml", "reason": "database config risk"}],
         },
     )
 
@@ -88,13 +89,29 @@ def test_write_initial_assets_generates_core_guides_sensors_skills_candidates_an
 
     guide = (ai / "guides" / "project-context.md").read_text(encoding="utf-8")
     assert "## 当前项目事实" in guide
+    assert "## 风险区域" in guide
+    assert "## 验证入口" in guide
+    assert "## 成熟度缺口关联" in guide
     assert "## 来源证据" in guide
     assert "java-spring.guide." in guide
+    assert "src/main/resources/application.yml" in guide
+    assert "mvn test" in guide
 
     sensor = (ai / "sensors" / "verification.md").read_text(encoding="utf-8")
     assert "## 已发现的验证命令" in sensor
+    assert "## 风险与验证映射" in sensor
+    assert "## 成熟度缺口关联" in sensor
     assert "## 失败处理策略" in sensor
     assert "common.sensor." in sensor
+    assert "src/main/resources/application.yml" in sensor
+    assert "mvn test" in sensor
+
+    init_summary = (ai / "init-summary.md").read_text(encoding="utf-8")
+    assert "## 本仓库关键事实" in init_summary
+    assert "## 本次吸收的用户补充" in init_summary
+    assert "## 资产如何补齐缺口" in init_summary
+    assert "src/main/resources/application.yml" in init_summary
+    assert "mvn test" in init_summary
 
     human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8")
     assert "团队规则" in human_input
@@ -143,6 +160,8 @@ def test_write_initial_assets_persists_interaction_decisions_and_applies_candida
     assert "## 团队上下文" in project_context
     assert "Controller 只能调用 Service" in project_context
     assert "所有新增逻辑必须有测试" in project_context
+    init_summary = (ai / "init-summary.md").read_text(encoding="utf-8")
+    assert "所有新增逻辑必须有测试" in init_summary
     candidates = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
     by_id = {item["id"]: item for item in candidates["candidates"]}
     assert by_id["llm-guide-architecture-001"]["status"] == "confirmed"

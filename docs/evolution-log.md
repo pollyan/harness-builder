@@ -1,5 +1,19 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Init 资产仓库特异性增强
+
+- North Star 模块：CLI Experience、Guides / Sensors、Maturity & Evolution、Progressive Collaboration。
+- init North Star 旅程阶段：用户补充影响链路、正式资产生成、初始化交付摘要。
+- Gap Analysis 摘要：guided `init` 已经能展示扫描关注点、成熟度初评和用户补充影响，但正式写入后的 `project-context.md`、`verification.md` 和 `init-summary.md` 仍偏模板化；结构化 `module/command/risk` 主要进入 inventory/catalog，团队规则和 workflow 补充进入 interaction decisions，三者缺少在正式语义资产中的完整闭环。
+- 用户故事：作为 Harness Maintainer，当我在 `init` 中补充或确认模块、风险区域、验证命令和团队规则后，我希望在正式生成的 Guide、Sensor 和 init summary 中看到这些信息如何进入 Harness 资产并关联成熟度缺口，从而确认生成结果是面向当前仓库定制，而不是模板拼装。
+- 当前代码 gap：`write_guide_assets()` 不消费 `CommandCatalog`；`write_sensor_assets()` 不消费 `ProjectInventory` 风险区域；`write_init_summary()` 只消费 `MaturityReport`，没有展示本仓库关键事实、用户补充和资产补缺关系。
+- 关键决策 / 取舍：本轮只增强首次 `init` 的语义 Markdown，不新增机器消费 schema、不改 maturity scoring、不改 workflow policy、不把 workflow 自然语言补充直接应用为 routing 规则；扫描事实从 inventory/catalog 渲染，自然语言补充从 interaction decisions 渲染。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行调研资产数据流和 benchmark 质量约束；结论支持本轮先做 Guides / Sensors / Summary 的仓库特异性注入，benchmark 语义质量评分暂缓。
+- 价值切分说明：本轮面向用户完成 `init` 后最先审查的正式产物，让用户确认“扫描与补充确实改变了 Harness”，而不是只在 CLI 里看到一次性预览。
+- 验收标准及验证方式：unit 覆盖 Guide/Sensor/Summary 渲染模块、风险、命令、用户补充和成熟度缺口关联；integration 覆盖 guided structured scan 补充进入 `project-context.md`、`verification.md` 和 `init-summary.md`。
+- 完成内容：Guide writer 增加风险区域、验证入口和成熟度缺口关联；Sensor writer 增加风险与验证映射和成熟度缺口关联；init summary 增加本仓库关键事实、本次吸收的用户补充、资产如何补齐缺口；write assets 编排传递 inventory / commands / interaction decisions。
+- Self-Harness Gate：后续继续围绕 `init` 提升交互扫描深度和产出质量；候选 gap 包括 architecture signals 进入 Guide、team rules 对 Sensor/Workflow 的更明确影响、benchmark repository-specific quality score 从 soft score 逐步增强。
+
 ## 2026-05-31 Guided Init 扫描后成熟度初评前置
 
 - North Star 模块：CLI Experience、Maturity & Evolution、Progressive Collaboration、深度扫描。

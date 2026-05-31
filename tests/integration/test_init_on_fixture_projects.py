@@ -160,6 +160,9 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert "common.guide." in project_context
     assert f"{expected_stack}.guide." in project_context
     assert "## 当前项目事实" in project_context
+    assert "## 风险区域" in project_context
+    assert "## 验证入口" in project_context
+    assert "## 成熟度缺口关联" in project_context
     assert "## Harness Builder 推荐补齐项" in project_context
     assert "## 人工确认点" in project_context
 
@@ -168,6 +171,8 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert "common.sensor." in verification
     assert f"{expected_stack}.sensor." in verification
     assert "## 已发现的验证命令" in verification
+    assert "## 风险与验证映射" in verification
+    assert "## 成熟度缺口关联" in verification
     assert "## 缺失验证能力" in verification
     assert "## 推荐验证活动" in verification
     assert "## 失败处理策略" in verification
@@ -195,8 +200,11 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     init_summary = (ai / "init-summary.md").read_text(encoding="utf-8")
     assert "# Init Summary" in init_summary
     assert "## 当前成熟度" in init_summary
+    assert "## 本仓库关键事实" in init_summary
     assert "## 主要阻断项" in init_summary
     assert "## 建议下一步" in init_summary
+    assert "## 本次吸收的用户补充" in init_summary
+    assert "## 资产如何补齐缺口" in init_summary
     assert "## Benchmark 健康度" in init_summary
     assert "benchmark_status=not_run" in init_summary
     assert "quality_status=not_available" in init_summary
@@ -663,7 +671,18 @@ def test_guided_init_structured_scan_corrections_update_modules_commands_and_ris
     assert any(command["id"] == "frontend_test" and command["command"] == "npm test" for command in catalog["commands"])
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
     assert "frontend" in project_context
+    assert "frontend/package.json" in project_context
+    assert "前端依赖需要单独确认" in project_context
     assert "npm test" in project_context
+    verification = (repo / ".ai" / "sensors" / "verification.md").read_text(encoding="utf-8")
+    assert "frontend/package.json" in verification
+    assert "前端依赖需要单独确认" in verification
+    assert "npm test" in verification
+    init_summary = (repo / ".ai" / "init-summary.md").read_text(encoding="utf-8")
+    assert "frontend" in init_summary
+    assert "frontend/package.json" in init_summary
+    assert "前端依赖需要单独确认" in init_summary
+    assert "npm test" in init_summary
 
 
 def test_guided_init_reviews_candidates_one_by_one(tmp_path: Path, monkeypatch):

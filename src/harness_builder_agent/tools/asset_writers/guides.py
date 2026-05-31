@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.interaction_decision import InteractionDecisions
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
@@ -13,6 +14,7 @@ from harness_builder_agent.tools.generation_trace import GenerationTrace
 def write_guide_assets(
     ai: Path,
     inventory: ProjectInventory,
+    commands: CommandCatalog,
     weapon_selection: WeaponLibrarySelection,
     context_inputs: dict[str, Any] | None = None,
     interaction_decisions: InteractionDecisions | None = None,
@@ -20,12 +22,12 @@ def write_guide_assets(
 ) -> None:
     write_text(
         ai / "guides" / "project-context.md",
-        _guide("project-context", inventory, weapon_selection, context_inputs, interaction_decisions),
+        _guide("project-context", inventory, commands, weapon_selection, context_inputs, interaction_decisions),
     )
     record_artifact(trace, ai / "guides" / "project-context.md", "guide")
-    write_text(ai / "guides" / "coding-rules.md", _guide("coding-rules", inventory, weapon_selection))
+    write_text(ai / "guides" / "coding-rules.md", _guide("coding-rules", inventory, commands, weapon_selection))
     record_artifact(trace, ai / "guides" / "coding-rules.md", "guide")
-    write_text(ai / "guides" / "architecture.md", _guide("architecture", inventory, weapon_selection))
+    write_text(ai / "guides" / "architecture.md", _guide("architecture", inventory, commands, weapon_selection))
     record_artifact(trace, ai / "guides" / "architecture.md", "guide")
     write_text(ai / "guides" / "task-templates" / "bugfix.md", _task_template("bugfix"))
     record_artifact(trace, ai / "guides" / "task-templates" / "bugfix.md", "task_template")
@@ -48,6 +50,7 @@ def _frontmatter(asset_type: str) -> str:
 def _guide(
     name: str,
     inventory: ProjectInventory,
+    commands: CommandCatalog,
     weapon_selection: WeaponLibrarySelection,
     context_inputs: dict[str, Any] | None = None,
     interaction_decisions: InteractionDecisions | None = None,
@@ -75,12 +78,18 @@ def _guide(
         + f"- 技术栈线索：{', '.join(inventory.stacks) if inventory.stacks else '未知'}。\n"
         + "- 模块识别：\n"
         + f"{module_lines}\n\n"
+        + "## 风险区域\n\n"
+        + f"{_risk_area_lines(inventory)}\n\n"
+        + "## 验证入口\n\n"
+        + f"{_validation_entry_lines(commands)}\n\n"
         + "## 来源证据\n\n"
         + f"{evidence_lines}\n\n"
         + "## 候选规则\n\n"
         + f"{_guide_rule_lines(weapon_selection.guide_weapons)}\n\n"
         + "## Harness Builder 推荐补齐项\n\n"
         + f"{recommended_lines}\n\n"
+        + "## 成熟度缺口关联\n\n"
+        + f"{_maturity_gap_lines(inventory, commands, interaction_decisions)}\n\n"
         + "## 人工确认点\n\n"
         + "- 请确认模块边界是否符合团队真实架构。\n"
         + "- 请确认候选规则是否可以提升为正式 Guide。\n"
@@ -138,3 +147,51 @@ def _weapon_match_lines(weapons: list[WeaponLibraryEntry]) -> str:
 
 def _guide_rule_lines(weapons: list[WeaponLibraryEntry]) -> str:
     return "\n".join(f"- `{weapon.id}`：{weapon.guidance}" for weapon in weapons) or "- 当前技术栈置信度不足，所有规则先保持 candidate 状态。"
+
+
+def _risk_area_lines(inventory: ProjectInventory) -> str:
+    risk_areas = inventory.stack_extensions.get("risk_areas", [])
+    lines: list[str] = []
+    if isinstance(risk_areas, list):
+        for item in risk_areas:
+            if isinstance(item, dict):
+                path = item.get("path") or "unknown"
+                reason = item.get("reason") or "当前扫描提示需要人工确认。"
+                lines.append(f"- `{path}`：{reason}")
+    return "\n".join(lines) or "- 当前扫描未确认具体风险区域，变更前仍需维护者确认影响面。"
+
+
+def _validation_entry_lines(commands: CommandCatalog) -> str:
+    lines = [
+        f"- `{command.id}`：`{command.command}`，type=`{command.type}`，gate=`{command.gate}`，source=`{command.source}`，confidence=`{command.confidence}`。"
+        for command in commands.commands
+    ]
+    return "\n".join(lines) or "- 当前扫描未确认可执行验证入口，建议维护者补充 build/test/lint/typecheck 命令。"
+
+
+def _maturity_gap_lines(
+    inventory: ProjectInventory,
+    commands: CommandCatalog,
+    interaction_decisions: InteractionDecisions | None,
+) -> str:
+    lines = [
+        "- Guides 已记录模块、证据、风险区域和团队上下文，用于补齐项目事实可审计性。",
+    ]
+    if commands.commands:
+        hard_count = sum(1 for command in commands.commands if command.gate == "hard")
+        lines.append(f"- Sensors 可基于 `{len(commands.commands)}` 个验证入口建立初始验证策略，其中 hard gate `{hard_count}` 个。")
+    else:
+        lines.append("- Sensors 仍缺少可执行验证入口，这是进入更高成熟度前的优先缺口。")
+    if _risk_area_lines(inventory).startswith("- 当前扫描未确认"):
+        lines.append("- 风险控制仍缺少已确认风险区域，后续应通过人工补充或候选治理完善。")
+    else:
+        lines.append("- 风险区域已进入 Guide，后续任务命中这些路径时应优先升级验证和工作流。")
+    if interaction_decisions and (
+        interaction_decisions.scan_confirmation.notes
+        or interaction_decisions.context_confirmation.inline_contexts
+        or interaction_decisions.workflow_confirmation.notes
+    ):
+        lines.append("- 用户补充已进入正式 Guide 与 human-input 记录，用于后续成熟度复评和改进候选。")
+    else:
+        lines.append("- 当前没有用户补充，后续维护入口应继续收集团队规则和任务边界。")
+    return "\n".join(lines)

@@ -74,11 +74,11 @@ def write_initial_assets(
             {"context_count": len(context_inputs["contexts"]), "question_count": len(questionnaire["questions"])},
         )
 
-    write_report_assets(ai, inventory, commands, config, weapon_selection, trace=trace)
+    write_report_assets(ai, inventory, commands, config, weapon_selection, interaction_decisions=decisions, trace=trace)
 
-    write_guide_assets(ai, inventory, weapon_selection, context_inputs, decisions, trace=trace)
+    write_guide_assets(ai, inventory, commands, weapon_selection, context_inputs, decisions, trace=trace)
 
-    write_sensor_assets(ai, commands, weapon_selection, trace=trace)
+    write_sensor_assets(ai, commands, weapon_selection, inventory=inventory, trace=trace)
     write_skill_assets(ai, trace=trace)
     write_candidate_assets(ai, enhancement_candidates, trace=trace)
     if trace:

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
+from harness_builder_agent.schemas.interaction_decision import InteractionDecisions
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
@@ -20,6 +21,7 @@ def write_report_assets(
     commands: CommandCatalog,
     config: HarnessConfig,
     weapon_selection: WeaponLibrarySelection,
+    interaction_decisions: InteractionDecisions | None = None,
     trace: GenerationTrace | None = None,
 ) -> None:
     maturity = build_maturity_report(
@@ -33,7 +35,17 @@ def write_report_assets(
     record_artifact(trace, ai / "scan-report.md", "report")
     write_text(ai / "maturity-report.md", _maturity_report(maturity))
     record_artifact(trace, ai / "maturity-report.md", "report")
-    record_artifact(trace, write_init_summary(ai, maturity), "init_summary")
+    record_artifact(
+        trace,
+        write_init_summary(
+            ai,
+            maturity,
+            inventory=inventory,
+            commands=commands,
+            interaction_decisions=interaction_decisions,
+        ),
+        "init_summary",
+    )
     write_yaml(ai / "maturity-score.yaml", maturity.model_dump(mode="json"))
     record_artifact(trace, ai / "maturity-score.yaml", "maturity_score")
     evidence = build_maturity_evidence_pack(

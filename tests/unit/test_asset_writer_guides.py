@@ -2,6 +2,7 @@ from pathlib import Path
 
 import yaml
 
+from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
 from harness_builder_agent.tools.asset_writers.guides import write_guide_assets
@@ -16,6 +17,20 @@ def _inventory(repo: Path) -> ProjectInventory:
         stacks=["java", "maven", "spring-boot"],
         modules=[{"name": "app", "path": ".", "kind": "backend"}],
         evidence=[{"path": "pom.xml", "reason": "maven build file"}],
+        stack_extensions={
+            "risk_areas": [
+                {"path": "src/main/resources/application.yml", "reason": "数据库配置需要人工确认"}
+            ],
+            "human_overrides": {"scan_notes": ["配置变更必须说明回滚方式"]},
+        },
+    )
+
+
+def _commands() -> CommandCatalog:
+    return CommandCatalog(
+        commands=[
+            CommandDefinition(id="unit_test", command="mvn test", type="test", gate="hard", source="pom.xml"),
+        ]
     )
 
 
@@ -42,7 +57,7 @@ def test_write_guide_assets_writes_guides_templates_and_records_trace(tmp_path: 
     ai = tmp_path / ".ai"
     trace = GenerationTrace.start(tmp_path, "init", run_id="20260530-120000-init")
 
-    write_guide_assets(ai, _inventory(tmp_path), _weapon_selection(), trace=trace)
+    write_guide_assets(ai, _inventory(tmp_path), _commands(), _weapon_selection(), trace=trace)
     trace.finish("completed", {"primary_stack": "java-spring"})
 
     project_context = (ai / "guides" / "project-context.md").read_text(encoding="utf-8")
@@ -50,8 +65,15 @@ def test_write_guide_assets_writes_guides_templates_and_records_trace(tmp_path: 
     lightweight_template = (ai / "guides" / "task-templates" / "lightweight-feature.md").read_text(encoding="utf-8")
 
     assert "## 当前项目事实" in project_context
+    assert "## 风险区域" in project_context
+    assert "## 验证入口" in project_context
+    assert "## 成熟度缺口关联" in project_context
     assert "## 来源证据" in project_context
     assert "java-spring.guide." in project_context
+    assert "src/main/resources/application.yml" in project_context
+    assert "数据库配置需要人工确认" in project_context
+    assert "mvn test" in project_context
+    assert "配置变更必须说明回滚方式" in project_context
     assert "缺陷修复任务模板" in bugfix_template
     assert "轻量级任务模板" in lightweight_template
 

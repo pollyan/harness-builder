@@ -187,6 +187,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 其中 `.ai/init-summary.md` 是首次初始化完成后的成熟度驱动入口摘要，必须保留 `## 当前成熟度`、`## 主要阻断项`、`## 建议下一步`、`## Benchmark 健康度`、`## 推荐入口文件` 和 `## 本次未执行的事项` 章节。它面向 Harness Maintainer，解释初始化结果、下一步优先查看的文件，以及 `init` 未默认执行 self-improve / Runtime task-run 的边界。首次 `init` 不默认运行 benchmark；当 `.ai/benchmark-report.yaml` 缺失时，摘要必须显示 `benchmark_status=not_run`、`quality_status=not_available`、建议 benchmark 命令，并明确资产生成成功不等同于 benchmark passed。若 benchmark report 已存在，摘要必须通过 `BenchmarkReport` schema 校验后展示 status、quality status 和 failed check count。
 
+首次 `init` 的正式语义资产不能只停留在模板章节。`.ai/guides/project-context.md` 必须把扫描调和后的模块、风险区域、验证入口、来源证据、团队上下文和人工补充组织成可审查内容，并说明它们如何支撑成熟度缺口补齐；`.ai/sensors/verification.md` 必须把 `CommandCatalog` 中的验证命令与 `ProjectInventory` 中的风险区域建立可读映射，说明 hard gate、缺失验证能力和 skipped / failed 处理边界；`.ai/init-summary.md` 必须汇总本仓库关键事实、本次吸收的用户补充和资产如何补齐当前成熟度缺口。结构化 `module` / `command` / `risk` 补充应从 inventory / command catalog 渲染，自然语言团队规则和 workflow note 应从 interaction decisions 渲染；不能把自然语言补充伪装成已验证扫描事实，也不能绕过候选治理直接修改正式 workflow routing policy。
+
 显式运行 `summarize-experience` 后生成的 review-only Experience 语义摘要：
 
 - `.ai/experience/experience-summary.yaml`
