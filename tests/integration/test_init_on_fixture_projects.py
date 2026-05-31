@@ -1029,6 +1029,17 @@ def test_guided_init_restates_user_supplements_before_write_and_persists_them(tm
     assert "批处理入口" in decisions["scan_confirmation"]["notes"][0]
     assert "Controller 只能调用 Service" in decisions["context_confirmation"]["inline_contexts"][0]
     assert "bugfix 工作流适合缺陷修复" in decisions["workflow_confirmation"]["notes"][0]
+    assert decisions["workflow_confirmation"]["impact_scopes"] == [
+        "interaction_decisions",
+        "project_context",
+        "human_input_needed",
+        "review_only_workflow_note",
+    ]
+    assert decisions["workflow_confirmation"]["review_status"] == "pending_harness_maintainer_review"
+    assert decisions["workflow_confirmation"]["routing_policy_effect"] == "review_only_no_direct_policy_change"
+    config = yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8"))
+    routing_text = yaml.safe_dump(config["workflow_routing"], allow_unicode=True)
+    assert "bugfix 工作流适合缺陷修复" not in routing_text
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
     human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
     assert "批处理入口" in project_context

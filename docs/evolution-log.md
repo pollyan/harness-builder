@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Workflow 补充结构化影响契约
+
+- North Star 模块：CLI Experience、Workflow Toolkit、Maturity & Evolution、资产生成与审核接管。
+- init North Star 旅程阶段：Workflow 设计、用户补充吸收、写入前 Harness 设计预览、可审计决策记录。
+- Gap Analysis 摘要：当前 open todo 为空。本轮重新读取事实源后，Workflow 补充已经有即时复述、preview 约束和返回修改能力，但 `WorkflowConfirmation` 仍只有自由文本 notes；后续 self-improve / 审计如果要理解这条输入，只能解析 Markdown 或 note 文本。候选还包括 scan correction diff preview、Workflow note 生成 review-only routing candidate 和 push 前 full regression；本轮选择先把 Workflow 补充影响范围、review-only 状态和 routing policy 边界固化为 Pydantic 机器契约。
+- 工程信任故事：作为后续 Self-Improve / 审计链路维护者，当 Harness Maintainer 在 guided `init` 中输入 Workflow 补充说明时，我可以在 `interaction-decisions.yaml` 中读取机器可验证的影响范围、review-only 状态和“不直接修改正式 workflow routing policy”的边界，从而让后续智能改进和人工审查稳定消费这条输入，而不是解析自由文本或误以为它已经改变正式路由策略。
+- 当前代码 gap：Workflow note 的影响范围只存在于 CLI 文案和 preview 文案中，机器契约没有 `impact_scopes`、`review_status` 或 `routing_policy_effect`。
+- 关键决策 / 取舍：在 `WorkflowConfirmation` 上新增默认兼容字段；有 note 时写入 `interaction_decisions`、`project_context`、`human_input_needed`、`review_only_workflow_note` impact scopes，`pending_harness_maintainer_review` 和 `review_only_no_direct_policy_change`；无 note / 非交互路径保持 `not_required` / `not_applicable`。本轮不生成 routing candidate，不修改正式 `harness-config.yaml` routing policy。
+- Assumptions / risks：新字段让新生成的 `interaction-decisions.yaml` 更详细，旧文件通过默认值兼容；未来如果要把 workflow note 候选化，应基于该 review-only contract 设计单独治理流程。
+- 边界情况 / 失败模式：有 Workflow note 时正式 routing policy 不能包含 note 文本；无 Workflow note 时不制造 pending review；本轮不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer，但当前返回 `agent thread limit reached`，未能使用子代理；主线程完成调研与验证。
+- 价值切分说明：本轮把已完成的 Workflow 补充 CLI 闭环向机器契约推进一步，为后续 self-improve / candidate governance 复用打基础；不跨入高风险的 workflow policy candidate 生成。
+- 可执行验收标准及验证方式：unit 测试覆盖 schema 字段、默认值和 decision-log Markdown；guided init integration 覆盖 `interaction-decisions.yaml` 的结构化字段，并断言正式 routing policy 未被 workflow note 文本污染。
+- 完成内容：`WorkflowConfirmation` 增加 `impact_scopes`、`review_status`、`routing_policy_effect`；guided init 有 note 时写入结构化 impact；`interaction_decisions_markdown()` 展示影响字段；`docs/engineering/init-workflow.md` 固化契约；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 unit / integration 测试通过；相关 guided init 和 fast regression 见本轮提交前验证。
+- Self-Harness Gate：README 当前不需要描述 schema 细节；`docs/todos/` 暂不新增。下一轮候选 gap：Workflow note review-only routing candidate、scan correction diff preview、或 push 前 full regression / 远端同步前置条件。
+
 ## 2026-06-01 Guided Init Scan 返回修改清空提示
 
 - North Star 模块：CLI Experience、Deep Scan Evidence、资产生成与审核接管。

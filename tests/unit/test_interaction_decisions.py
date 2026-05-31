@@ -37,6 +37,14 @@ def test_interaction_decisions_schema_accepts_interactive_confirmation():
             shown_workflows=["lightweight", "bugfix"],
             confirmed=True,
             notes=["轻量任务和缺陷修复两个工作流符合当前团队习惯"],
+            impact_scopes=[
+                "interaction_decisions",
+                "project_context",
+                "human_input_needed",
+                "review_only_workflow_note",
+            ],
+            review_status="pending_harness_maintainer_review",
+            routing_policy_effect="review_only_no_direct_policy_change",
         ),
         final_confirmation=FinalConfirmation(status="confirmed"),
     )
@@ -50,6 +58,14 @@ def test_interaction_decisions_schema_accepts_interactive_confirmation():
     assert payload["candidate_decisions"][1]["decision"] == "edited"
     assert payload["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix"]
     assert payload["workflow_confirmation"]["confirmed"] is True
+    assert payload["workflow_confirmation"]["impact_scopes"] == [
+        "interaction_decisions",
+        "project_context",
+        "human_input_needed",
+        "review_only_workflow_note",
+    ]
+    assert payload["workflow_confirmation"]["review_status"] == "pending_harness_maintainer_review"
+    assert payload["workflow_confirmation"]["routing_policy_effect"] == "review_only_no_direct_policy_change"
 
 
 def test_interaction_decisions_schema_rejects_invalid_candidate_decision():
@@ -65,6 +81,9 @@ def test_default_non_interactive_decisions_record_missing_human_confirmation():
     assert decisions.scan_confirmation.status == "not_confirmed"
     assert decisions.context_confirmation.status == "not_confirmed"
     assert decisions.context_confirmation.confirmed_paths == []
+    assert decisions.workflow_confirmation.impact_scopes == []
+    assert decisions.workflow_confirmation.review_status == "not_required"
+    assert decisions.workflow_confirmation.routing_policy_effect == "not_applicable"
     assert decisions.final_confirmation.status == "not_confirmed"
 
 
@@ -110,6 +129,14 @@ def test_interaction_decisions_markdown_summarizes_decisions():
             shown_workflows=["lightweight", "bugfix"],
             confirmed=True,
             notes=["缺陷修复需要先定位原因"],
+            impact_scopes=[
+                "interaction_decisions",
+                "project_context",
+                "human_input_needed",
+                "review_only_workflow_note",
+            ],
+            review_status="pending_harness_maintainer_review",
+            routing_policy_effect="review_only_no_direct_policy_change",
         ),
         final_confirmation=FinalConfirmation(status="confirmed"),
     )
@@ -121,4 +148,7 @@ def test_interaction_decisions_markdown_summarizes_decisions():
     assert "scan: accepted" in markdown
     assert "团队测试策略" in markdown
     assert "workflow_confirmed: True" in markdown
+    assert "workflow_impact_scopes: interaction_decisions, project_context, human_input_needed, review_only_workflow_note" in markdown
+    assert "workflow_review_status: pending_harness_maintainer_review" in markdown
+    assert "workflow_routing_policy_effect: review_only_no_direct_policy_change" in markdown
     assert "缺陷修复需要先定位原因" in markdown

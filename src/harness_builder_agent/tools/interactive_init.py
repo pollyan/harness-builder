@@ -1663,10 +1663,23 @@ def _show_workflows() -> WorkflowConfirmation:
     typer.echo("- lightweight：适合低风险文案、配置或小功能调整，步骤包括理解需求、映射 Guide、实现或建议、执行 Sensor、交接摘要。")
     typer.echo("- bugfix：适合缺陷修复，步骤包括观察现象、定位原因、映射 Harness、最小修复、执行相关 Sensor、交接摘要。")
     note = typer.prompt("如果工作流还有补充说明，可以输入；没有则直接回车", default="", show_default=False).strip()
+    if note:
+        return WorkflowConfirmation(
+            shown_workflows=["lightweight", "bugfix"],
+            confirmed=True,
+            notes=[note],
+            impact_scopes=[
+                "interaction_decisions",
+                "project_context",
+                "human_input_needed",
+                "review_only_workflow_note",
+            ],
+            review_status="pending_harness_maintainer_review",
+            routing_policy_effect="review_only_no_direct_policy_change",
+        )
     return WorkflowConfirmation(
         shown_workflows=["lightweight", "bugfix"],
         confirmed=True,
-        notes=[note] if note else [],
     )
 
 

@@ -107,6 +107,9 @@ def interaction_decisions_markdown(decisions: InteractionDecisions) -> str:
         f"- context: {decisions.context_confirmation.status}\n"
         f"- workflow_confirmed: {decisions.workflow_confirmation.confirmed}\n"
         f"- shown_workflows: {', '.join(decisions.workflow_confirmation.shown_workflows) or '无'}\n"
+        f"- workflow_impact_scopes: {', '.join(decisions.workflow_confirmation.impact_scopes) or '无'}\n"
+        f"- workflow_review_status: {decisions.workflow_confirmation.review_status}\n"
+        f"- workflow_routing_policy_effect: {decisions.workflow_confirmation.routing_policy_effect}\n"
         f"- final: {decisions.final_confirmation.status}\n\n"
         "## Scan Supplements\n\n"
         + "\n".join(f"- {item}" for item in scan_lines)
