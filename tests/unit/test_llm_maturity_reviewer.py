@@ -14,6 +14,7 @@ from harness_builder_agent.schemas.maturity_evidence import (
     WorkflowRoutingRuleEvidence,
 )
 from harness_builder_agent.schemas.maturity_report import MaturityReport
+from harness_builder_agent.tools.evidence_sources import maturity_evidence_source_allowlist
 from harness_builder_agent.tools.llm_maturity_reviewer import (
     build_maturity_review_messages,
     parse_maturity_review_response,
@@ -149,6 +150,43 @@ def test_review_maturity_with_llm_returns_schema_valid_review():
     )
 
     assert report.candidate_reviews[0].candidate_id == "candidate-1"
+
+
+def test_review_maturity_with_llm_accepts_baseline_harness_asset_evidence():
+    report = review_maturity_with_llm(
+        _score(),
+        _evidence_pack(),
+        _candidates(),
+        caller=lambda _messages: json.dumps(
+            {
+                "schema_version": "1.0",
+                "summary": "Review summary.",
+                "reviewer_model": "deepseek-test",
+                "review_status": "pending_harness_maintainer_review",
+                "candidate_reviews": [
+                    {
+                        "candidate_id": "candidate-1",
+                        "decision": "support",
+                        "rationale": "Project context guide is a generated Harness asset.",
+                        "risks": [],
+                        "suggested_acceptance_checks": ["Run benchmark."],
+                        "evidence_sources": [".ai/guides/project-context.md"],
+                    }
+                ],
+                "missing_candidates": [],
+                "global_risks": [],
+            }
+        ),
+    )
+
+    assert report.candidate_reviews[0].evidence_sources == [".ai/guides/project-context.md"]
+
+
+def test_maturity_evidence_allowlist_does_not_allow_arbitrary_guide_children():
+    allowed = maturity_evidence_source_allowlist(_evidence_pack())
+
+    assert ".ai/guides/project-context.md" in allowed
+    assert ".ai/guides/missing.md" not in allowed
 
 
 def test_review_maturity_with_llm_rejects_unknown_candidate_id():

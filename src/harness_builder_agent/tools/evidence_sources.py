@@ -8,8 +8,22 @@ from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.maturity_evidence import MATURITY_INPUTS
 
+BASELINE_HARNESS_ASSET_SOURCES = {
+    ".ai/guides/project-context.md",
+    ".ai/guides/coding-rules.md",
+    ".ai/guides/architecture.md",
+    ".ai/guides/task-templates/bugfix.md",
+    ".ai/guides/task-templates/lightweight-feature.md",
+    ".ai/sensors/verification.md",
+    ".ai/sensors/test-strategy.md",
+    ".ai/skills/lightweight/SKILL.md",
+    ".ai/skills/bugfix/SKILL.md",
+    ".ai/skills/standard/SKILL.md",
+}
+
 CORE_EVIDENCE_SOURCES = {
     *MATURITY_INPUTS,
+    *BASELINE_HARNESS_ASSET_SOURCES,
     ".ai/project-inventory.json",
     ".ai/command-catalog.yaml",
     ".ai/harness-config.yaml",
