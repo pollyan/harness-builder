@@ -12,6 +12,7 @@ from harness_builder_agent.schemas.improvement_candidate import ImprovementCandi
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
+from harness_builder_agent.tools.ai_paths import is_safe_ai_relative_path
 from harness_builder_agent.tools.deepseek_client import call_deepseek
 from harness_builder_agent.tools.evidence_sources import review_evidence_source_allowlist, validate_evidence_sources
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
@@ -98,9 +99,21 @@ def parse_asset_candidate_response(
     if unknown:
         raise ValueError(f"DeepSeek asset candidate response referenced unknown source_candidate_id: {', '.join(unknown)}")
 
-    bad_paths = [candidate.suggested_path for candidate in report.candidates if not candidate.suggested_path.startswith(".ai/")]
+    bad_paths = [
+        candidate.suggested_path for candidate in report.candidates if not is_safe_ai_relative_path(candidate.suggested_path)
+    ]
     if bad_paths:
         raise ValueError(f"DeepSeek asset candidate suggested_path must be under .ai/: {', '.join(sorted(bad_paths))}")
+    bad_workflow_policy_targets = [
+        candidate.suggested_path
+        for candidate in report.candidates
+        if candidate.kind == "workflow_policy" and candidate.suggested_path != ".ai/harness-config.yaml"
+    ]
+    if bad_workflow_policy_targets:
+        raise ValueError(
+            "DeepSeek asset candidate workflow_policy candidates can only target .ai/harness-config.yaml: "
+            f"{', '.join(sorted(bad_workflow_policy_targets))}"
+        )
     validate_evidence_sources(
         "DeepSeek asset candidate",
         (source for candidate in report.candidates for source in candidate.evidence_sources),

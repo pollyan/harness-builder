@@ -50,6 +50,7 @@ def generate_asset_candidates(repo: Path) -> Path:
     _write_kind_markdown(review_dir / "asset-candidate-sensors.md", "Asset Candidate Sensors", report, "sensor")
     _write_kind_markdown(review_dir / "asset-candidate-workflows.md", "Asset Candidate Workflows", report, "workflow_policy")
     write_experience_index(ai)
+    assess_maturity(root)
     return ai
 
 

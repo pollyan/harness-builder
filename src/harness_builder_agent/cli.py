@@ -160,8 +160,11 @@ def generate_asset_candidates_command(repo: Path = typer.Option(..., "--repo", e
         trace.artifact(output_dir / "review" / "asset-candidate-guides.md", "review")
         trace.artifact(output_dir / "review" / "asset-candidate-sensors.md", "review")
         trace.artifact(output_dir / "review" / "asset-candidate-workflows.md", "review")
-        trace.event("asset-candidates", "completed", "Asset candidate generation completed.", {"artifact_count": 4})
-        trace.finish("completed", {"artifact_count": 4})
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.event("asset-candidates", "completed", "Asset candidate generation completed.", {"artifact_count": 7})
+        trace.finish("completed", {"artifact_count": 7})
     except Exception as exc:
         trace.event("asset-candidates", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})

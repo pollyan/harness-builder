@@ -111,6 +111,7 @@ def _write_base_harness(ai: Path) -> None:
         "guides/project-context.md",
         "guides/architecture.md",
         "guides/coding-rules.md",
+        "guides/task-templates/bugfix.md",
         "sensors/verification.md",
         "sensors/test-strategy.md",
     ]:
@@ -156,11 +157,14 @@ def test_review_candidate_applies_markdown_candidate_and_records_governance(tmp_
     assert source.path == ".ai/review/candidate-governance.yaml"
 
 
-def test_review_candidate_applies_workflow_policy_patch_and_refreshes_maturity_evidence(tmp_path: Path):
+@pytest.mark.parametrize("source_review_decision", ["support", "revise"])
+def test_review_candidate_applies_supported_workflow_policy_patch_and_refreshes_maturity_evidence(
+    tmp_path: Path, source_review_decision: str
+):
     repo = tmp_path / "repo"
     ai = repo / ".ai"
     _write_base_harness(ai)
-    _write_asset_candidates(ai, _workflow_policy_candidate())
+    _write_asset_candidates(ai, _workflow_policy_candidate(source_review_decision=source_review_decision))
 
     output_dir = review_candidate(
         repo,
@@ -172,6 +176,7 @@ def test_review_candidate_applies_workflow_policy_patch_and_refreshes_maturity_e
 
     assert output_dir == ai
     config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
+    assert [rule.id for rule in config.workflow_routing.rules] == ["bugfix-intent", "low-risk-lightweight", "standard-escalation"]
     standard = next(rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation")
     assert "domain_policy_change" in standard.triggers
     evidence = yaml.safe_load((ai / "maturity-evidence.yaml").read_text(encoding="utf-8"))
@@ -184,6 +189,53 @@ def test_review_candidate_applies_workflow_policy_patch_and_refreshes_maturity_e
     assert log.decisions[0].applied_paths == [".ai/harness-config.yaml"]
 
 
+def test_review_candidate_preserves_existing_workflow_rule_position(tmp_path: Path):
+    repo = tmp_path / "repo"
+    ai = repo / ".ai"
+    _write_base_harness(ai)
+    candidate = _workflow_policy_candidate(id="workflow-bugfix-trigger-policy")
+    bugfix_rule = next(rule for rule in HarnessConfig.default().workflow_routing.rules if rule.id == "bugfix-intent")
+    patch_rule = bugfix_rule.model_copy(deep=True)
+    patch_rule.triggers = [*patch_rule.triggers, "incident_regression"]
+    candidate["workflow_policy_patch"]["rule"] = patch_rule.model_dump(mode="json")
+    _write_asset_candidates(ai, candidate)
+
+    review_candidate(
+        repo,
+        candidate_id="workflow-bugfix-trigger-policy",
+        decision="applied",
+        rationale="Maintainer accepted the bugfix routing policy patch.",
+        reviewer="harness-maintainer",
+    )
+
+    config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
+    assert [rule.id for rule in config.workflow_routing.rules] == ["bugfix-intent", "low-risk-lightweight", "standard-escalation"]
+    bugfix = next(rule for rule in config.workflow_routing.rules if rule.id == "bugfix-intent")
+    assert "incident_regression" in bugfix.triggers
+
+
+@pytest.mark.parametrize("source_review_decision", ["defer", "missing"])
+def test_review_candidate_rejects_deferred_or_missing_workflow_policy_apply(tmp_path: Path, source_review_decision: str):
+    repo = tmp_path / "repo"
+    ai = repo / ".ai"
+    _write_base_harness(ai)
+    _write_asset_candidates(ai, _workflow_policy_candidate(source_review_decision=source_review_decision))
+
+    with pytest.raises(ValueError, match="workflow_policy candidates require support or revise"):
+        review_candidate(
+            repo,
+            candidate_id="workflow-standard-domain-policy",
+            decision="applied",
+            rationale="Apply workflow policy.",
+            reviewer="harness-maintainer",
+        )
+
+    config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
+    standard = next(rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation")
+    assert "domain_policy_change" not in standard.triggers
+    assert not (ai / "review" / "candidate-governance.yaml").exists()
+
+
 def test_review_candidate_rejects_workflow_policy_without_structured_patch(tmp_path: Path):
     repo = tmp_path / "repo"
     ai = repo / ".ai"
@@ -193,6 +245,24 @@ def test_review_candidate_rejects_workflow_policy_without_structured_patch(tmp_p
     _write_asset_candidates(ai, candidate)
 
     with pytest.raises(ValueError, match="workflow_policy_patch is required"):
+        review_candidate(
+            repo,
+            candidate_id="workflow-standard-domain-policy",
+            decision="applied",
+            rationale="Apply workflow policy.",
+            reviewer="harness-maintainer",
+        )
+
+    assert not (ai / "review" / "candidate-governance.yaml").exists()
+
+
+def test_review_candidate_rejects_workflow_policy_non_config_target(tmp_path: Path):
+    repo = tmp_path / "repo"
+    ai = repo / ".ai"
+    _write_base_harness(ai)
+    _write_asset_candidates(ai, _workflow_policy_candidate(suggested_path=".ai/guides/project-context.md"))
+
+    with pytest.raises(ValueError, match="workflow_policy candidates can only target .ai/harness-config.yaml"):
         review_candidate(
             repo,
             candidate_id="workflow-standard-domain-policy",

@@ -736,6 +736,163 @@ def test_recommend_workflow_preserves_history_across_tasks(tmp_path: Path, monke
     ]
 
 
+def test_workflow_recommendation_can_be_governed_into_routing_policy_lifecycle(tmp_path: Path, monkeypatch):
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    runner = CliRunner()
+
+    def fake_recommendation(task_id, task_brief, config, evidence_pack, caller=None, llm_config=None):
+        return WorkflowRecommendationReport(
+            task_id=task_id,
+            task_brief=task_brief,
+            recommended_workflow="standard",
+            matched_rule_ids=["standard-escalation"],
+            risk_level="high",
+            confidence="high",
+            rationale="Domain policy changes should use the standard workflow.",
+            required_guides=[".ai/guides/project-context.md", ".ai/guides/architecture.md"],
+            required_sensors=[".ai/sensors/verification.md"],
+            human_confirmation_required=True,
+            evidence_sources=[".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.recommend_workflow.recommend_workflow_with_llm", fake_recommendation)
+
+    recommend = runner.invoke(
+        app,
+        [
+            "recommend-workflow",
+            "--repo",
+            str(repo),
+            "--task",
+            "Change settlement approval policy.",
+            "--task-id",
+            "policy-1",
+        ],
+    )
+    assert recommend.exit_code == 0, recommend.output
+    before_config = HarnessConfig.model_validate(yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8")))
+    before_ids = [rule.id for rule in before_config.workflow_routing.rules]
+    assert not (repo / ".ai" / "task-runs").exists()
+
+    improve = runner.invoke(app, ["improve", "--repo", str(repo)])
+    assert improve.exit_code == 0, improve.output
+    improvements = yaml.safe_load((repo / ".ai" / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+    assert any(item["id"] == "experience-workflow-recommendation-review" for item in improvements["candidates"])
+
+    def fake_review(score, evidence_pack, candidates, experience_summary=None):
+        assert any(candidate.id == "experience-workflow-recommendation-review" for candidate in candidates.candidates)
+        return MaturityReviewReport(
+            summary="Workflow recommendation should become a reviewed routing policy candidate.",
+            candidate_reviews=[
+                {
+                    "candidate_id": "experience-workflow-recommendation-review",
+                    "decision": "support",
+                    "rationale": "The recommendation is grounded in routing evidence.",
+                    "risks": ["Routing policy changes require maintainer review."],
+                    "suggested_acceptance_checks": ["Benchmark content:workflow-routing-policy passes."],
+                    "evidence_sources": [".ai/review/workflow-routing-recommendation.yaml"],
+                }
+            ],
+            missing_candidates=[],
+            global_risks=[],
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.review_maturity.review_maturity_with_llm", fake_review)
+    review = runner.invoke(app, ["review-maturity", "--repo", str(repo)])
+    assert review.exit_code == 0, review.output
+
+    def fake_assets(score, evidence_pack, improvement_candidates, maturity_review, experience_summary=None):
+        return AssetCandidateReport(
+            candidates=[
+                {
+                    "id": "workflow-standard-domain-policy",
+                    "kind": "workflow_policy",
+                    "source_candidate_id": "experience-workflow-recommendation-review",
+                    "source_review_decision": "support",
+                    "suggested_path": ".ai/harness-config.yaml",
+                    "title": "Escalate domain policy changes",
+                    "rationale": "The reviewed recommendation supports a routing update.",
+                    "draft_content": "Review-only routing policy update.",
+                    "workflow_policy_patch": {
+                        "schema_version": "1.0",
+                        "operation": "upsert_routing_rule",
+                        "target": "workflow_routing.rules",
+                        "rule": {
+                            "id": "standard-escalation",
+                            "selected_workflow": "standard",
+                            "rationale": "Escalate high-risk, cross-module, security, low-coverage, and domain policy changes.",
+                            "task_type_hints": ["feature", "policy"],
+                            "triggers": [
+                                "unclear_impact_scope",
+                                "high_risk_module",
+                                "cross_module_design",
+                                "security_or_permission",
+                                "insufficient_sensor_coverage",
+                                "domain_policy_change",
+                            ],
+                            "required_guides": [".ai/guides/project-context.md", ".ai/guides/architecture.md"],
+                            "required_sensors": [".ai/sensors/verification.md"],
+                            "human_confirmation_required": True,
+                        },
+                    },
+                    "evidence_sources": [".ai/review/workflow-routing-recommendation.yaml"],
+                    "acceptance_checks": ["Benchmark content:workflow-routing-policy passes."],
+                    "risk_level": "high",
+                    "review_status": "pending_harness_maintainer_review",
+                }
+            ]
+        )
+
+    monkeypatch.setattr("harness_builder_agent.tools.generate_asset_candidates.generate_asset_candidates_with_llm", fake_assets)
+    assets = runner.invoke(app, ["generate-asset-candidates", "--repo", str(repo)])
+    assert assets.exit_code == 0, assets.output
+    evidence_after_assets = yaml.safe_load((repo / ".ai" / "maturity-evidence.yaml").read_text(encoding="utf-8"))
+    assert evidence_after_assets["experience"]["asset_candidate_count"] == 1
+    trace = _latest_trace(repo)
+    artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
+    assert {"path": ".ai/experience/experience-index.yaml", "kind": "experience_index"} in artifacts["artifacts"]
+    assert {"path": ".ai/maturity-evidence.yaml", "kind": "maturity_evidence"} in artifacts["artifacts"]
+
+    after_candidate_config = HarnessConfig.model_validate(
+        yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8"))
+    )
+    assert after_candidate_config.model_dump(mode="json") == before_config.model_dump(mode="json")
+
+    apply = runner.invoke(
+        app,
+        [
+            "review-candidate",
+            "--repo",
+            str(repo),
+            "--candidate-id",
+            "workflow-standard-domain-policy",
+            "--decision",
+            "applied",
+            "--rationale",
+            "Maintainer accepted the workflow policy patch.",
+        ],
+    )
+    assert apply.exit_code == 0, apply.output
+    config = HarnessConfig.model_validate(yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8")))
+    assert [rule.id for rule in config.workflow_routing.rules] == before_ids
+    standard = next(rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation")
+    assert "domain_policy_change" in standard.triggers
+    governance = CandidateGovernanceLog.model_validate(
+        yaml.safe_load((repo / ".ai" / "review" / "candidate-governance.yaml").read_text(encoding="utf-8"))
+    )
+    assert governance.decisions[0].applied_paths == [".ai/harness-config.yaml"]
+
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    benchmark = runner.invoke(app, ["benchmark", "--repo", str(repo), "--profile", "java-spring"])
+    assert benchmark.exit_code == 0, benchmark.output
+    report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
+    check_ids = {check["id"]: check for check in report["checks"]}
+    assert check_ids["content:workflow-routing-policy"]["passed"] is True
+    assert check_ids["content:candidate-governance"]["passed"] is True
+    assert check_ids["content:workflow-recommendation-review"]["passed"] is True
+    assert not (repo / ".ai" / "task-runs").exists()
+
+
 def test_summarize_experience_writes_review_only_summary(tmp_path: Path, monkeypatch):
     repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
     runner = CliRunner()

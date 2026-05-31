@@ -25,6 +25,7 @@ from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
+from harness_builder_agent.tools.ai_paths import is_safe_ai_relative_path
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.evidence_sources import (
     CORE_EVIDENCE_SOURCES,
@@ -748,8 +749,10 @@ def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
             and candidate.source_candidate_id not in known_candidate_ids
         ):
             errors.append("unknown_source_candidate_id")
-        if not candidate.suggested_path.startswith(".ai/"):
+        if not is_safe_ai_relative_path(candidate.suggested_path):
             errors.append("suggested_path_outside_ai")
+        if candidate.kind == "workflow_policy" and candidate.suggested_path != ".ai/harness-config.yaml":
+            errors.append("workflow_policy_target_not_harness_config")
         if any(not source.startswith(".ai/") for source in candidate.evidence_sources):
             errors.append("evidence_source_outside_ai")
         if unknown_evidence_sources(candidate.evidence_sources, allowed_evidence_sources):
@@ -803,12 +806,12 @@ def _candidate_governance_check(ai: Path) -> dict[str, Any]:
             errors.append("source_candidate_id_mismatch")
         if decision.source_report != ".ai/review/asset-candidates.yaml":
             errors.append("unexpected_source_report")
-        if not decision.suggested_path.startswith(".ai/"):
+        if not is_safe_ai_relative_path(decision.suggested_path):
             errors.append("suggested_path_outside_ai")
         if any(not source_path.startswith(".ai/") for source_path in decision.evidence_sources):
             errors.append("evidence_source_outside_ai")
         for applied_path in decision.applied_paths:
-            if not applied_path.startswith(".ai/"):
+            if not is_safe_ai_relative_path(applied_path):
                 errors.append("applied_path_outside_ai")
                 continue
             if decision.decision == "applied" and not (ai.parent / applied_path).exists():
@@ -816,6 +819,10 @@ def _candidate_governance_check(ai: Path) -> dict[str, Any]:
         if decision.decision == "applied" and not decision.applied_paths:
             errors.append("applied_decision_without_applied_path")
         if decision.decision == "applied" and source and source.kind == "workflow_policy":
+            if source.source_review_decision not in {"support", "revise"}:
+                errors.append("workflow_policy_applied_without_supported_review")
+            if source.suggested_path != ".ai/harness-config.yaml":
+                errors.append("workflow_policy_target_not_harness_config")
             if ".ai/harness-config.yaml" not in decision.applied_paths:
                 errors.append("workflow_policy_applied_without_harness_config")
             if source.workflow_policy_patch is None:

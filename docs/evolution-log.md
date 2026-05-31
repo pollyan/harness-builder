@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Workflow 推荐到 Routing Policy 生命周期
+
+- North Star 模块：Workflow Runtime Specification、Experience & Self-Improve、Maturity & Evolution、Governance & Auditability、Benchmark / Review Intelligence。
+- Gap Analysis 摘要：`recommend-workflow`、`improve`、`review-maturity`、`generate-asset-candidates`、`review-candidate` 和 `benchmark` 已具备分段能力，但缺少一条可验收的纵向闭环证明智能 workflow recommendation 能进入 review-only policy candidate、经治理应用为正式 routing policy，并被 maturity evidence 与 benchmark 识别。
+- 用户故事：作为 Harness Maintainer，当我先为真实任务生成 review-only workflow recommendation，再运行自改进相关命令时，我可以得到结构化 `workflow_policy_patch` 候选，并通过显式 `review-candidate --decision applied` 应用到 `.ai/harness-config.yaml`，随后 benchmark 验证候选、治理记录和正式 routing policy 一致，从而确信智能推荐不会绕过人工治理，也不会停留在孤立报告。
+- 当前代码 gap：asset candidates 写出后只刷新 Experience index，没有立即刷新 maturity evidence；CLI trace 没记录派生证据；asset candidate parser 只检查 `.ai/` 前缀；workflow policy applied 未要求 source review 为 support/revise；routing rule upsert 会把替换 rule 移到末尾；benchmark 对手工或旧版本落盘的非法 workflow policy target、路径穿越和未支持 review 的 applied governance 兜底不足。
+- 关键决策 / 取舍：不新增命令；复用专家链路 `recommend-workflow -> improve -> review-maturity -> generate-asset-candidates -> review-candidate applied -> benchmark`。recommendation、maturity review 和 asset candidates 仍保持 review-only；只有 candidate governance 的 `applied` 决策能修改正式 `.ai/harness-config.yaml`。
+- Assumptions / risks：真实 LLM 可能生成不同 routing patch，因此 parser、schema、candidate governance 和 benchmark 必须共同兜底；maturity evidence 刷新只表示候选进入证据面，不表示候选已应用。
+- 边界情况 / 失败模式及回应：`defer` / `missing` 的 workflow policy 候选不能 applied；`.ai/../...` 路径穿越被 parser 与 benchmark 拒绝；workflow policy target 只能是 `.ai/harness-config.yaml`；替换已有 routing rule 原位替换，新增 rule 才追加；benchmark 会拒绝 applied 但 source review 未 support/revise 的手工治理状态。
+- Sub agent 使用情况：使用 explorer 子代理只读审查当前 milestone 的 spec、plan、测试和 benchmark 兜底；它指出 benchmark 缺少 support/revise 与安全路径兜底，主线程补充了对应负向测试和实现。
+- 价值切分说明：本轮不是单纯增加 parser 校验或测试，而是打通“智能推荐 -> 改进候选 -> LLM review -> 资产候选 -> 人工治理应用 -> benchmark 证明”的完整治理生命周期。
+- 可执行验收标准及验证方式：integration 覆盖完整 CLI 链路、不创建 `.ai/task-runs`、asset candidate 后 maturity evidence 计数刷新、应用后 config 顺序保持、benchmark 三个相关 check 通过；unit 覆盖 parser 路径和 workflow target、defer/missing 不能 applied、rule 原位替换；benchmark integration 覆盖旧产物/手工产物的非法 path、target 和 review decision。
+- 完成内容：`generate-asset-candidates` 刷新 maturity 派生证据并记录 trace；asset candidate parser 增加安全 `.ai/` 路径和 workflow target 校验；candidate governance 增加 support/revise applied 门禁和原位 upsert；benchmark 增加 workflow policy governance 兜底；README、LLM contracts、init workflow、sensor/gate rules、spec/plan 同步。
+- 验证结果：targeted lifecycle / governance / benchmark tests 已通过；fast/full/push 结果见本轮提交记录。
+- Self-Harness Gate：本轮新增稳定治理边界已沉淀到长期工程文档；未恢复 `run`，未引入 Runtime 执行。下一轮候选 gap：self-improve package consumption、existing Harness 主入口对 workflow policy lifecycle 的引导、更细的 acceptance efficiency matrix。
+
 ## 2026-05-31 Runtime 运行证据成熟度门禁
 
 - North Star 模块：Maturity & Evolution、Experience & Self-Improve、Workflow Runtime Specification、Governance & Auditability。

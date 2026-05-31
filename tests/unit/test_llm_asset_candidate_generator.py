@@ -197,6 +197,74 @@ def test_generate_asset_candidates_rejects_non_ai_path():
         )
 
 
+def test_generate_asset_candidates_rejects_path_traversal_suggested_path():
+    with pytest.raises(ValueError, match="suggested_path must be under .ai/"):
+        parse_asset_candidate_response(
+            json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "id": "bad",
+                            "kind": "guide",
+                            "source_candidate_id": "candidate-1",
+                            "source_review_decision": "support",
+                            "suggested_path": ".ai/../README.md",
+                            "title": "Bad",
+                            "rationale": "Path traversal.",
+                            "draft_content": "content",
+                        }
+                    ]
+                }
+            ),
+            {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
+        )
+
+
+def test_generate_asset_candidates_rejects_workflow_policy_non_config_target():
+    with pytest.raises(ValueError, match="workflow_policy candidates can only target .ai/harness-config.yaml"):
+        parse_asset_candidate_response(
+            json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "id": "workflow-routing-standard-escalation",
+                            "kind": "workflow_policy",
+                            "source_candidate_id": "candidate-1",
+                            "source_review_decision": "support",
+                            "suggested_path": ".ai/guides/project-context.md",
+                            "title": "Bad workflow target",
+                            "rationale": "Workflow policy must target harness config.",
+                            "draft_content": "Structured workflow policy patch.",
+                            "workflow_policy_patch": {
+                                "schema_version": "1.0",
+                                "operation": "upsert_routing_rule",
+                                "target": "workflow_routing.rules",
+                                "rule": {
+                                    "id": "standard-escalation",
+                                    "selected_workflow": "standard",
+                                    "rationale": "Escalate high-risk tasks.",
+                                    "triggers": [
+                                        "high_risk_module",
+                                        "cross_module_design",
+                                        "security_or_permission",
+                                        "insufficient_sensor_coverage",
+                                    ],
+                                    "required_guides": [".ai/guides/project-context.md"],
+                                    "required_sensors": [".ai/sensors/verification.md"],
+                                    "human_confirmation_required": True,
+                                },
+                            },
+                            "review_status": "pending_harness_maintainer_review",
+                        }
+                    ]
+                }
+            ),
+            {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
+        )
+
+
 def test_generate_asset_candidates_accepts_workflow_policy_candidate():
     report = parse_asset_candidate_response(
         json.dumps(

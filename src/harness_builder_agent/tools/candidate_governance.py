@@ -9,6 +9,7 @@ import yaml
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateDraft, AssetCandidateReport
 from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceDecision, CandidateGovernanceLog
 from harness_builder_agent.schemas.harness_config import HarnessConfig, WorkflowRoutingRule
+from harness_builder_agent.tools.ai_paths import is_safe_ai_relative_path
 from harness_builder_agent.tools.asset_writers.shared import write_text, write_yaml
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.experience_index import write_experience_index
@@ -43,6 +44,8 @@ def review_candidate(
     applied_paths: list[str] = []
     if decision == "applied":
         _ensure_not_already_applied(log, candidate_id)
+        if candidate.kind == "workflow_policy" and candidate.source_review_decision not in {"support", "revise"}:
+            raise ValueError("workflow_policy candidates require support or revise review decision before applied")
         if candidate.kind == "workflow_policy":
             _apply_workflow_policy_candidate(root, candidate)
         else:
@@ -91,7 +94,7 @@ def _ensure_not_already_applied(log: CandidateGovernanceLog, candidate_id: str) 
 
 
 def _resolve_ai_path(root: Path, suggested_path: str) -> Path:
-    if not suggested_path.startswith(".ai/"):
+    if not is_safe_ai_relative_path(suggested_path):
         raise ValueError("suggested_path must stay under .ai/")
     target = (root / suggested_path).resolve()
     ai = (root / ".ai").resolve()
@@ -131,8 +134,16 @@ def _apply_workflow_policy_candidate(root: Path, candidate: AssetCandidateDraft)
     updated = config.model_copy(deep=True)
     rule = candidate.workflow_policy_patch.rule
     _validate_workflow_rule(root, updated, rule)
-    rules = [existing for existing in updated.workflow_routing.rules if existing.id != rule.id]
-    rules.append(rule)
+    rules: list[WorkflowRoutingRule] = []
+    replaced = False
+    for existing in updated.workflow_routing.rules:
+        if existing.id == rule.id:
+            rules.append(rule)
+            replaced = True
+        else:
+            rules.append(existing)
+    if not replaced:
+        rules.append(rule)
     updated.workflow_routing.rules = rules
     _validate_routing_policy_invariants(updated)
     write_yaml(config_path, updated.model_dump(mode="json"))

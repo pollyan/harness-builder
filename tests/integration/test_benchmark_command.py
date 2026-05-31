@@ -1045,6 +1045,45 @@ def test_benchmark_fails_candidate_governance_with_outside_ai_applied_path(tmp_p
     assert "applied_path_outside_ai" in check["errors"]
 
 
+def test_benchmark_fails_candidate_governance_with_path_traversal_applied_path(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    _write_valid_candidate_governance(ai)
+    path = ai / "review" / "candidate-governance.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["decisions"][0]["decision"] = "applied"
+    payload["decisions"][0]["applied_paths"] = [".ai/../README.md"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    check = _candidate_governance_check(ai)
+
+    assert check["passed"] is False
+    assert "applied_path_outside_ai" in check["errors"]
+
+
+def test_benchmark_fails_applied_workflow_policy_without_supported_review(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    review_candidate(
+        repo,
+        candidate_id="workflow-routing-policy-review",
+        decision="applied",
+        rationale="Maintainer accepted the routing patch.",
+        reviewer="harness-maintainer",
+    )
+    path = ai / "review" / "asset-candidates.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidates"][0]["source_review_decision"] = "defer"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    check = _candidate_governance_check(ai)
+
+    assert check["passed"] is False
+    assert "workflow_policy_applied_without_supported_review" in check["errors"]
+
+
 def test_benchmark_fails_asset_candidate_with_unknown_source_candidate(tmp_path: Path, monkeypatch):
     repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
     ai = repo / ".ai"
@@ -1060,6 +1099,40 @@ def test_benchmark_fails_asset_candidate_with_unknown_source_candidate(tmp_path:
     asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
     assert asset_candidates["passed"] is False
     assert "unknown_source_candidate_id" in asset_candidates["errors"]
+
+
+def test_benchmark_fails_asset_candidate_with_path_traversal_suggested_path(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    path = ai / "review" / "asset-candidates.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidates"][0]["suggested_path"] = ".ai/../README.md"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
+    assert asset_candidates["passed"] is False
+    assert "suggested_path_outside_ai" in asset_candidates["errors"]
+
+
+def test_benchmark_fails_workflow_policy_asset_candidate_with_non_config_target(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    path = ai / "review" / "asset-candidates.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidates"][0]["suggested_path"] = ".ai/guides/project-context.md"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
+    assert asset_candidates["passed"] is False
+    assert "workflow_policy_target_not_harness_config" in asset_candidates["errors"]
 
 
 def test_benchmark_fails_asset_candidate_with_outside_ai_evidence(tmp_path: Path, monkeypatch):
