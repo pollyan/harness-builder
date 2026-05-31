@@ -16,6 +16,7 @@ from harness_builder_agent.schemas.improvement_candidate import ImprovementCandi
 from harness_builder_agent.schemas.interaction_decision import CandidateDecision, WorkflowConfirmation
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
@@ -28,6 +29,7 @@ from harness_builder_agent.tools.interaction_decisions import accepted_interacti
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
 from harness_builder_agent.tools.scan_repo import scan_repository
+from harness_builder_agent.tools.self_improve import run_self_improve
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
@@ -202,6 +204,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo("- benchmark：运行 Harness 质量门禁，刷新 benchmark / maturity / improvement 派生产物，不覆盖正式 Harness 资产。")
     typer.echo("- recommend-workflow：输入任务说明，生成 review-only Workflow 推荐，不执行任务或修改正式 routing policy。")
     typer.echo("- review-candidate：记录候选 accepted / deferred / rejected 决策，不应用正式资产。")
+    typer.echo("- self-improve：生成 review-only 自改进审查包，不应用正式资产或执行 Runtime。")
     typer.echo("- reinit：继续重新扫描并进入当前生成向导。")
 
     action = typer.prompt("你的选择", default="exit").strip().lower()
@@ -481,6 +484,57 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         )
         typer.echo(_candidate_governance_summary(latest.candidate_id, latest.decision, latest.reviewer))
         return output_dir
+    if action in {"self-improve", "self", "自改进", "智能改进"}:
+        typer.echo("正在生成 review-only 自改进审查包...")
+        trace.event(
+            "existing-harness",
+            "started",
+            "Existing Harness detected; user chose self-improve package generation.",
+            {"primary_stack": inventory.primary_stack, "action": "self-improve"},
+        )
+        output_dir = run_self_improve(repo)
+        manifest = SelfImprovePackageManifest.model_validate(
+            yaml.safe_load((output_dir / "review" / "self-improve-package.yaml").read_text(encoding="utf-8"))
+        )
+        trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
+        trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
+        trace.artifact(output_dir / "improvement-candidates.yaml", "improvement_candidates")
+        trace.artifact(output_dir / "evolution-plan.md", "plan")
+        trace.artifact(output_dir / "experience" / "pending-improvements.md", "experience")
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.artifact(output_dir / "review" / "maturity-review.yaml", "maturity_review")
+        trace.artifact(output_dir / "review" / "maturity-review.md", "review")
+        trace.artifact(output_dir / "review" / "asset-candidates.yaml", "asset_candidates")
+        trace.artifact(output_dir / "review" / "asset-candidate-guides.md", "review")
+        trace.artifact(output_dir / "review" / "asset-candidate-sensors.md", "review")
+        trace.artifact(output_dir / "review" / "asset-candidate-workflows.md", "review")
+        trace.artifact(output_dir / "review" / "self-improve-package.yaml", "self_improve_package")
+        trace.artifact(output_dir / "review" / "self-improve-package.md", "review")
+        trace.event(
+            "existing-harness",
+            "completed",
+            "Existing Harness self-improve package generated.",
+            {
+                "primary_stack": inventory.primary_stack,
+                "action": "self-improve",
+                "improvement_candidate_count": manifest.candidate_counts.improvement_candidates,
+                "asset_candidate_count": manifest.candidate_counts.asset_candidates,
+            },
+        )
+        trace.finish(
+            "completed",
+            {
+                "primary_stack": inventory.primary_stack,
+                "existing_harness_action": "self-improve",
+                "overall_level": manifest.maturity.overall_level,
+                "target_next_level": manifest.maturity.target_next_level,
+                "improvement_candidate_count": manifest.candidate_counts.improvement_candidates,
+                "maturity_review_count": manifest.candidate_counts.maturity_reviews,
+                "asset_candidate_count": manifest.candidate_counts.asset_candidates,
+            },
+        )
+        typer.echo(_self_improve_summary(manifest))
+        return output_dir
     if action in {"reinit", "重新生成", "regenerate"}:
         trace.event(
             "existing-harness",
@@ -568,6 +622,22 @@ def _show_asset_candidate_summary(path: Path) -> None:
     if len(report.candidates) > 10:
         typer.echo(f"- 还有 {len(report.candidates) - 10} 个候选，请查看 `.ai/review/asset-candidates.yaml`。")
     typer.echo("guided review-candidate 只记录 accepted/deferred/rejected，不应用正式资产。")
+
+
+def _self_improve_summary(manifest: SelfImprovePackageManifest) -> str:
+    return "\n".join(
+        [
+            "自改进审查包已生成。",
+            f"- overall_level={manifest.maturity.overall_level}",
+            f"- target_next_level={manifest.maturity.target_next_level or 'unknown'}",
+            f"- improvement_candidates={manifest.candidate_counts.improvement_candidates}",
+            f"- maturity_reviews={manifest.candidate_counts.maturity_reviews}",
+            f"- asset_candidates={manifest.candidate_counts.asset_candidates}",
+            "- review_status=pending_harness_maintainer_review",
+            "- `.ai/review/self-improve-package.yaml`",
+            "- `.ai/review/self-improve-package.md`",
+        ]
+    )
 
 
 def _top_improvement_candidate(path: Path) -> str:

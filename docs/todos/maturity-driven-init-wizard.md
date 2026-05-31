@@ -12,6 +12,7 @@
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `benchmark` 运行质量门禁，刷新 benchmark / maturity / improvement 派生产物，输出失败项摘要，不重新扫描或覆盖正式 Harness 资产。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `recommend-workflow` 收集任务说明，生成 review-only Workflow 推荐，并刷新 Experience / Maturity 派生证据，不执行 Runtime 或修改正式 routing policy。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `review-candidate` 记录候选 `accepted` / `deferred` / `rejected` 治理决策，并刷新 Candidate Governance 与 Experience index；guided 模式不应用正式资产。
+- 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `self-improve` 显式生成 review-only 自改进审查包，串联 maturity review 和 asset candidates，不执行 Runtime 或应用正式资产。
 - 相关命令：`harness-builder-agent init`、`assess`、`improve`、`benchmark`、`recommend-workflow`、`self-improve`
 - 相关工程规则：`docs/engineering/init-workflow.md`、`docs/engineering/testing-strategy.md`、`docs/engineering/architecture.md`
 - 相关产品方向：`docs/strategy/Harness Builder — 面向遗留代码库治理的 AI Coding Harness 生成器.md`

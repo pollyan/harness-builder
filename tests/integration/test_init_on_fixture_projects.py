@@ -9,12 +9,15 @@ import yaml
 from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
+from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
+from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.scan_repo import scan_repository
 
@@ -897,6 +900,114 @@ def test_guided_init_existing_harness_can_record_candidate_governance_without_ap
     assert ".ai/review/candidate-governance.yaml" in artifact_paths
     assert ".ai/review/candidate-governance.md" in artifact_paths
     assert ".ai/experience/experience-index.yaml" in artifact_paths
+
+
+def test_guided_init_existing_harness_can_self_improve_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness self-improve must reuse existing Harness state, not rescan")
+
+    def fake_review(score, evidence_pack, candidates, experience_summary=None):
+        return MaturityReviewReport(
+            summary="Maturity candidates are ready for asset drafting.",
+            reviewer_model="deepseek-test",
+            candidate_reviews=[
+                {
+                    "candidate_id": candidates.candidates[0].id,
+                    "decision": "support",
+                    "rationale": "The candidate is grounded in maturity evidence.",
+                    "suggested_acceptance_checks": ["Run benchmark."],
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                }
+            ],
+        )
+
+    def fake_asset_candidates(score, evidence_pack, improvement_candidates, maturity_review, experience_summary=None):
+        return AssetCandidateReport(
+            candidates=[
+                {
+                    "id": "guide-project-context-scope",
+                    "kind": "guide",
+                    "source_candidate_id": improvement_candidates.candidates[0].id,
+                    "source_review_decision": "support",
+                    "suggested_path": ".ai/guides/project-context.md",
+                    "title": "Scope project context guide",
+                    "rationale": "The supported candidate needs a reviewable guide draft.",
+                    "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                    "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                    "risk_level": "medium",
+                },
+                {
+                    "id": "sensor-verification-hard-gate",
+                    "kind": "sensor",
+                    "source_candidate_id": improvement_candidates.candidates[0].id,
+                    "source_review_decision": "support",
+                    "suggested_path": ".ai/sensors/verification.md",
+                    "title": "Clarify verification hard gate",
+                    "rationale": "The supported candidate needs a reviewable sensor draft.",
+                    "draft_content": "## Candidate Addition\n\nClarify hard gate evidence.",
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                    "acceptance_checks": ["Benchmark content:sensors-quality passes."],
+                    "risk_level": "medium",
+                },
+            ]
+        )
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.assess_maturity.scan_repository", fail_scan)
+    monkeypatch.setattr("harness_builder_agent.tools.review_maturity.review_maturity_with_llm", fake_review)
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.generate_asset_candidates.generate_asset_candidates_with_llm",
+        fake_asset_candidates,
+    )
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="self-improve\n")
+
+    assert result.exit_code == 0, result.output
+    assert "已存在 Harness" in result.output
+    assert "self-improve" in result.output
+    assert "自改进审查包已生成" in result.output
+    assert ".ai/review/self-improve-package.yaml" in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+    assert not (repo / ".ai" / "task-runs").exists()
+
+    manifest = SelfImprovePackageManifest.model_validate(
+        yaml.safe_load((repo / ".ai" / "review" / "self-improve-package.yaml").read_text(encoding="utf-8"))
+    )
+    markdown = (repo / ".ai" / "review" / "self-improve-package.md").read_text(encoding="utf-8")
+    assert manifest.review_status == "pending_harness_maintainer_review"
+    assert manifest.candidate_counts.maturity_reviews == 1
+    assert manifest.candidate_counts.asset_candidates == 2
+    assert "## Review Boundary" in markdown
+    assert "pending_harness_maintainer_review" in markdown
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert "scan" not in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "self-improve"
+    assert trace["summary"]["asset_candidate_count"] == 2
+    artifacts = _latest_init_artifacts(repo)
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/review/self-improve-package.yaml" in artifact_paths
+    assert ".ai/review/self-improve-package.md" in artifact_paths
+    assert ".ai/review/asset-candidates.yaml" in artifact_paths
+    assert ".ai/review/maturity-review.yaml" in artifact_paths
+    assert ".ai/improvement-candidates.yaml" in artifact_paths
+
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", fail_scan)
+    benchmark_result = CliRunner().invoke(app, ["benchmark", "--repo", str(repo), "--profile", "java-spring"])
+    assert benchmark_result.exit_code == 0, benchmark_result.output
+    benchmark_report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
+    package_check = next(check for check in benchmark_report["checks"] if check["id"] == "content:self-improve-package")
+    assert package_check["passed"] is True
 
 
 def test_guided_init_existing_harness_improve_refreshes_stale_experience_evidence(tmp_path: Path, monkeypatch):
