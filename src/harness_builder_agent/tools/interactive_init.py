@@ -136,7 +136,15 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     candidate_ids = [item.id for item in candidate_report.candidates]
 
     while True:
-        _show_prewrite_maturity_preview(repo, inventory, commands, weapon_selection, inline_contexts, workflow_confirmation)
+        _show_prewrite_maturity_preview(
+            repo,
+            inventory,
+            commands,
+            weapon_selection,
+            scan_overrides,
+            inline_contexts,
+            workflow_confirmation,
+        )
         action = _confirm_summary(
             inventory,
             commands,
@@ -1872,6 +1880,7 @@ def _show_prewrite_maturity_preview(
     inventory: ProjectInventory,
     commands: CommandCatalog,
     weapon_selection: WeaponLibrarySelection,
+    scan_overrides: GuidedScanOverrides | None = None,
     inline_contexts: list[str] | None = None,
     workflow_confirmation: WorkflowConfirmation | None = None,
 ) -> None:
@@ -1905,6 +1914,8 @@ def _show_prewrite_maturity_preview(
         typer.echo(f"- {step}")
 
     typer.echo("\n写入前 Harness 设计预览")
+    _show_scan_supplement_preview_section(scan_overrides or GuidedScanOverrides())
+
     typer.echo("团队规则约束")
     if inline_contexts:
         for item in inline_contexts[:5]:
@@ -1950,6 +1961,34 @@ def _show_prewrite_maturity_preview(
     for rule in config.workflow_routing.rules:
         note = routing_notes.get(rule.id, rule.rationale)
         typer.echo(f"- `{rule.id}` -> {rule.selected_workflow}：{note}")
+
+
+def _show_scan_supplement_preview_section(scan_overrides: GuidedScanOverrides) -> None:
+    typer.echo("扫描补充约束")
+    if not _has_scan_overrides(scan_overrides):
+        typer.echo("- 暂无扫描补充；当前按扫描基线、团队规则和内置 Harness 基线生成。")
+        return
+
+    if scan_overrides.primary_stack:
+        typer.echo(f"- 技术栈修正：`{scan_overrides.primary_stack}`。")
+    for note in scan_overrides.notes[:5]:
+        typer.echo(f"- 自然语言补充：{note}")
+    if len(scan_overrides.notes) > 5:
+        typer.echo(f"- 还有 {len(scan_overrides.notes) - 5} 条自然语言 scan 补充会写入交互决策。")
+    for module in scan_overrides.modules[:5]:
+        typer.echo(f"- 结构化模块：`{module['path']}`（{module['kind']}，{module['name']}）。")
+    if len(scan_overrides.modules) > 5:
+        typer.echo(f"- 还有 {len(scan_overrides.modules) - 5} 个结构化模块会进入 project inventory。")
+    for command in scan_overrides.commands[:5]:
+        typer.echo(f"- 结构化验证命令：`{command.command}`，gate={command.gate}，source=`{command.source}`。")
+    if len(scan_overrides.commands) > 5:
+        typer.echo(f"- 还有 {len(scan_overrides.commands) - 5} 条验证命令会进入 command catalog。")
+    for risk in scan_overrides.risk_areas[:5]:
+        typer.echo(f"- 结构化风险区域：`{risk['path']}`，{risk['reason']}。")
+    if len(scan_overrides.risk_areas) > 5:
+        typer.echo(f"- 还有 {len(scan_overrides.risk_areas) - 5} 个风险区域会进入 risk hints。")
+    typer.echo("- 影响范围：影响 project inventory、command catalog、risk hints、Guides、Sensors、Workflow 升级和人工确认。")
+    typer.echo("- 事实边界：这些内容属于用户补充，不会被伪装成已验证扫描事实。")
 
 
 def _show_weapon_preview_item(weapon: WeaponLibraryEntry, planned: MaturityReport, *, include_gate: bool = False) -> None:

@@ -122,6 +122,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 推荐项成熟度关联可以来自内存中的 `MaturityReport` 和内置 weapon tags；该说明是写入前 preview 叙事，不改变 `maturity-score.yaml`、`weapon-library-selection.yaml` 或正式资产 schema。
 - 面向用户的预览不能直接展开 `overall_level`、`dimension_scores`、`primary_stack` 等内部字段名；机器消费字段只落在 JSON / YAML 产物中。
 - 用户在最终确认阶段返回修改 scan 后，下一次预览必须基于更新后的 inventory / commands 重新计算。
+- 写入前预览必须展示扫描补充约束：如果用户补充或修正了技术栈、模块、验证命令、风险区域或自然语言 scan 说明，CLI 必须列出当前生效补充，并说明它们会影响 project inventory、command catalog、risk hints、Guides、Sensors、Workflow 升级和人工确认；这些补充仍是用户提供信息，不能伪装成已验证扫描事实。没有 scan 补充时，也要明确当前按扫描基线、团队规则和内置 Harness 基线生成。
 
 ### 6. 用户补充复述与影响说明
 

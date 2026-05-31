@@ -475,6 +475,8 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "将生成的 Sensors" in result.output
     assert "Workflow routing" in result.output
     preview = result.output[result.output.index("写入前 Harness 设计预览") : result.output.index("\n最终确认\n")]
+    assert "扫描补充约束" in preview
+    assert "暂无扫描补充；当前按扫描基线、团队规则和内置 Harness 基线生成" in preview
     guides_preview = preview[preview.index("将生成的 Guides") : preview.index("将生成的 Sensors")]
     sensors_preview = preview[preview.index("将生成的 Sensors") : preview.index("Workflow routing")]
     assert "关联成熟度" in guides_preview
@@ -1528,6 +1530,14 @@ def test_guided_init_structured_scan_corrections_update_modules_commands_and_ris
     assert "Sensors" in immediate_summary
     assert "Workflow 升级" in immediate_summary
     assert "human-input-needed" in immediate_summary
+    prewrite_preview = result.output[result.output.index("写入前 Harness 设计预览") : result.output.index("\n最终确认\n")]
+    assert "扫描补充约束" in prewrite_preview
+    assert "frontend 还包含批处理入口" in prewrite_preview
+    assert "`frontend`（frontend，frontend）" in prewrite_preview
+    assert "`npm test`，gate=hard，source=`frontend/package.json`" in prewrite_preview
+    assert "`frontend/package.json`，前端依赖需要单独确认" in prewrite_preview
+    assert "影响 project inventory、command catalog、risk hints、Guides、Sensors、Workflow 升级和人工确认" in prewrite_preview
+    assert "不会被伪装成已验证扫描事实" in prewrite_preview
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
     assert {"name": "frontend", "path": "frontend", "kind": "frontend"} in inventory["modules"]
     assert {"path": "frontend/package.json", "reason": "前端依赖需要单独确认"} in inventory["stack_extensions"]["risk_areas"]
@@ -1787,6 +1797,14 @@ def test_guided_init_final_summary_back_to_scan_replaces_previous_corrections(tm
     assert "最终风险" in replacement_preview
     assert "最终写入只会使用当前生效补充" in replacement_preview
     assert "上一版补充不会进入 project inventory、command catalog、Guides、Sensors 或 init summary" in replacement_preview
+    final_preview = result.output[result.output.rindex("写入前 Harness 设计预览") : result.output.rindex("\n最终确认\n")]
+    assert "扫描补充约束" in final_preview
+    assert "`final`（backend，final）" in final_preview
+    assert "`make final-test`，gate=hard，source=`Makefile`" in final_preview
+    assert "`final`，最终风险" in final_preview
+    assert "legacy" not in final_preview
+    assert "旧风险" not in final_preview
+    assert "make legacy-test" not in final_preview
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
     assert {"name": "final", "path": "final", "kind": "backend"} in inventory["modules"]
     assert {"name": "legacy", "path": "legacy", "kind": "backend"} not in inventory["modules"]

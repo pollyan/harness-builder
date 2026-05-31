@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Scan Supplement Prewrite Preview
+
+- North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
+- init North Star 旅程阶段：首次初始化、用户补充吸收、写入前 Harness 设计预览。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo。本轮重新读取事实源后，发现 scan 补充已经会即时复述、更新内存态 inventory / command catalog，并在最终确认摘要中展示影响；但写入前 Harness 设计预览只展示团队规则约束和 Workflow 补充约束，缺少 scan 补充约束，用户需要间接推断自己的模块、命令、风险或自然语言补充是否进入当前设计。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 中补充或修正技术栈、模块、验证命令、风险区域或自然语言 scan 说明时，我可以在写入前 Harness 设计预览中看到这些 scan 补充被列为明确约束，并看到它们将影响哪些 Harness 设计决策，从而在最终确认前确信系统使用了我的输入。
+- 当前代码 gap：`_show_prewrite_maturity_preview()` 不接收 `GuidedScanOverrides`，preview 中没有 `扫描补充约束` section；返回 scan 替换后也无法通过最终 preview 直接确认旧补充已被移除。
+- 关键决策 / 取舍：只增强 CLI preview，不改 `.ai` schema、不改正式资产生成策略；scan 补充仍标记为用户提供信息，不能伪装成已验证扫描事实。
+- Assumptions / risks：preview 展示前 5 条各类补充即可满足确认写入前的审查需要；完整细节仍在最终确认摘要、`interaction-decisions.yaml` 和语义资产中。
+- 边界情况 / 失败模式：无 scan 补充时明确按扫描基线生成；返回 scan 替换后最终 preview 只展示当前生效补充，不展示上一版补充。
+- Sub agent 使用情况：尝试启动 explorer 做只读审查，但当前线程达到 agent 上限；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只补“scan 补充 -> 写入前设计预览 -> 最终确认”的可见闭环，不把更大 preview 重构、LLM prompt 或 benchmark 变更混入。
+- 可执行验收标准及验证方式：integration 覆盖无补充基线说明、结构化 scan 补充的 preview section、返回 scan 替换后的最终 preview 去除旧补充；完整 guided init integration 和 fast regression 作为提交前验证。
+- 完成内容：`_show_prewrite_maturity_preview()` 接收 `scan_overrides`，新增 `扫描补充约束` section，展示 stack / notes / modules / commands / risk areas 和影响边界；README 与 init workflow 同步规则；spec / plan 已写入。
+- 验证结果：targeted integration 已通过；完整 guided init integration、`git diff --check` 和 `scripts/test-fast.sh` 见本轮提交前验证。
+- Self-Harness Gate：本轮不新增 todo；下一轮候选 gap 保留 push/full regression 外部前置、`interactive_init.py` 模块拆分技术债，或继续强化首次 init 的成熟度预览叙事。
+
 ## 2026-06-01 Human Input Triage Recommendation
 
 - North Star 模块：CLI Experience、Experience & Self-Improve、Maturity & Evolution。
