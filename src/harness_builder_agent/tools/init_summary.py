@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -61,6 +62,8 @@ def build_init_summary_markdown(
         f"{dimensions}\n\n"
         "## 本仓库关键事实\n\n"
         f"{_repository_fact_lines(inventory, commands)}\n\n"
+        "## 扫描证据审计\n\n"
+        f"{_scan_evidence_audit_lines(inventory)}\n\n"
         "## 主要阻断项\n\n"
         f"{blockers}\n\n"
         "## 建议下一步\n\n"
@@ -205,6 +208,91 @@ def _repository_fact_lines(inventory: ProjectInventory | None, commands: Command
         for command in (commands.commands if commands else [])[:8]
     ] or ["- 验证入口：当前扫描未确认可执行验证命令。"]
     return "\n".join([f"- 主技术栈：`{inventory.primary_stack}`。", *module_lines, *risk_lines, *command_lines])
+
+
+def _scan_evidence_audit_lines(inventory: ProjectInventory | None) -> str:
+    if inventory is None:
+        return "- evidence_expansion=not_available\n- evidence_coverage=not_available"
+    return "\n".join([*_summary_evidence_expansion_lines(inventory), *_summary_evidence_coverage_lines(inventory)])
+
+
+def _summary_evidence_expansion_lines(inventory: ProjectInventory) -> list[str]:
+    plan = _inventory_evidence_expansion(inventory)
+    if not plan:
+        return ["- evidence_expansion=not_run"]
+    requested_paths = _plan_list_value(plan, "requested_paths")
+    read_paths = _plan_list_value(plan, "read_paths")
+    risk_focus = _plan_list_value(plan, "risk_focus")
+    confidence = _plan_scalar_value(plan, "confidence") or "unknown"
+    rationale = _plan_scalar_value(plan, "rationale") or "未提供 rationale。"
+    read_file_count = _plan_scalar_value(plan, "read_file_count") or str(len(read_paths))
+    return [
+        f"- requested_paths={_inline_code_list(requested_paths)}",
+        f"- read_paths={_inline_code_list(read_paths)}",
+        f"- risk_focus={_inline_code_list(risk_focus)}",
+        f"- confidence=`{confidence}`",
+        f"- read_file_count={read_file_count}",
+        f"- rationale={rationale}",
+    ]
+
+
+def _summary_evidence_coverage_lines(inventory: ProjectInventory) -> list[str]:
+    coverage = _scan_metadata(inventory).get("coverage")
+    if not isinstance(coverage, dict):
+        return ["- evidence_coverage=not_available"]
+    selected = coverage.get("selected_evidence_count")
+    detected = coverage.get("detected_file_count", _scan_metadata(inventory).get("evidence_file_count"))
+    lines: list[str] = []
+    if selected is not None and detected is not None:
+        lines.append(f"- evidence_selected={selected}/{detected}")
+    bucket_coverage = coverage.get("bucket_coverage")
+    if isinstance(bucket_coverage, list):
+        for item in bucket_coverage[:5]:
+            if not isinstance(item, dict):
+                continue
+            bucket = str(item.get("bucket") or "unknown").strip()
+            selected_count = item.get("selected_count", 0)
+            total_count = item.get("total_count", 0)
+            skipped_count = item.get("skipped_count", 0)
+            selected_paths = _list_value(item, "selected_paths")
+            lines.append(
+                f"- `{bucket}`: selected={selected_count} total={total_count} skipped={skipped_count} "
+                f"selected_paths={_inline_code_list(selected_paths)}"
+            )
+    return lines or ["- evidence_coverage=not_available"]
+
+
+def _inventory_evidence_expansion(inventory: ProjectInventory) -> Any:
+    metadata = _scan_metadata(inventory)
+    return metadata.get("evidence_expansion") or metadata.get("evidence_expansion_plan")
+
+
+def _scan_metadata(inventory: ProjectInventory) -> dict[str, Any]:
+    metadata = inventory.stack_extensions.get("scan_metadata", {})
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _inline_code_list(items: list[str]) -> str:
+    return ", ".join(f"`{item}`" for item in items) if items else "none"
+
+
+def _plan_list_value(plan: Any, field: str) -> list[str]:
+    value = plan.get(field) if isinstance(plan, dict) else getattr(plan, field, None)
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
+
+
+def _plan_scalar_value(plan: Any, field: str) -> str:
+    value = plan.get(field) if isinstance(plan, dict) else getattr(plan, field, None)
+    return str(value).strip() if value is not None else ""
+
+
+def _list_value(mapping: dict[str, Any], field: str) -> list[str]:
+    value = mapping.get(field)
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
 
 
 def _user_supplement_lines(interaction_decisions: InteractionDecisions | None) -> str:

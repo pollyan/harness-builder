@@ -67,6 +67,7 @@
 - 2026-06-01：迁移 risk context consistency benchmark 校验。当前 `content:risk-context-consistency` 会检查 scan risk path 是否同时出现在 project-context Guide、verification Sensor 和 standard escalation routing 中；`write_initial_assets()` 会把扫描风险路径写入 `risk_area:<path>` trigger 和 routing rationale。
 - 2026-06-01：迁移 project-context evidence context benchmark 校验。当前 `project-context.md` 会在 `## 来源证据` 保留 inventory evidence、文档、配置和 CI 路径，并在 `## LLM 证据扩展` 保留 evidence expansion 的 requested/read paths、risk focus、confidence、read file count 和 rationale；`content:project-context-evidence-context` 会报告缺失 evidence path、缺失 LLM evidence expansion 章节或缺失 expansion detail。
 - 2026-06-01：迁移 scan report evidence visibility。当前 `scan-report.md` 会展示 Evidence、LLM Evidence Expansion、Evidence Coverage、Stack Evidence Validation、Scan Warnings、Risk Areas 和 Command Candidates；`content:scan-report` 会报告缺失章节、evidence path、coverage selected path、evidence expansion detail、warning、risk 或 command confidence。
+- 2026-06-01：迁移 init summary evidence audit。当前 `init-summary.md` 会在 `## 扫描证据审计` 摘要展示 evidence expansion requested/read paths、risk focus、confidence、read file count、rationale 和 coverage selected paths；`content:init-summary` 会报告缺失章节、summary expansion detail 或 summary coverage selected path。
 
 ## 理想状态
 
@@ -112,7 +113,7 @@
    - test / risk / API entrypoint / document evidence report visibility。
      - 已部分迁移：2026-06-01（scan-report 通过 coverage selected paths、risk areas、documents/configs/CI 和命令置信度展示；更细顶层 inventory 字段仍不新增）。
    - LLM requested evidence 在 scan report、project-context 和 init summary 中的审计展示。
-     - 已部分迁移：2026-06-01（scan-report 和 project-context 已展示并由 benchmark 校验；init summary 仍待后续）。
+     - 已迁移：2026-06-01（scan-report、project-context 和 init-summary 已展示并由 benchmark 校验）。
 
 ## 非目标
 

@@ -328,7 +328,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _experience_summary_artifact_check(ai),
         _runtime_task_run_artifacts_check(ai),
         _scan_report_check(ai, inventory),
-        _init_summary_check(ai),
+        _init_summary_check(ai, inventory),
         _guide_quality_check(ai),
         _project_context_evidence_context_check(ai, inventory),
         _stack_specific_guide_check(ai, inventory),
@@ -338,11 +338,12 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
     ]
 
 
-def _init_summary_check(ai: Path) -> dict[str, Any]:
+def _init_summary_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
     path = ai / "init-summary.md"
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     required_sections = [
         "## 当前成熟度",
+        "## 扫描证据审计",
         "## 主要阻断项",
         "## 建议下一步",
         "## 待人工确认",
@@ -365,6 +366,7 @@ def _init_summary_check(ai: Path) -> dict[str, Any]:
             *required_sections,
             *required_entries,
             *_missing_init_summary_confirmation_ids(ai, text),
+            *_missing_init_summary_scan_evidence_audit(inventory, text),
         ]
         if item not in text
     ]
@@ -373,6 +375,48 @@ def _init_summary_check(ai: Path) -> dict[str, Any]:
         "passed": not missing,
         "missing": missing,
     }
+
+
+def _missing_init_summary_scan_evidence_audit(inventory: ProjectInventory, text: str) -> list[str]:
+    audit_text = _section_text(text, "## 扫描证据审计", "## 主要阻断项")
+    missing: list[str] = []
+    plan = _inventory_evidence_expansion(inventory)
+    if not plan:
+        if "evidence_expansion=not_run" not in audit_text and "evidence_expansion=not_available" not in audit_text:
+            missing.append("missing_summary_evidence_expansion_not_run")
+    else:
+        for path in _plan_list_value(plan, "requested_paths"):
+            if f"`{path}`" not in audit_text:
+                missing.append(f"missing_summary_expansion_requested_path:{path}")
+        for path in _plan_list_value(plan, "read_paths"):
+            if f"`{path}`" not in audit_text:
+                missing.append(f"missing_summary_expansion_read_path:{path}")
+        for focus in _plan_list_value(plan, "risk_focus"):
+            if f"`{focus}`" not in audit_text:
+                missing.append(f"missing_summary_expansion_risk_focus:{focus}")
+        confidence = _plan_scalar_value(plan, "confidence")
+        if confidence and f"confidence=`{confidence}`" not in audit_text:
+            missing.append(f"missing_summary_expansion_confidence:{confidence}")
+        read_file_count = _plan_scalar_value(plan, "read_file_count")
+        if read_file_count and f"read_file_count={read_file_count}" not in audit_text:
+            missing.append(f"missing_summary_expansion_read_file_count:{read_file_count}")
+        rationale = _plan_scalar_value(plan, "rationale")
+        if rationale and rationale not in audit_text:
+            missing.append("missing_summary_expansion_rationale")
+
+    coverage = _scan_metadata(inventory).get("coverage")
+    if not isinstance(coverage, dict):
+        if "evidence_coverage=not_available" not in audit_text:
+            missing.append("missing_summary_evidence_coverage_not_available")
+        return missing
+    selected = coverage.get("selected_evidence_count")
+    detected = coverage.get("detected_file_count", _scan_metadata(inventory).get("evidence_file_count"))
+    if selected is not None and detected is not None and f"evidence_selected={selected}/{detected}" not in audit_text:
+        missing.append(f"missing_summary_evidence_selected:{selected}/{detected}")
+    for selected_path in _coverage_selected_paths(coverage):
+        if f"`{selected_path}`" not in audit_text:
+            missing.append(f"missing_summary_coverage_selected_path:{selected_path}")
+    return missing
 
 
 def _scan_report_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:

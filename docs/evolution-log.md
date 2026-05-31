@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Init Summary Evidence Audit 迁移
+
+- North Star 模块：Deep Scan Evidence、CLI Experience、Maturity & Evolution、Benchmark / Review Intelligence。
+- init North Star 旅程阶段：写入后的交付摘要；扫描理解可解释；质量门禁解释。
+- Gap Analysis 摘要：当前唯一 open todo 仍是本地独有 / 更细能力迁移。project-context 和 scan-report 已经展示并由 benchmark 守住 LLM evidence expansion，但首次交付入口 `.ai/init-summary.md` 还没有摘要化展示 requested/read paths、risk focus、confidence、read file count、rationale 或 coverage selected paths。本轮候选包括 init-summary evidence audit、failed check detail preservation、evidence helper 去重和 evidence reason preservation，优先选择 init-summary，因为它补齐迁移 todo 中 “LLM requested evidence 在 scan report、project-context 和 init summary 中的审计展示” 的最后一环。
+- 用户故事：作为首次运行 `init` 后阅读 `.ai/init-summary.md` 的 Harness Maintainer，当本次扫描执行了 LLM-guided evidence expansion 或记录了 coverage selected paths 时，我可以在入口摘要中看到请求补读路径、实际读取路径、风险关注点、置信度、读取数量、rationale 和关键 coverage selected paths；如果这些摘要丢失，benchmark 会用 `content:init-summary` 给出具体 missing detail。
+- 当前代码 gap：`build_init_summary_markdown()` 没有扫描证据审计章节；`benchmark.py` 的 `content:init-summary` 只检查成熟度、确认入口和 benchmark readiness；`assess_maturity()` 会重写 `init-summary.md` 且没有传入 inventory / commands，导致 benchmark 前刷新会丢失扫描上下文。
+- 关键决策 / 取舍：不新增 schema，继续以 `scan-metadata.yaml` / `project-inventory.json` 为机器事实源；summary 只做摘要，完整审计仍在 scan-report 和 scan-metadata；benchmark 只在 inventory 存在 evidence expansion / coverage 时要求对应 detail。
+- Assumptions / risks：`init-summary.md` 是首次 init 后最容易被团队转发的入口，因此应承接深扫摘要；旧 Harness 手工删掉该章节会被 benchmark 标记 failed，这是内容契约升级。
+- Sub agent 使用情况：尝试启动只读 explorer 审查下一迁移切片，但当前环境返回 `agent thread limit reached`；本轮由主线程完成分析、TDD、实现和验证。
+- 价值切分说明：本轮只连接 init-summary 与扫描证据审计，不做 scanner schema 深化或 failed check detail 全量审计；evidence helper 去重保留为后续技术债候选。
+- 可执行验收标准及验证方式：unit 覆盖 init-summary 正向渲染；benchmark integration 覆盖完整 audit 通过和缺 audit section / detail 失败；fast regression 作为提交前验证。
+- 完成内容：`init-summary.md` 新增 `## 扫描证据审计`；`assess_maturity()` 刷新 summary 时保留 inventory / commands；`content:init-summary` 校验 evidence expansion detail 和 coverage selected paths；README、init workflow、LLM contracts、testing strategy、sensor/gate rules、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted unit / integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：长期文档已同步；Runtime 边界未变化，未执行任务、不创建 `.ai/task-runs`。下一轮候选 gap：failed check missing / errors / detail preservation 系统审计，或 evidence helper 去重。
+
 ## 2026-06-01 Scan Report Evidence Visibility 迁移
 
 - North Star 模块：Deep Scan Evidence、Benchmark / Review Intelligence、Maturity & Evolution。

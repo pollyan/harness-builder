@@ -34,7 +34,7 @@ def assess_maturity(repo: Path) -> Path:
     )
     _write_yaml(ai / "maturity-score.yaml", score.model_dump(mode="json"))
     _write_report(ai / "maturity-report.md", score)
-    write_init_summary(ai, score)
+    write_init_summary(ai, score, inventory=inventory, commands=commands)
     evidence = build_maturity_evidence_pack(ai=ai, inventory=inventory, commands=commands, config=config)
     _write_yaml(ai / "maturity-evidence.yaml", evidence.model_dump(mode="json"))
     return ai

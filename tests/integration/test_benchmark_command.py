@@ -688,6 +688,24 @@ def _add_consistent_scan_report_context(ai: Path) -> ProjectInventory:
     return ProjectInventory.model_validate_json(inventory_path.read_text(encoding="utf-8"))
 
 
+def _add_consistent_init_summary_evidence_audit(ai: Path) -> None:
+    summary_path = ai / "init-summary.md"
+    text = summary_path.read_text(encoding="utf-8")
+    audit_section = (
+        "## 扫描证据审计\n\n"
+        "- requested_paths=`src/main/java/com/example/demo/DemoController.java`\n"
+        "- read_paths=`src/main/java/com/example/demo/DemoController.java`\n"
+        "- risk_focus=`controller routing`\n"
+        "- confidence=`medium`\n"
+        "- read_file_count=1\n"
+        "- rationale=Controller route ownership needed deeper inspection.\n"
+        "- evidence_selected=4/12\n"
+        "- `test`: selected=1 total=2 skipped=1 selected_paths=`src/test/java/com/example/demo/DemoControllerTest.java`\n"
+        "- `api_entrypoint`: selected=1 total=1 skipped=0 selected_paths=`src/main/java/com/example/demo/DemoController.java`\n\n"
+    )
+    summary_path.write_text(text.replace("## 主要阻断项\n\n", audit_section + "## 主要阻断项\n\n", 1), encoding="utf-8")
+
+
 def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture_repo(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
@@ -807,6 +825,37 @@ def test_benchmark_fails_when_init_summary_missing_confirmation_entry(tmp_path: 
     assert report["status"] == "failed"
     assert "## 待人工确认" in check["missing"]
     assert ".ai/human-input-needed.md#处理方式" in check["missing"]
+
+
+def test_benchmark_passes_when_init_summary_preserves_scan_evidence_audit(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_scan_report_context(ai)
+    _add_consistent_init_summary_evidence_audit(ai)
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:init-summary")
+    assert check["passed"] is True
+
+
+def test_benchmark_fails_when_init_summary_omits_scan_evidence_audit(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_scan_report_context(ai)
+    summary_path = ai / "init-summary.md"
+    summary_path.write_text(
+        summary_path.read_text(encoding="utf-8").replace("## 扫描证据审计", "## 扫描摘要", 1),
+        encoding="utf-8",
+    )
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:init-summary")
+    assert check["passed"] is False
+    assert "## 扫描证据审计" in check["missing"]
+    assert "missing_summary_expansion_requested_path:src/main/java/com/example/demo/DemoController.java" in check["missing"]
+    assert "missing_summary_coverage_selected_path:src/test/java/com/example/demo/DemoControllerTest.java" in check["missing"]
 
 
 def test_benchmark_validates_present_runtime_task_runs(tmp_path: Path, monkeypatch):

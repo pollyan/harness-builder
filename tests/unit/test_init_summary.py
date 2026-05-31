@@ -38,6 +38,45 @@ def _inventory(repo: Path) -> ProjectInventory:
     )
 
 
+def _inventory_with_scan_audit(repo: Path) -> ProjectInventory:
+    inventory = _inventory(repo)
+    inventory.stack_extensions["scan_metadata"] = {
+        "evidence_expansion": {
+            "schema_version": "1.0",
+            "planner_prompt_version": "llm-evidence-planner-v1",
+            "requested_paths": ["src/main/java/com/example/demo/DemoController.java"],
+            "risk_focus": ["controller routing"],
+            "rationale": "Controller route ownership needed deeper inspection.",
+            "confidence": "medium",
+            "read_paths": ["src/main/java/com/example/demo/DemoController.java"],
+            "read_file_count": 1,
+        },
+        "coverage": {
+            "schema_version": "1.0",
+            "detected_file_count": 12,
+            "selected_evidence_count": 4,
+            "bucket_coverage": [
+                {
+                    "bucket": "test",
+                    "total_count": 2,
+                    "selected_count": 1,
+                    "skipped_count": 1,
+                    "selected_paths": ["src/test/java/com/example/demo/DemoControllerTest.java"],
+                },
+                {
+                    "bucket": "api_entrypoint",
+                    "total_count": 1,
+                    "selected_count": 1,
+                    "skipped_count": 0,
+                    "selected_paths": ["src/main/java/com/example/demo/DemoController.java"],
+                },
+            ],
+            "warnings": [],
+        },
+    }
+    return inventory
+
+
 def _commands() -> CommandCatalog:
     return CommandCatalog(
         commands=[
@@ -205,3 +244,26 @@ def test_init_summary_records_repository_facts_user_supplements_and_asset_gap_li
     assert "配置变更必须说明回滚方式" in markdown
     assert "Controller 只能调用 Service" in markdown
     assert "权限变更必须走 standard workflow" in markdown
+
+
+def test_init_summary_records_scan_evidence_audit(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+
+    markdown = build_init_summary_markdown(
+        _score(),
+        ai=ai,
+        inventory=_inventory_with_scan_audit(tmp_path),
+        commands=_commands(),
+    )
+
+    assert "## 扫描证据审计" in markdown
+    assert "requested_paths=`src/main/java/com/example/demo/DemoController.java`" in markdown
+    assert "read_paths=`src/main/java/com/example/demo/DemoController.java`" in markdown
+    assert "risk_focus=`controller routing`" in markdown
+    assert "confidence=`medium`" in markdown
+    assert "read_file_count=1" in markdown
+    assert "Controller route ownership needed deeper inspection." in markdown
+    assert "evidence_selected=4/12" in markdown
+    assert "selected_paths=`src/test/java/com/example/demo/DemoControllerTest.java`" in markdown
+    assert "selected_paths=`src/main/java/com/example/demo/DemoController.java`" in markdown
