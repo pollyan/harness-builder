@@ -10,6 +10,61 @@ def _write_yaml(path: Path, payload: dict) -> None:
     path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
 
+def _write_runtime_task_run(ai: Path, task_id: str = "task-1") -> None:
+    run = ai / "task-runs" / task_id
+    _write_yaml(
+        run / "harness-map.yaml",
+        {"schema_version": "1.0", "task_id": task_id, "task_type": "bugfix", "selected_workflow": "bugfix"},
+    )
+    _write_yaml(
+        run / "sensor-report.yaml",
+        {
+            "schema_version": "1.0",
+            "task_id": task_id,
+            "task": "Fix checkout bug",
+            "sensor_results": [
+                {
+                    "id": "pytest",
+                    "command": "pytest",
+                    "status": "passed",
+                    "exit_code": 0,
+                    "duration_seconds": 1.0,
+                    "summary": "pytest passed",
+                }
+            ],
+        },
+    )
+    _write_yaml(
+        run / "runtime-summary.yaml",
+        {
+            "schema_version": "1.0",
+            "task_id": task_id,
+            "selected_workflow": "bugfix",
+            "status": "completed",
+            "sensor_status": "passed",
+            "repair_attempts": 0,
+            "unresolved_sensor_count": 0,
+            "risk_count": 0,
+            "summary": "Runtime completed.",
+        },
+    )
+    (run / "decision-log.md").write_text("# Decision Log\n\nNo special decision.\n", encoding="utf-8")
+    (run / "handoff-summary.md").write_text("# Handoff Summary\n\nReady for review.\n", encoding="utf-8")
+
+
+def test_build_experience_index_records_valid_runtime_task_runs(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    _write_runtime_task_run(ai, "task-1")
+
+    index = build_experience_index(ai)
+
+    assert index.runtime_task_run_count == 1
+    source = next(item for item in index.sources if item.kind == "runtime_task_runs")
+    assert source.path == ".ai/task-runs/"
+    assert source.item_count == 1
+    assert not any("runtime task-runs absent" in warning for warning in index.warnings)
+
+
 def test_build_experience_index_counts_workflow_recommendation_review(tmp_path: Path):
     ai = tmp_path / ".ai"
     _write_yaml(

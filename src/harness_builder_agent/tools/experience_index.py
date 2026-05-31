@@ -10,6 +10,7 @@ from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecomm
 from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
 from harness_builder_agent.tools.asset_writers.shared import record_artifact, write_yaml
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.runtime_task_runs import summarize_runtime_task_runs
 
 EXPERIENCE_FILES = {
     "project-experience.md": "# Project Experience\n\n## Recorded Experience\n\nNo project experience recorded yet.\n",
@@ -44,8 +45,8 @@ def build_experience_index(ai: Path) -> ExperienceIndex:
     maturity_review_count = _yaml_candidate_count(ai / "review" / "maturity-review.yaml", key="candidate_reviews")
     candidate_governance_decision_count = _candidate_governance_count(ai / "review" / "candidate-governance.yaml")
     workflow_recommendation_count, workflow_recommendation_source = _workflow_recommendation_signal(ai)
-    task_runs = ai / "task-runs"
-    runtime_task_run_count = sum(1 for path in task_runs.iterdir() if path.is_dir()) if task_runs.exists() else 0
+    runtime_summary = summarize_runtime_task_runs(ai)
+    runtime_task_run_count = runtime_summary.task_run_count
     sources: list[ExperienceSource] = [
         ExperienceSource(path=".ai/experience/pending-improvements.md", kind="pending_improvements", item_count=pending_count)
     ]

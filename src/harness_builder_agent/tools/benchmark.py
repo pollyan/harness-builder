@@ -34,6 +34,7 @@ from harness_builder_agent.tools.evidence_sources import (
 )
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.runtime_task_runs import RuntimeTaskRunError, summarize_runtime_task_runs
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
@@ -95,8 +96,11 @@ def run_benchmark(repo: Path, profile: str | None = None, trace: GenerationTrace
                 {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)},
             )
         write_initial_assets(root, inventory, commands, trace=trace)
-    assess_maturity(root)
-    generate_improvements(root)
+    runtime_precheck = _runtime_task_run_artifacts_check(ai)
+    runtime_invalid = runtime_precheck["present"] and not runtime_precheck["passed"]
+    if not runtime_invalid:
+        assess_maturity(root)
+        generate_improvements(root)
     if trace:
         trace.artifact(ai / "benchmark-report.yaml", "benchmark_report")
         trace.event("benchmark", "completed", "Benchmark checks are ready to evaluate.", {"profile": profile or inventory.primary_stack})
@@ -320,6 +324,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _candidate_governance_check(ai),
         _self_improve_package_check(ai),
         _experience_summary_artifact_check(ai),
+        _runtime_task_run_artifacts_check(ai),
         _init_summary_check(ai),
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
@@ -924,6 +929,33 @@ def _experience_summary_artifact_check(ai: Path) -> dict[str, Any]:
         "present": True,
         "finding_count": len(report.findings),
         "errors": sorted(set(errors)),
+    }
+
+
+def _runtime_task_run_artifacts_check(ai: Path) -> dict[str, Any]:
+    task_runs = ai / "task-runs"
+    if not task_runs.exists() or not any(path.is_dir() for path in task_runs.iterdir()):
+        return {"id": "content:runtime-task-run-artifacts", "passed": True, "present": False}
+    try:
+        summary = summarize_runtime_task_runs(ai)
+    except RuntimeTaskRunError as exc:
+        return {
+            "id": "content:runtime-task-run-artifacts",
+            "passed": False,
+            "present": True,
+            "errors": [str(exc)],
+        }
+    return {
+        "id": "content:runtime-task-run-artifacts",
+        "passed": True,
+        "present": True,
+        "task_run_count": summary.task_run_count,
+        "passed_sensor_count": summary.passed_sensor_count,
+        "failed_sensor_count": summary.failed_sensor_count,
+        "skipped_sensor_count": summary.skipped_sensor_count,
+        "unresolved_sensor_count": summary.unresolved_sensor_count,
+        "repair_attempt_count": summary.repair_attempt_count,
+        "source_paths": summary.source_paths,
     }
 
 

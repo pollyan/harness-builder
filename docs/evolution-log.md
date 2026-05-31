@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Runtime Task-Run 只读摄取
+
+- North Star 模块：Experience & Self-Improve、Maturity & Evolution、Sensors、Governance & Auditability。
+- Gap Analysis 摘要：North Star 要求真实任务记录、Sensor Report、Decision Log 和 Handoff Summary 进入 Experience / Maturity；当前 Builder 已删除 `run` 并保留 Runtime artifact contract，但只统计 `.ai/task-runs` 目录数量，benchmark 不校验存在的 Runtime 产物，experience summary 也只向 LLM 注入文件名列表。
+- 用户故事：作为 Harness Maintainer，当外部 Runtime 已经在 `.ai/task-runs/<task-id>/` 写出过程产物时，我可以让 Builder 只读校验并汇总这些任务结果，从而让后续 self-improve 基于可审计的运行证据，而不是只基于候选文件计数。
+- 当前代码 gap：`experience_index.py` 裸统计 task-run 目录；`maturity_evidence.py` 只记录 has_runtime_task_runs；`benchmark.py` 没有 optional runtime check；`summarize_experience.py` 只注入 task-run 文件名。
+- 关键决策 / 取舍：不恢复 `run`，不生成 `.ai/task-runs`，不执行 Sensors；新增 Runtime schema / loader 只读校验外部产物。缺失 task-runs 仍为 optional passed；存在但 schema、task id、workflow 或 sensor status 不一致时 benchmark 失败。
+- Assumptions / risks：第一版要求 `harness-map.yaml`、`sensor-report.yaml`、`runtime-summary.yaml`、`decision-log.md` 和 `handoff-summary.md`；未来宿主 Runtime 格式变化时通过 schema 版本演进处理。
+- 边界情况 / 失败模式及回应：空缺 task-runs 不阻断；坏 YAML、缺 `runtime-summary.yaml`、failed/skipped sensor 没有 summary、runtime summary 与 sensor report 不一致都会显式失败；合法 failed sensor 被视为真实任务结果，不等同于 Runtime 产物校验失败。
+- Sub agent 使用情况：使用 Hume 做 North Star gap 调研，建议 Runtime Task-Run Ingestion；使用 Epicurus 做测试覆盖审查，提出 E2E 和 self-improve 纵向验收后续 gap；两者均已关闭。
+- 价值切分说明：本轮只补“外部 Runtime 数据进入 Harness Builder 证据面”的纵向能力，为后续成熟度真实晋级和 self-improve 经验闭环打基础，不直接改成熟度 overall 评分。
+- 可执行验收标准及验证方式：unit 覆盖合法 / 缺失 / 不一致 Runtime task-run loader、Experience index、maturity evidence、experience summary source；integration 覆盖 benchmark absent / valid / invalid Runtime task-run。
+- 完成内容：新增 `RuntimeSummary` / `RuntimeTaskRunSummary` schema 与 `runtime_task_runs.py`；Experience index 改为统计 schema-valid task-runs；maturity evidence 增加 Runtime sensor / repair 汇总；benchmark 新增 `content:runtime-task-run-artifacts`；experience summary 注入 sensor / handoff / decision 详情；README 和 engineering docs 同步。
+- 验证结果：targeted regression `66 passed`；fast/full/push 结果见本轮提交记录。
+- Self-Harness Gate：长期 Runtime 分工和 benchmark 规则已同步。下一轮候选 gap：E2E 产物契约深度、过程文档中文 gate、self-improve 包被 benchmark 全量消费、成熟度 L3/L4 真实晋级语义。
+
 ## 2026-05-31 Existing Harness Maintenance Triage
 
 - North Star 模块：CLI Experience、Maturity & Evolution、Experience & Self-Improve、Benchmark / Review Intelligence。

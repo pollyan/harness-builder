@@ -432,6 +432,68 @@ def _write_valid_self_improve_package(ai: Path) -> None:
     )
 
 
+def _write_runtime_task_run(ai: Path, task_id: str = "task-1", sensor_status: str = "failed") -> Path:
+    run = ai / "task-runs" / task_id
+    run.mkdir(parents=True, exist_ok=True)
+    (run / "harness-map.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "task_id": task_id,
+                "task_type": "bugfix",
+                "selected_workflow": "bugfix",
+                "risk_level": "medium",
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (run / "sensor-report.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "task_id": task_id,
+                "task": "Fix checkout bug",
+                "sensor_results": [
+                    {
+                        "id": "pytest",
+                        "command": "pytest",
+                        "status": sensor_status,
+                        "exit_code": 1 if sensor_status == "failed" else 0,
+                        "duration_seconds": 3.2,
+                        "summary": "pytest failed" if sensor_status == "failed" else "pytest passed",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (run / "runtime-summary.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "task_id": task_id,
+                "selected_workflow": "bugfix",
+                "status": "completed_with_sensor_failures" if sensor_status == "failed" else "completed",
+                "sensor_status": sensor_status,
+                "repair_attempts": 1,
+                "unresolved_sensor_count": 1 if sensor_status == "failed" else 0,
+                "risk_count": 1,
+                "summary": "Runtime captured sensor outcome.",
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (run / "decision-log.md").write_text("# Decision Log\n\nInvestigated pytest result.\n", encoding="utf-8")
+    (run / "handoff-summary.md").write_text("# Handoff Summary\n\nPytest still fails.\n", encoding="utf-8")
+    return run
+
+
 def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: str = "mini-spring-boot", profile: str = "java-spring") -> Path:
     repo = _copy_fixture_repo(tmp_path, fixture_name)
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, profile))
@@ -473,6 +535,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:candidate-governance" in check_ids
     assert "content:self-improve-package" in check_ids
     assert "content:experience-summary-artifact" in check_ids
+    assert "content:runtime-task-run-artifacts" in check_ids
     assert "content:guides-quality" in check_ids
     assert "content:stack-specific-guides" in check_ids
     assert "content:sensors-quality" in check_ids
@@ -506,6 +569,42 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert trace["command"] == "benchmark"
     assert trace["status"] == "completed"
     assert "benchmark" in trace["stages"]
+
+
+def test_benchmark_reports_absent_runtime_task_runs_as_optional(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+
+    report = run_benchmark(repo)
+    check = next(item for item in report["checks"] if item["id"] == "content:runtime-task-run-artifacts")
+
+    assert check["passed"] is True
+    assert check["present"] is False
+
+
+def test_benchmark_validates_present_runtime_task_runs(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    _write_runtime_task_run(repo / ".ai", task_id="task-1", sensor_status="failed")
+
+    report = run_benchmark(repo)
+    check = next(item for item in report["checks"] if item["id"] == "content:runtime-task-run-artifacts")
+
+    assert check["passed"] is True
+    assert check["present"] is True
+    assert check["task_run_count"] == 1
+    assert check["failed_sensor_count"] == 1
+
+
+def test_benchmark_fails_invalid_runtime_task_run(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    run = _write_runtime_task_run(repo / ".ai", task_id="task-1", sensor_status="failed")
+    (run / "runtime-summary.yaml").unlink()
+
+    report = run_benchmark(repo)
+    check = next(item for item in report["checks"] if item["id"] == "content:runtime-task-run-artifacts")
+
+    assert check["passed"] is False
+    assert "missing_runtime_summary" in check["errors"]
+    assert report["status"] == "failed"
 
 
 def test_benchmark_generates_report_for_dotnet_fixture(tmp_path: Path, monkeypatch):

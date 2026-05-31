@@ -33,6 +33,63 @@ def _write_base_ai(ai: Path) -> None:
     )
 
 
+def _write_runtime_task_run(ai: Path, task_id: str = "task-1", sensor_status: str = "failed") -> None:
+    run = ai / "task-runs" / task_id
+    _write_yaml(
+        run / "harness-map.yaml",
+        {"schema_version": "1.0", "task_id": task_id, "task_type": "bugfix", "selected_workflow": "bugfix"},
+    )
+    _write_yaml(
+        run / "sensor-report.yaml",
+        {
+            "schema_version": "1.0",
+            "task_id": task_id,
+            "task": "Fix checkout bug",
+            "sensor_results": [
+                {
+                    "id": "pytest",
+                    "command": "pytest",
+                    "status": sensor_status,
+                    "exit_code": 1 if sensor_status == "failed" else 0,
+                    "duration_seconds": 2.0,
+                    "summary": "pytest failed" if sensor_status == "failed" else "pytest passed",
+                }
+            ],
+        },
+    )
+    _write_yaml(
+        run / "runtime-summary.yaml",
+        {
+            "schema_version": "1.0",
+            "task_id": task_id,
+            "selected_workflow": "bugfix",
+            "status": "completed_with_sensor_failures" if sensor_status == "failed" else "completed",
+            "sensor_status": sensor_status,
+            "repair_attempts": 2,
+            "unresolved_sensor_count": 1 if sensor_status == "failed" else 0,
+            "risk_count": 1,
+            "summary": "Runtime captured outcome.",
+        },
+    )
+    (run / "decision-log.md").write_text("# Decision Log\n\nRetried once.\n", encoding="utf-8")
+    (run / "handoff-summary.md").write_text("# Handoff Summary\n\nPytest still fails.\n", encoding="utf-8")
+
+
+def test_collect_maturity_evidence_includes_runtime_task_run_outcomes(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    _write_base_ai(ai)
+    _write_runtime_task_run(ai, task_id="task-1", sensor_status="failed")
+
+    pack = collect_maturity_evidence(ai)
+
+    assert pack.observability.has_runtime_task_runs is True
+    assert pack.observability.runtime_task_run_count == 1
+    assert pack.observability.runtime_failed_sensor_count == 1
+    assert pack.observability.runtime_unresolved_sensor_count == 1
+    assert pack.observability.runtime_repair_attempt_count == 2
+    assert pack.observability.runtime_source_paths == [".ai/task-runs/task-1/"]
+
+
 def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
     ai = tmp_path / ".ai"
     _write_base_ai(ai)

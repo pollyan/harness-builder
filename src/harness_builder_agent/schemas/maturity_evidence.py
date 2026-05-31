@@ -46,6 +46,12 @@ class ObservabilityEvidence(BaseModel):
     generation_run_count: int = 0
     has_runtime_task_runs: bool = False
     latest_generation_status: str | None = None
+    runtime_task_run_count: int = 0
+    runtime_failed_sensor_count: int = 0
+    runtime_skipped_sensor_count: int = 0
+    runtime_unresolved_sensor_count: int = 0
+    runtime_repair_attempt_count: int = 0
+    runtime_source_paths: list[str] = Field(default_factory=list)
 
 
 class ExperienceEvidence(BaseModel):

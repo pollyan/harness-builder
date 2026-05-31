@@ -20,6 +20,7 @@ from harness_builder_agent.schemas.maturity_evidence import (
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.tools.experience_summary import load_experience_summary
+from harness_builder_agent.tools.runtime_task_runs import summarize_runtime_task_runs
 
 MATURITY_INPUTS = [
     ".ai/project-inventory.json",
@@ -150,12 +151,17 @@ def _observability(ai: Path) -> ObservabilityEvidence:
         if trace_path.exists():
             trace = yaml.safe_load(trace_path.read_text(encoding="utf-8")) or {}
             latest_status = trace.get("status")
-    task_runs = ai / "task-runs"
-    runtime_dirs = [path for path in task_runs.iterdir() if path.is_dir()] if task_runs.exists() else []
+    runtime_summary = summarize_runtime_task_runs(ai)
     return ObservabilityEvidence(
         generation_run_count=len(run_dirs),
-        has_runtime_task_runs=bool(runtime_dirs),
+        has_runtime_task_runs=runtime_summary.task_run_count > 0,
         latest_generation_status=latest_status,
+        runtime_task_run_count=runtime_summary.task_run_count,
+        runtime_failed_sensor_count=runtime_summary.failed_sensor_count,
+        runtime_skipped_sensor_count=runtime_summary.skipped_sensor_count,
+        runtime_unresolved_sensor_count=runtime_summary.unresolved_sensor_count,
+        runtime_repair_attempt_count=runtime_summary.repair_attempt_count,
+        runtime_source_paths=runtime_summary.source_paths,
     )
 
 

@@ -95,11 +95,13 @@ Harness Builder 不提供任务级 `run` 命令。真实 AI Coding 工具执行 
   experience-candidates.md
 ```
 
+这些 Runtime 产物仍由宿主 AI Coding Runtime 生成，Harness Builder 不主动创建或执行它们。若 `.ai/task-runs/<task-id>/` 已存在，Builder 会在 `benchmark`、Experience index、maturity evidence 和 `summarize-experience` 中只读消费：校验 `harness-map.yaml`、`sensor-report.yaml`、`runtime-summary.yaml`、`decision-log.md` 和 `handoff-summary.md` 的结构与一致性，并把 sensor failed / skipped、repair attempts、handoff 摘要作为后续 Experience / Self-Improve 的证据。缺少 `.ai/task-runs` 不会让 benchmark 失败；存在但 schema 或跨文件一致性错误会让 benchmark 显式失败。
+
 `assess` 更新成熟度评估，`improve` 生成待确认改进候选，`self-improve` 串联成熟度评估、改进候选、LLM maturity review 和 review-only asset candidates，生成 `.ai/review/self-improve-package.*`。`self-improve` 不应用正式 Harness 变更，不执行 Runtime workflow，也不创建 `.ai/task-runs`。
 
 `review-candidate` 是 Harness Maintainer 的显式候选治理动作。它读取 `.ai/review/asset-candidates.yaml`，把某个候选记录为 `accepted`、`deferred`、`rejected` 或 `applied`，并写入 `.ai/review/candidate-governance.*`。`applied` 支持 Guide / Sensor Markdown 候选追加到正式 `.ai/**/*.md` 资产；`workflow_policy` 候选必须提供结构化 `workflow_policy_patch`，只能通过 schema 校验后更新 `.ai/harness-config.yaml` 的 routing rule，并会刷新成熟度证据。
 
-`benchmark` 会检查 Harness 资产文件存在、schema、内容质量、Workflow Skill 引用、review-only 智能改进产物、candidate governance 产物和 hard gate command 证据。
+`benchmark` 会检查 Harness 资产文件存在、schema、内容质量、Workflow Skill 引用、review-only 智能改进产物、candidate governance 产物、可选 Runtime task-run 产物和 hard gate command 证据。
 
 `benchmark-report.yaml` 中：
 

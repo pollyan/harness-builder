@@ -91,6 +91,7 @@ Benchmark 应检查：
 - `.ai/review/self-improve-package.yaml` 和 `.ai/review/self-improve-package.md` 属于可选 self-improve review package；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配套章节、generated artifact 路径边界和 `pending_harness_maintainer_review` 状态。
 - `.ai/experience/experience-summary.yaml` 和 `.ai/experience/experience-summary.md` 属于可选 review-only Experience artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、`.ai/` evidence 边界、evidence source allowlist 和 `pending_harness_maintainer_review` 状态。
 - `.ai/review/workflow-routing-recommendation.yaml`、`.ai/review/workflow-routing-recommendation.md` 和 `.ai/review/workflow-routing-recommendations/` 历史产物属于可选 workflow recommendation artifacts；不存在时 benchmark 不应失败，存在时必须校验 workflow/rule 引用、Markdown 配对章节、history index schema、每条 history YAML schema、review-only 状态、`.ai/` evidence 边界和 evidence source allowlist。
+- `.ai/task-runs/<task-id>/` 属于宿主 Runtime 生成的可选任务级过程数据；不存在时 benchmark 不应失败，存在时必须校验 `harness-map.yaml`、`sensor-report.yaml`、`runtime-summary.yaml`、`decision-log.md` 和 `handoff-summary.md` 的 schema / 内容 / task id / selected workflow / sensor status 一致性。Harness Builder 只读消费这些文件，不创建、不执行、不修复 Runtime 产物。
 - Benchmark 的 evidence source allowlist 必须从结构化上游产物构建，例如 `maturity-evidence.yaml`、`experience-index.yaml`、`improvement-candidates.yaml`、`maturity-review.yaml` 和 experience source inputs；不能用“任意存在的 `.ai/**` 文件”替代。
 
 Benchmark 不应：

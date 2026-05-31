@@ -10,6 +10,7 @@ from harness_builder_agent.schemas.experience_summary import ExperienceSummaryRe
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.experience_index import write_experience_index
 from harness_builder_agent.tools.llm_experience_summarizer import summarize_experience_with_llm
+from harness_builder_agent.tools.runtime_task_runs import render_runtime_task_run_source
 
 SOURCE_PATHS = [
     ".ai/experience/pending-improvements.md",
@@ -50,7 +51,7 @@ def _collect_sources(root: Path) -> dict[str, str]:
     task_runs = root / ".ai" / "task-runs"
     if task_runs.exists():
         for run_dir in sorted(path for path in task_runs.iterdir() if path.is_dir()):
-            sources[f".ai/task-runs/{run_dir.name}/"] = "\n".join(sorted(item.name for item in run_dir.iterdir()))[:12000]
+            sources[f".ai/task-runs/{run_dir.name}/"] = render_runtime_task_run_source(run_dir)[:12000]
     return sources
 
 
