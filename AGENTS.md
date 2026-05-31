@@ -17,12 +17,8 @@
 
 ## 目标模式选题规则
 
-- 每轮选择新的 milestone / 话题前，必须先检查 `docs/todos/` 中未完成的工作项。
-- 如果存在未完成 todo 且符合当前产品北极星和用户最新优先级，应优先消化 todo；只有没有合适 todo 时，才从新的 gap analysis 中选择全新话题。
-- milestone 粒度应以“一个完整用户故事或工程信任故事”为边界，而不是以单个字段、单条文案、单个 warning 或单个测试为边界。
-- 如果同一 todo 下的多个小问题服务同一个用户可感知体验、共享同一数据流，并且可以在一次 spec / plan / TDD 中清楚验收，应合并为一个 milestone，允许形成多个本地 commit。
-- 合并 milestone 不能变成无边界大重构；如果会跨越独立用户旅程、引入高风险 schema 迁移、触碰多个不相关模块或需要不同验收语义，应继续拆分。
-- 选择 todo 时仍需保持单轮只做一个独立可验收工作包，并在 spec / plan / evolution log 中说明该工作包对应的 todo、用户价值和拆分/合并理由。
+- 目标模式的每轮读取顺序、todo 优先、milestone 粒度、Superpowers 使用方式、sub agent 使用、Self-Harness Gate 和提示词精简策略，统一以 `docs/strategy/goal-mode-playbook.md` 为准。
+- 本文件只保留项目级硬约束和索引，避免和目标模式运行手册重复维护。
 
 ## 硬约束
 

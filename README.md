@@ -13,6 +13,7 @@ Harness Builder 是一个面向既有代码库的 AI Coding Harness POC。当前
 - `docs/engineering/llm-contracts.md`：DeepSeek、LLM-first 扫描、schema 和 no fallback 规则。
 - `docs/engineering/testing-strategy.md`：测试分层、断言深度和 acceptance 策略。
 - `docs/engineering/sensor-and-gate-rules.md`：Sensor、hard gate 和 benchmark 质量门禁规则。
+- `docs/strategy/goal-mode-playbook.md`：目标模式运行手册，沉淀每轮读取顺序、todo 优先、milestone 粒度、sub agent 使用、commit / push 节奏和精简目标提示词模板。
 
 ## 环境准备
 
