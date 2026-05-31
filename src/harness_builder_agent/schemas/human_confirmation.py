@@ -24,6 +24,7 @@ class QuestionnaireQuestion(BaseModel):
         "context_confirmation",
         "candidate_asset_confirmation",
         "sensor_gate_confirmation",
+        "risk_area_confirmation",
         "scan_warning_confirmation",
     ]
     interaction_id: str

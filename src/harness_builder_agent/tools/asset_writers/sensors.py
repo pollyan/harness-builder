@@ -7,6 +7,7 @@ from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
 from harness_builder_agent.tools.asset_writers.shared import record_artifact, write_text
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.risk_signals import RiskSignal, classify_risk_area
 
 
 def write_sensor_assets(
@@ -90,10 +91,20 @@ def _risk_validation_lines(inventory: ProjectInventory | None, commands: Command
     risk_areas = _risk_areas(inventory)
     if not risk_areas:
         return "- 当前扫描未确认具体风险区域；任务命中高影响文件时仍应记录验证选择和 skipped 原因。"
-    return "\n".join(
-        f"- `{path}`：{reason}；命中该区域时优先运行 {command_hint}，缺少环境时记录 skipped 和人工下一步。"
-        for path, reason in risk_areas
-    )
+    lines: list[str] = []
+    for signal in risk_areas:
+        if signal.is_high_impact:
+            lines.append(
+                f"- 【待确认高风险】`{signal.path}`：{signal.reason}；{signal.confirmation_reason} "
+                f"命中时优先进入 standard workflow / 人工升级，并运行 {command_hint}；"
+                "缺少环境时记录 skipped 和人工下一步。"
+            )
+        else:
+            lines.append(
+                f"- `{signal.path}`：{signal.reason}；命中该区域时优先运行 {command_hint}，"
+                "缺少环境时记录 skipped 和人工下一步。"
+            )
+    return "\n".join(lines)
 
 
 def _maturity_gap_lines(inventory: ProjectInventory | None, commands: CommandCatalog) -> str:
@@ -109,14 +120,14 @@ def _maturity_gap_lines(inventory: ProjectInventory | None, commands: CommandCat
     return "\n".join(lines)
 
 
-def _risk_areas(inventory: ProjectInventory | None) -> list[tuple[str, str]]:
+def _risk_areas(inventory: ProjectInventory | None) -> list[RiskSignal]:
     if inventory is None:
         return []
     raw_items = inventory.stack_extensions.get("risk_areas", [])
     if not isinstance(raw_items, list):
         return []
-    items: list[tuple[str, str]] = []
+    items: list[RiskSignal] = []
     for item in raw_items:
         if isinstance(item, dict):
-            items.append((str(item.get("path") or "unknown"), str(item.get("reason") or "当前扫描提示需要人工确认。")))
+            items.append(classify_risk_area(item))
     return items

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
+from harness_builder_agent.tools.risk_signals import high_impact_risk_areas, risk_slug
 
 SUMMARY_LIMIT = 1200
 
@@ -24,7 +25,11 @@ def read_context_inputs(paths: list[Path]) -> dict[str, Any]:
     return ContextInputs(contexts=contexts).model_dump(mode="json")
 
 
-def build_questionnaire(context_inputs: dict[str, Any], scan_metadata: dict[str, Any]) -> dict[str, Any]:
+def build_questionnaire(
+    context_inputs: dict[str, Any],
+    scan_metadata: dict[str, Any],
+    risk_areas: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     contexts = context_inputs.get("contexts", [])
     context_reason = (
         "当前 init 已收到外部团队上下文，请确认这些文档可以作为 Harness 生成依据。"
@@ -57,6 +62,17 @@ def build_questionnaire(context_inputs: dict[str, Any], scan_metadata: dict[str,
             "reason": "Sensor 命令来自扫描推断，需要维护者确认长期稳定性。",
         },
     ]
+    for signal in high_impact_risk_areas(risk_areas or []):
+        questions.append(
+            {
+                "interaction_type": "risk_area_confirmation",
+                "interaction_id": f"confirm:high-risk:{risk_slug(signal.path)}",
+                "question": f"是否将 `{signal.path}` 作为待确认高风险边界处理？",
+                "options": ["保持待确认并进入 standard workflow / 人工升级", "人工确认后调整风险边界"],
+                "confidence": "low",
+                "reason": f"{signal.confirmation_reason} 扫描原因：{signal.reason}",
+            }
+        )
     for warning in scan_metadata.get("warnings", []):
         code = warning.get("code", "unknown")
         questions.append(

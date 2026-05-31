@@ -24,9 +24,18 @@ def test_build_questionnaire_includes_context_guides_sensors_and_warnings():
     questionnaire = build_questionnaire(
         context_inputs={"schema_version": "1.0", "contexts": []},
         scan_metadata={"warnings": [{"code": "command_without_evidence", "message": "Command downgraded"}]},
+        risk_areas=[{"path": "docs/a.json", "reason": "可能包含明文 API key"}],
     )
 
     ids = {item["interaction_id"] for item in questionnaire["questions"]}
     assert {"confirm:team-context", "confirm:guide-candidates", "confirm:sensor-gates"}.issubset(ids)
     assert "confirm:scan-warning:command_without_evidence" in ids
+    assert "confirm:high-risk:docs-a-json" in ids
+    high_risk_question = next(
+        item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:high-risk:docs-a-json"
+    )
+    assert high_risk_question["interaction_type"] == "risk_area_confirmation"
+    assert "docs/a.json" in high_risk_question["question"]
+    assert "高风险" in high_risk_question["question"]
+    assert "API key" in high_risk_question["reason"]
     Questionnaire.model_validate(questionnaire)

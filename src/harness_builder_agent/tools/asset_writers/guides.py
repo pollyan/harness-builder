@@ -9,6 +9,7 @@ from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
 from harness_builder_agent.tools.asset_writers.shared import record_artifact, write_text
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.risk_signals import classify_risk_area
 
 
 def write_guide_assets(
@@ -155,9 +156,15 @@ def _risk_area_lines(inventory: ProjectInventory) -> str:
     if isinstance(risk_areas, list):
         for item in risk_areas:
             if isinstance(item, dict):
-                path = item.get("path") or "unknown"
-                reason = item.get("reason") or "当前扫描提示需要人工确认。"
-                lines.append(f"- `{path}`：{reason}")
+                signal = classify_risk_area(item)
+                if signal.is_high_impact:
+                    lines.append(
+                        f"- 【待确认高风险】`{signal.path}`：{signal.reason}；"
+                        f"{signal.confirmation_reason} 维护者确认前不得当作已确认事实，"
+                        "命中后建议进入 standard workflow / 人工升级。"
+                    )
+                else:
+                    lines.append(f"- `{signal.path}`：{signal.reason}")
     return "\n".join(lines) or "- 当前扫描未确认具体风险区域，变更前仍需维护者确认影响面。"
 
 

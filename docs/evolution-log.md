@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 高风险发现确认链路
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：CLI Experience、Progressive Collaboration、Guides / Sensors、Workflow Routing、Maturity & Evolution。
+- init North Star 旅程阶段：扫描结果友好呈现、深度追问、人工确认资产、正式 Guide / Sensor 生成。
+- Gap Analysis 摘要：真实 `ai4se` guided `init` 发现 `docs/a.json` 可能包含明文 API key，但 CLI、questionnaire、Guide 和 Sensor 都只把它当作普通风险区域展示，缺少“疑似高影响风险、需要人工确认、命中后升级 workflow / 验证”的连续链路。
+- 用户故事：作为 Harness Maintainer，当首次 guided `init` 发现疑似密钥、凭证、安全、支付、权限或数据迁移风险时，我可以在终端、`.ai/questionnaire.yaml`、`.ai/human-input-needed.md`、`.ai/guides/project-context.md` 和 `.ai/sensors/verification.md` 中看到它被标记为待确认高风险，并理解它对人工确认、Sensor 验证和 standard workflow / 人工升级的影响。
+- 当前代码 gap：`risk_areas` 已进入 inventory 和正式资产，但 `_risk_attention_lines()`、`build_questionnaire()`、Guide writer 和 Sensor writer 都没有区分普通风险和高影响风险；`write_initial_assets()` 也没有把 risk areas 传给 questionnaire。
+- 关键决策 / 取舍：新增轻量 `risk_signals` helper 统一分类风险线索，不迁移 `risk_areas` schema，不自动清理密钥，不执行 Runtime，不把疑似风险写成已确认事实，也不自动修改正式 workflow routing policy。
+- Assumptions / risks：关键词分类可能误报，因此所有高风险表达都使用“疑似 / 待确认 / 需人工确认”；更强准确性留给后续 LLM-planned deep scan 和 detector validation。
+- Sub agent 使用情况：使用两个只读子代理并行确认 milestone 边界、代码路径和非目标；结论建议把 CLI 高风险展示、human-input 确认、Guide/Sensor 表达合并为一个完整用户故事。
+- 价值切分说明：本轮消化同一 high priority todo 中的高风险信任问题，覆盖用户从扫描发现到正式资产审查的完整确认链路；多栈建模、成熟度中文叙事和 LLM-planned deep scan 保持后续独立工作包。
+- 验收标准及验证方式：unit 覆盖高风险分类、questionnaire schema、Guide / Sensor 文案；integration 覆盖 guided CLI 在进入团队规则前输出 `高风险，需人工确认`、具体路径和 standard workflow 升级提示；write assets 测试覆盖 `human-input-needed.md` 包含高风险确认问题且 `harness-config.yaml` 不出现具体风险路径 routing rule。
+- 完成内容：新增 `risk_signals.py`；CLI 风险摘要和建议补充区标记高风险；questionnaire schema 增加 `risk_area_confirmation`；`write_initial_assets()` 传递 risk areas；Guide / Sensor 对待确认高风险使用专门表达。
+- Self-Harness Gate：下一轮候选 gap 继续优先消化 `docs/todos/`，首选同一 todo 中“多栈表达与自然语言用户补充入口”，其次是“成熟度 blocker 中文化”，再其次是“LLM-planned deep scan 架构切片”。
+
 ## 2026-05-31 Guided Init 采样覆盖不足中文化
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

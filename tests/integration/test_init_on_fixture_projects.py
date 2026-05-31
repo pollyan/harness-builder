@@ -528,7 +528,10 @@ def test_guided_init_groups_scan_risks_uncertainties_and_validation_gaps(tmp_pat
             modules=[{"name": "app", "path": ".", "kind": "backend"}],
             evidence=[{"path": "pom.xml", "reason": "build config"}],
             stack_extensions={
-                "risk_areas": [{"path": "src/main/resources/application.yml", "reason": "配置变更影响运行环境"}],
+                "risk_areas": [
+                    {"path": "src/main/resources/application.yml", "reason": "配置变更影响运行环境"},
+                    {"path": "docs/a.json", "reason": "可能包含明文 API key"},
+                ],
                 "needs_human_confirmation": True,
                 "scan_warnings": [
                     {
@@ -586,6 +589,9 @@ def test_guided_init_groups_scan_risks_uncertainties_and_validation_gaps(tmp_pat
     assert "风险区域" in result.output
     assert "src/main/resources/application.yml" in result.output
     assert "配置变更影响运行环境" in result.output
+    assert "高风险，需人工确认" in result.output
+    assert "docs/a.json" in result.output
+    assert "standard workflow" in result.output
     assert "不确定性" in result.output
     assert "需要人工确认" in result.output
     assert "LLM 扫描置信度为 low" in result.output
@@ -601,7 +607,9 @@ def test_guided_init_groups_scan_risks_uncertainties_and_validation_gaps(tmp_pat
     assert "低置信度验证命令" in result.output
     assert "建议补充" in result.output
     assert "真实可执行的 hard gate 命令" in result.output
+    assert "确认高风险线索是否确认为风险边界" in result.output
     assert result.output.index("\n风险区域") < result.output.index("\n团队规则")
+    assert result.output.index("高风险，需人工确认") < result.output.index("\n团队规则")
 
 
 def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):

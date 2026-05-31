@@ -19,7 +19,8 @@ def _inventory(repo: Path) -> ProjectInventory:
         evidence=[{"path": "pom.xml", "reason": "maven build file"}],
         stack_extensions={
             "risk_areas": [
-                {"path": "src/main/resources/application.yml", "reason": "数据库配置需要人工确认"}
+                {"path": "src/main/resources/application.yml", "reason": "数据库配置需要人工确认"},
+                {"path": "docs/a.json", "reason": "可能包含明文 API key"},
             ]
         },
     )
@@ -71,6 +72,11 @@ def test_write_sensor_assets_writes_sensor_docs_and_records_trace(tmp_path: Path
     assert "## 失败处理策略" in verification
     assert "src/main/resources/application.yml" in verification
     assert "数据库配置需要人工确认" in verification
+    assert "待确认高风险" in verification
+    assert "docs/a.json" in verification
+    assert "可能包含明文 API key" in verification
+    assert "standard workflow" in verification
+    assert "人工升级" in verification
     assert "mvn test" in verification
     assert "mvn test" in test_strategy
 

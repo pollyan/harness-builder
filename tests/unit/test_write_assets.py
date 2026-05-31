@@ -33,7 +33,10 @@ def _inventory(repo: Path) -> ProjectInventory:
                 "stacks": ["java", "maven"],
                 "modules": [{"name": "app", "path": ".", "kind": "backend"}],
                 "architecture_signals": ["Controller layer is present"],
-                "risk_areas": [{"path": "src/main/resources/application.yml", "reason": "database config risk"}],
+                "risk_areas": [
+                    {"path": "src/main/resources/application.yml", "reason": "database config risk"},
+                    {"path": "docs/a.json", "reason": "可能包含明文 API key"},
+                ],
                 "command_candidates": [
                     {
                         "id": "unit_test",
@@ -50,7 +53,10 @@ def _inventory(repo: Path) -> ProjectInventory:
                 "needs_human_confirmation": False,
                 "reasoning_summary": "Maven project.",
             },
-            "risk_areas": [{"path": "src/main/resources/application.yml", "reason": "database config risk"}],
+            "risk_areas": [
+                {"path": "src/main/resources/application.yml", "reason": "database config risk"},
+                {"path": "docs/a.json", "reason": "可能包含明文 API key"},
+            ],
         },
     )
 
@@ -115,6 +121,12 @@ def test_write_initial_assets_generates_core_guides_sensors_skills_candidates_an
 
     human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8")
     assert "团队规则" in human_input
+    assert "confirm:high-risk:docs-a-json" in human_input
+    assert "高风险" in human_input
+    assert "docs/a.json" in human_input
+
+    config = yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8"))
+    assert "docs/a.json" not in yaml.safe_dump(config, allow_unicode=True)
 
     candidates = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
     assert candidates["source"] == "llm_scan_proposal"

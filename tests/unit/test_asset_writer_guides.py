@@ -19,7 +19,8 @@ def _inventory(repo: Path) -> ProjectInventory:
         evidence=[{"path": "pom.xml", "reason": "maven build file"}],
         stack_extensions={
             "risk_areas": [
-                {"path": "src/main/resources/application.yml", "reason": "数据库配置需要人工确认"}
+                {"path": "src/main/resources/application.yml", "reason": "数据库配置需要人工确认"},
+                {"path": "docs/a.json", "reason": "可能包含明文 API key"},
             ],
             "human_overrides": {"scan_notes": ["配置变更必须说明回滚方式"]},
         },
@@ -72,6 +73,10 @@ def test_write_guide_assets_writes_guides_templates_and_records_trace(tmp_path: 
     assert "java-spring.guide." in project_context
     assert "src/main/resources/application.yml" in project_context
     assert "数据库配置需要人工确认" in project_context
+    assert "待确认高风险" in project_context
+    assert "docs/a.json" in project_context
+    assert "可能包含明文 API key" in project_context
+    assert "standard workflow" in project_context
     assert "mvn test" in project_context
     assert "配置变更必须说明回滚方式" in project_context
     assert "缺陷修复任务模板" in bugfix_template

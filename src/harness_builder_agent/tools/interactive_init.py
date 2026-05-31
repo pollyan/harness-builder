@@ -32,6 +32,7 @@ from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enh
 from harness_builder_agent.tools.maintenance_triage import build_maintenance_triage, render_maintenance_triage_lines
 from harness_builder_agent.tools.maturity_model import build_maturity_report
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
+from harness_builder_agent.tools.risk_signals import classify_risk_area, high_impact_risk_areas
 from harness_builder_agent.tools.scan_repo import ScanProgressEvent, scan_repository
 from harness_builder_agent.tools.self_improve import run_self_improve
 from harness_builder_agent.tools.weapon_library import select_weapon_library
@@ -321,9 +322,14 @@ def _risk_attention_lines(inventory: ProjectInventory) -> list[str]:
         return ["当前扫描暂未识别明确高风险区域；如存在支付、权限、数据迁移或配置目录，请在下一步补充。"]
     lines: list[str] = []
     for risk in risk_areas[:5]:
-        path = str(risk.get("path") or risk.get("name") or "未标注路径")
-        reason = str(risk.get("reason") or risk.get("summary") or "需要人工确认影响面")
-        lines.append(f"`{path}`：{reason}")
+        signal = classify_risk_area(risk)
+        if signal.is_high_impact:
+            lines.append(
+                f"【高风险，需人工确认】`{signal.path}`：{signal.reason}；"
+                f"{signal.confirmation_reason} 命中后建议进入 standard workflow / Workflow 升级或人工确认。"
+            )
+        else:
+            lines.append(f"`{signal.path}`：{signal.reason}")
     return lines
 
 
@@ -432,7 +438,10 @@ def _verification_gap_lines(commands: CommandCatalog) -> list[str]:
 
 def _human_followup_lines(inventory: ProjectInventory, commands: CommandCatalog) -> list[str]:
     lines: list[str] = []
-    if _stack_extensions_list(inventory, "risk_areas"):
+    risk_areas = _stack_extensions_list(inventory, "risk_areas")
+    if high_impact_risk_areas(risk_areas):
+        lines.append("请确认高风险线索是否确认为风险边界，命中后是否需要 standard workflow / Workflow 升级或人工确认。")
+    elif risk_areas:
         lines.append("请确认上述风险路径是否需要进入 Guides、Workflow 升级条件或人工确认项。")
     else:
         lines.append("如存在高风险目录、权限逻辑、配置变更或数据迁移，请在下一步补充。")
