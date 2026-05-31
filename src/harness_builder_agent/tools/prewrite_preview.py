@@ -61,6 +61,14 @@ def show_prewrite_maturity_preview(
     for step in next_steps:
         typer.echo(f"- {step}")
 
+    _show_maturity_storyline(
+        current_level=current_level,
+        planned=planned,
+        scan_overrides=scan_overrides or GuidedScanOverrides(),
+        inline_contexts=inline_contexts or [],
+        workflow_confirmation=workflow_confirmation,
+    )
+
     typer.echo("\n写入前 Harness 设计预览")
     _show_scan_supplement_preview_section(scan_overrides or GuidedScanOverrides())
 
@@ -142,6 +150,37 @@ def _show_scan_supplement_preview_section(scan_overrides: GuidedScanOverrides) -
         typer.echo(f"- 还有 {len(scan_overrides.risk_areas) - 5} 个风险区域会进入 risk hints。")
     typer.echo("- 影响范围：影响 project inventory、command catalog、risk hints、Guides、Sensors、Workflow 升级和人工确认。")
     typer.echo("- 事实边界：这些内容属于用户补充，不会被伪装成已验证扫描事实。")
+
+
+def _show_maturity_storyline(
+    *,
+    current_level: str,
+    planned: MaturityReport,
+    scan_overrides: GuidedScanOverrides,
+    inline_contexts: list[str],
+    workflow_confirmation: WorkflowConfirmation | None,
+) -> None:
+    target_level = planned.target_next_level or planned.overall_level
+    typer.echo("\n成熟度叙事主线")
+    typer.echo(f"- 当前等级：{current_level}；写入后基线：{planned.overall_level}；下一目标：{target_level}。")
+    typer.echo("- 预览依据：使用当前扫描调和结果、验证命令、风险线索和内置 Harness 武器库选择。")
+
+    impact_lines: list[str] = []
+    if has_scan_overrides(scan_overrides):
+        impact_lines.append("扫描补充已更新本轮 inventory / command catalog / risk hints，再进入成熟度预览和 Harness 推荐。")
+    if inline_contexts:
+        impact_lines.append("团队规则会进入 Guides 与 human-input-needed，用于解释团队约束，但不会伪装成扫描事实。")
+    workflow_notes = workflow_confirmation.notes if workflow_confirmation else []
+    if workflow_notes:
+        impact_lines.append("Workflow 补充会进入 review-only 交互决策，作为后续 routing policy 审查线索。")
+
+    if impact_lines:
+        for line in impact_lines:
+            typer.echo(f"- 用户补充影响：{line}")
+    else:
+        typer.echo("- 用户补充影响：当前没有用户补充改变本轮预览；先按扫描证据和内置 Harness 基线生成。")
+
+    typer.echo("- 未完成边界：确认写入只建立可审计 Harness 基线，仍需后续 benchmark 和 Runtime task-run 证据验证。")
 
 
 def has_scan_overrides(scan_overrides: GuidedScanOverrides) -> bool:

@@ -6,6 +6,7 @@ import yaml
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.harness_config import HarnessConfig
+from harness_builder_agent.schemas.interaction_decision import WorkflowConfirmation
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry
 from harness_builder_agent.tools.prewrite_preview import (
@@ -48,10 +49,21 @@ def test_prewrite_preview_renderer_shows_scan_supplement_constraints(tmp_path: P
             ],
             risk_areas=[{"path": "frontend/package.json", "reason": "前端依赖需要单独确认"}],
         ),
+        inline_contexts=["Controller 只能调用 Service"],
+        workflow_confirmation=WorkflowConfirmation(notes=["bugfix 只用于缺陷修复"]),
     )
 
     output = capsys.readouterr().out
 
+    assert "成熟度叙事主线" in output
+    assert "当前等级：L0" in output
+    assert "写入后基线：" in output
+    assert "下一目标：" in output
+    assert "扫描补充已更新本轮 inventory / command catalog / risk hints" in output
+    assert "团队规则会进入 Guides 与 human-input-needed" in output
+    assert "Workflow 补充会进入 review-only 交互决策" in output
+    assert "仍需后续 benchmark 和 Runtime task-run 证据验证" in output
+    assert output.index("推荐补齐动作") < output.index("成熟度叙事主线") < output.index("写入前 Harness 设计预览")
     assert "写入前 Harness 设计预览" in output
     assert "扫描补充约束" in output
     assert "技术栈修正：`node`" in output
@@ -77,6 +89,8 @@ def test_prewrite_preview_renderer_shows_scan_baseline_when_no_supplement(tmp_pa
 
     assert "扫描补充约束" in output
     assert "暂无扫描补充；当前按扫描基线、团队规则和内置 Harness 基线生成" in output
+    assert "成熟度叙事主线" in output
+    assert "当前没有用户补充改变本轮预览" in output
     assert "自然语言补充" not in output
 
 

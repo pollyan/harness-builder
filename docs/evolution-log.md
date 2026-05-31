@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Prewrite Maturity Storyline
+
+- North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
+- init North Star 旅程阶段：首次初始化、写入前 Harness 设计预览、最终确认。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo。本轮重新读取事实源后，候选包括写入前成熟度叙事主线、existing-Harness 维护入口继续拆模块、push / full regression 外部前置。当前 prewrite preview 已展示当前等级、写入后预计基线、阻断项、推荐动作和设计预览，但信息分散；用户补充如何影响 maturity preview 与后续 Harness 推荐没有一个确认写入前的 summary。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的最终确认前查看写入前预览时，我可以先看到一段 L0-L4 成熟度叙事，明确当前从哪里起步、确认写入后建立什么基线、用户补充如何影响成熟度与 Harness 推荐、哪些质量或 Runtime 证据仍需后续动作验证，从而更有信心决定确认、返回修改或取消。
+- 当前代码 gap：`show_prewrite_maturity_preview()` 在推荐补齐动作后直接进入设计预览，缺少稳定的 `成熟度叙事主线` section；有无用户补充时都没有用一组 bullets 汇总扫描补充、团队规则、Workflow note 对本轮预览和 review-only 链路的影响。
+- 关键决策 / 取舍：只增强 CLI preview 文案，不修改 `.ai` schema、maturity algorithm、正式资产生成、benchmark 或 Runtime 分工；团队规则和 Workflow note 继续保持事实边界，不伪装成扫描事实或正式 routing policy。
+- Assumptions / risks：紧凑 storyline 能降低最终确认前的认知成本；CLI 输出变长是主要风险，因此限制为当前等级 / 基线 / 依据 / 用户补充影响 / 未完成边界几条 bullets。
+- 边界情况 / 失败模式：无用户补充时明确按扫描证据和内置 Harness 基线预览；有 scan / team rules / workflow note 时分别说明进入 inventory / command catalog / risk hints、Guides / human-input-needed、review-only 交互决策；后续 benchmark 和 Runtime task-run 仍需显式执行。
+- Sub agent 使用情况：尝试启动 explorer 做只读审查，但当前会话返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只补“成熟度结论 -> 用户补充影响 -> 写入边界”的最终确认前叙事，不把已有 Harness 维护入口拆分、benchmark 或真实 acceptance 混入。
+- 可执行验收标准及验证方式：unit 覆盖有补充和无补充的 `成熟度叙事主线`；目标 guided init integration 和完整 guided init integration 验证 transcript 顺序不漂移；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：`prewrite_preview.py` 新增 `_show_maturity_storyline()`，在推荐补齐动作后输出 L0-L4 storyline；`tests/unit/test_interactive_init_preview.py` 增加直接断言；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：新增 targeted unit 2 passed；`tests/unit/test_interactive_init_preview.py` 11 passed；目标 guided init integration 3 passed；完整 guided init integration 42 passed；`git diff --check` 和 `scripts/test-fast.sh` 见提交前验证。
+- Self-Harness Gate：本轮不需要更新 README / engineering 长期规则，因为 README 已描述写入前成熟度初评和设计预览，行为仍在既有边界内；不新增 todo。下一轮候选 gap：existing-Harness 维护入口继续拆模块、首次 init completion summary 的用户输入影响表达审计，或 push 前 full regression / 远端同步外部前置。
+
 ## 2026-06-01 Prewrite Preview Renderer Extraction
 
 - North Star 模块：CLI Experience、Maturity-driven Init、工程架构可维护性。
