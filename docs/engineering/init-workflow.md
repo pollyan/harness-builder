@@ -113,9 +113,9 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 其中 `.ai/context-inputs.yaml` 和 `.ai/questionnaire.yaml` 是人机确认流程的机器消费契约，必须分别通过 `ContextInputs` 和 `Questionnaire` schema 校验；`questionnaire` 必须保留稳定的 interaction id，供 benchmark 和后续人工确认流程引用。
 
-其中 `.ai/maturity-evidence.yaml` 是成熟度评估和后续 LLM maturity reviewer 的确定性输入摘要，必须汇总 inventory、command catalog、Harness assets、generation trace、experience、benchmark 和可选 Runtime task-run 可用性。Harness assets evidence 必须包含 workflow routing rule 明细，包括 rule id、selected workflow、task type hints、triggers、required guides、required sensors、human confirmation 和 rationale，便于 LLM review / asset candidate generation 基于路由策略做语义判断。Experience evidence 应优先消费 `.ai/experience/experience-index.yaml`，以暴露 pending improvement、asset candidate、maturity review、workflow recommendation review 和 Runtime task-run 统计，并保留对应 source path / kind / item_count 明细；如果显式运行 `summarize-experience` 后存在 `.ai/experience/experience-summary.yaml`，还必须记录 Experience Summary 可用性和 finding 数量；对旧版本生成且尚无 index 的 Harness，可保留只读取 `.ai/experience/pending-improvements.md` 的兼容路径。
+其中 `.ai/maturity-evidence.yaml` 是成熟度评估和后续 LLM maturity reviewer 的确定性输入摘要，必须汇总 inventory、command catalog、Harness assets、generation trace、experience、benchmark 和可选 Runtime task-run 可用性。Harness assets evidence 必须包含 workflow routing rule 明细，包括 rule id、selected workflow、task type hints、triggers、required guides、required sensors、human confirmation 和 rationale，便于 LLM review / asset candidate generation 基于路由策略做语义判断。Experience evidence 应优先消费 `.ai/experience/experience-index.yaml`，以暴露 pending improvement、asset candidate、candidate governance、maturity review、workflow recommendation review 和 Runtime task-run 统计，并保留对应 source path / kind / item_count 明细；如果显式运行 `summarize-experience` 后存在 `.ai/experience/experience-summary.yaml`，还必须记录 Experience Summary 可用性和 finding 数量；对旧版本生成且尚无 index 的 Harness，可保留只读取 `.ai/experience/pending-improvements.md` 的兼容路径。
 
-其中 `.ai/experience/experience-index.yaml` 是 Experience 资产的机器消费索引，必须记录已存在的 Experience Markdown、pending improvement 数量、asset candidate 数量、maturity review 数量、可选 `.ai/review/workflow-routing-recommendation.yaml` 数量和可选 Runtime task-run 数量。它由 Builder 在初始化、`improve`、候选资产生成和 Experience Summary 后刷新；Builder 只统计 `.ai/task-runs` 的宿主 Runtime 过程数据，不主动生成该目录。
+其中 `.ai/experience/experience-index.yaml` 是 Experience 资产的机器消费索引，必须记录已存在的 Experience Markdown、pending improvement 数量、asset candidate 数量、candidate governance 决策数量、maturity review 数量、可选 `.ai/review/workflow-routing-recommendation.yaml` 数量和可选 Runtime task-run 数量。它由 Builder 在初始化、`improve`、候选资产生成、候选治理和 Experience Summary 后刷新；Builder 只统计 `.ai/task-runs` 的宿主 Runtime 过程数据，不主动生成该目录。
 
 成熟度评分中的 Experience 维度应优先消费 `.ai/experience/experience-index.yaml` 的结构化计数，包括 workflow recommendation review 计数；旧版本 Harness 缺少 index 时才使用 pending improvement 文件存在性作为兼容判断。
 
@@ -167,6 +167,13 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 其中 `.ai/experience/weapon-library-candidates.yaml` 是机器消费候选报告，必须通过 `WeaponLibraryCandidateReport` schema 校验；候选在人工确认前保持 candidate/review-only 状态，不能被视为已写入正式 Guides 或 Sensors。
 
+显式运行 `review-candidate` 后生成的候选治理产物：
+
+- `.ai/review/candidate-governance.yaml`
+- `.ai/review/candidate-governance.md`
+
+该产物记录 Harness Maintainer 对 `.ai/review/asset-candidates.yaml` 中候选的 `accepted`、`deferred`、`rejected` 或 `applied` 决策。`applied` 当前只允许 Guide / Sensor Markdown 候选追加到正式 `.ai/**/*.md` 资产；workflow policy 候选不得自动 patch `.ai/harness-config.yaml`。
+
 必须生成的可追溯产物：
 
 - `.ai/runs/<run_id>/trace.yaml`
@@ -206,7 +213,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 `maturity-score.yaml` 是成熟度与演进路线图的机器契约。它必须保留 `overall_level`、`dimension_scores`、`evidence`、`blocking_reasons` 和 `recommended_next_steps` 等摘要字段，同时包含结构化的 `dimensions`、`blocking_caps` 和 `next_steps`，用于记录每个成熟度维度的证据、阻断原因、下一等级要求和后续改进入口。
 
-`experience-index.yaml` 是 Experience Integration 的机器契约。它必须通过 Pydantic schema 校验，且 benchmark 必须检查 `schema:experience-index`。Experience Markdown 是可编辑语义资产，初始化时只能补齐缺失文件，不能覆盖客户已编辑内容。
+`experience-index.yaml` 是 Experience Integration 的机器契约。它必须通过 Pydantic schema 校验，且 benchmark 必须检查 `schema:experience-index`。Experience Markdown 是可编辑语义资产，初始化时只能补齐缺失文件，不能覆盖客户已编辑内容。候选治理决策必须以 `candidate_governance` source 进入 Experience index，而不是改写原始 LLM candidate report。
 
 `harness-config.yaml` 必须包含 `workflows` 和 `workflow_routing`。`workflow_routing` 是宿主 AI Coding Runtime 的任务路由策略契约，至少要覆盖 bugfix intent、low-risk lightweight 和 standard escalation，并明确高风险、跨模块、安全/权限、数据迁移、低置信度和 Sensor 覆盖不足等升级触发条件。`init` 只生成该策略，不基于用户任务文本执行路由，也不生成 `.ai/task-runs`。
 
@@ -236,7 +243,7 @@ Skill 产物要求：
 - `--context` 和交互输入能进入 generated guides。
 - `.ai/interaction-decisions.yaml` 能通过 schema 校验并进入 trace artifact。
 - `.ai/maturity-evidence.yaml` 能通过 schema 校验，包含成熟度输入来源、workflow routing rule 明细，并进入 trace artifact。
-- `.ai/experience/experience-index.yaml` 能通过 schema 校验，包含 Experience Markdown 存在性、pending improvement、asset candidate、maturity review、workflow recommendation review 和 Runtime task-run 统计。
+- `.ai/experience/experience-index.yaml` 能通过 schema 校验，包含 Experience Markdown 存在性、pending improvement、asset candidate、candidate governance、maturity review、workflow recommendation review 和 Runtime task-run 统计。
 - Experience Markdown 初始化只创建缺失文件，不能覆盖已有客户编辑。
 - 生成 JSON/YAML 能通过 schema 校验。
 - guide/sensor 包含 stack-specific 内容。

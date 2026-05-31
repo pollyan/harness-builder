@@ -37,3 +37,33 @@ def test_build_experience_index_counts_workflow_recommendation_review(tmp_path: 
     source = next(item for item in index.sources if item.kind == "workflow_recommendation")
     assert source.path == ".ai/review/workflow-routing-recommendation.yaml"
     assert source.item_count == 1
+
+
+def test_build_experience_index_counts_candidate_governance_decisions(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    _write_yaml(
+        ai / "review" / "candidate-governance.yaml",
+        {
+            "schema_version": "1.0",
+            "decisions": [
+                {
+                    "candidate_id": "guide-project-context-scope",
+                    "candidate_kind": "guide",
+                    "source_report": ".ai/review/asset-candidates.yaml",
+                    "suggested_path": ".ai/guides/project-context.md",
+                    "decision": "applied",
+                    "rationale": "Maintainer accepted the candidate.",
+                    "reviewer": "harness-maintainer",
+                    "decided_at": "2026-05-31T00:00:00Z",
+                    "applied_paths": [".ai/guides/project-context.md"],
+                }
+            ],
+        },
+    )
+
+    index = build_experience_index(ai)
+
+    assert index.candidate_governance_decision_count == 1
+    source = next(item for item in index.sources if item.kind == "candidate_governance")
+    assert source.path == ".ai/review/candidate-governance.yaml"
+    assert source.item_count == 1

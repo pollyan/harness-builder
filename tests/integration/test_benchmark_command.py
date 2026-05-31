@@ -11,6 +11,7 @@ from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.benchmark import (
     _content_checks,
+    _candidate_governance_check,
     _human_confirmation_checks,
     _llm_enhancement_checks,
     _quality_scores,
@@ -153,6 +154,49 @@ def _write_valid_asset_candidates(ai: Path) -> None:
             "### Acceptance Checks\n\n- Benchmark content:workflow-routing-policy passes.\n",
             encoding="utf-8",
         )
+
+
+def _write_valid_candidate_governance(ai: Path) -> None:
+    review = ai / "review"
+    review.mkdir(parents=True, exist_ok=True)
+    asset_report = yaml.safe_load((review / "asset-candidates.yaml").read_text(encoding="utf-8"))
+    source_candidate_id = asset_report["candidates"][0]["source_candidate_id"]
+    (review / "candidate-governance.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "decisions": [
+                    {
+                        "candidate_id": "workflow-routing-policy-review",
+                        "candidate_kind": "workflow_policy",
+                        "source_report": ".ai/review/asset-candidates.yaml",
+                        "source_candidate_id": source_candidate_id,
+                        "suggested_path": ".ai/harness-config.yaml",
+                        "decision": "accepted",
+                        "rationale": "Maintainer accepted the direction but did not apply YAML automatically.",
+                        "reviewer": "harness-maintainer",
+                        "decided_at": "2026-05-31T00:00:00Z",
+                        "applied_paths": [],
+                        "acceptance_checks": ["Benchmark content:workflow-routing-policy passes."],
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (review / "candidate-governance.md").write_text(
+        "# Candidate Governance\n\n"
+        "## Decisions\n\n"
+        "### workflow-routing-policy-review\n\n"
+        "- decision: `accepted`\n"
+        "- suggested path: `.ai/harness-config.yaml`\n\n"
+        "## Review Boundary\n\n"
+        "- LLM asset candidates remain review-only unless an explicit governance decision applies them.\n",
+        encoding="utf-8",
+    )
 
 
 def _write_valid_maturity_review(ai: Path) -> None:
@@ -316,6 +360,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-recommendation-review" in check_ids
     assert "content:maturity-review-artifact" in check_ids
     assert "content:asset-candidate-review" in check_ids
+    assert "content:candidate-governance" in check_ids
     assert "content:self-improve-package" in check_ids
     assert "content:experience-summary-artifact" in check_ids
     assert "content:guides-quality" in check_ids
@@ -547,6 +592,18 @@ def test_benchmark_records_absent_asset_candidates_as_optional(tmp_path: Path, m
     assert asset_candidates["present"] is False
 
 
+def test_benchmark_records_absent_candidate_governance_as_optional(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    governance = next(check for check in checks if check["id"] == "content:candidate-governance")
+    assert governance["passed"] is True
+    assert governance["present"] is False
+
+
 def test_benchmark_records_absent_maturity_review_as_optional(tmp_path: Path, monkeypatch):
     repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
     ai = repo / ".ai"
@@ -661,6 +718,68 @@ def test_benchmark_accepts_valid_asset_candidate_review_artifacts(tmp_path: Path
     assert asset_candidates["passed"] is True
     assert asset_candidates["present"] is True
     assert asset_candidates["candidate_count"] == 1
+
+
+def test_benchmark_accepts_valid_candidate_governance_artifacts(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    _write_valid_candidate_governance(ai)
+
+    check = _candidate_governance_check(ai)
+
+    assert check["passed"] is True
+    assert check["present"] is True
+    assert check["decision_count"] == 1
+
+
+def test_benchmark_fails_candidate_governance_with_unknown_candidate(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    _write_valid_candidate_governance(ai)
+    path = ai / "review" / "candidate-governance.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["decisions"][0]["candidate_id"] = "missing-candidate"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    check = _candidate_governance_check(ai)
+
+    assert check["passed"] is False
+    assert "unknown_candidate_id" in check["errors"]
+
+
+def test_benchmark_fails_candidate_governance_with_mismatched_suggested_path(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    _write_valid_candidate_governance(ai)
+    path = ai / "review" / "candidate-governance.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["decisions"][0]["suggested_path"] = ".ai/guides/project-context.md"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    check = _candidate_governance_check(ai)
+
+    assert check["passed"] is False
+    assert "suggested_path_mismatch" in check["errors"]
+
+
+def test_benchmark_fails_candidate_governance_with_outside_ai_applied_path(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    _write_valid_candidate_governance(ai)
+    path = ai / "review" / "candidate-governance.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["decisions"][0]["decision"] = "applied"
+    payload["decisions"][0]["applied_paths"] = ["README.md"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    check = _candidate_governance_check(ai)
+
+    assert check["passed"] is False
+    assert "applied_path_outside_ai" in check["errors"]
 
 
 def test_benchmark_fails_asset_candidate_with_unknown_source_candidate(tmp_path: Path, monkeypatch):

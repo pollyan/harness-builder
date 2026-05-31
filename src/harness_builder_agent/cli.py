@@ -7,6 +7,7 @@ import typer
 
 from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.candidate_governance import review_candidate
 from harness_builder_agent.tools.generate_asset_candidates import generate_asset_candidates
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
@@ -163,6 +164,36 @@ def generate_asset_candidates_command(repo: Path = typer.Option(..., "--repo", e
         trace.finish("failed", {"error_type": type(exc).__name__})
         raise
     typer.echo(f"Generated asset candidates in {output_dir / 'review'}")
+
+
+@app.command("review-candidate")
+def review_candidate_command(
+    repo: Path = typer.Option(..., "--repo", exists=True, file_okay=False, dir_okay=True),
+    candidate_id: str = typer.Option(..., "--candidate-id", help="Asset candidate id from .ai/review/asset-candidates.yaml."),
+    decision: str = typer.Option(..., "--decision", help="accepted, deferred, rejected, or applied."),
+    rationale: str = typer.Option(..., "--rationale", help="Maintainer rationale for the governance decision."),
+    reviewer: str = typer.Option("harness-maintainer", "--reviewer", help="Reviewer identity recorded in governance artifacts."),
+) -> None:
+    """Record a governance decision for a review-only asset candidate."""
+    trace = GenerationTrace.start(repo, "review-candidate")
+    try:
+        trace.event("candidate-governance", "started", "Candidate governance decision started.", {"candidate_id": candidate_id})
+        output_dir = review_candidate(repo, candidate_id, decision, rationale, reviewer)
+        trace.artifact(output_dir / "review" / "candidate-governance.yaml", "candidate_governance")
+        trace.artifact(output_dir / "review" / "candidate-governance.md", "review")
+        trace.artifact(output_dir / "experience" / "experience-index.yaml", "experience_index")
+        trace.event(
+            "candidate-governance",
+            "completed",
+            "Candidate governance decision completed.",
+            {"candidate_id": candidate_id, "decision": decision},
+        )
+        trace.finish("completed", {"candidate_id": candidate_id, "decision": decision})
+    except Exception as exc:
+        trace.event("candidate-governance", "failed", str(exc), {"error_type": type(exc).__name__})
+        trace.finish("failed", {"error_type": type(exc).__name__})
+        raise
+    typer.echo(f"Recorded candidate governance decision in {output_dir / 'review'}")
 
 
 @app.command("recommend-workflow")

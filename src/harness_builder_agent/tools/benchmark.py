@@ -8,6 +8,7 @@ import yaml
 
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
+from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
@@ -297,6 +298,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _workflow_recommendation_review_check(ai),
         _maturity_review_artifact_check(ai),
         _asset_candidate_review_check(ai),
+        _candidate_governance_check(ai),
         _self_improve_package_check(ai),
         _experience_summary_artifact_check(ai),
         _guide_quality_check(ai),
@@ -562,6 +564,62 @@ def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
         "passed": not errors,
         "present": True,
         "candidate_count": len(report.candidates),
+        "errors": sorted(set(errors)),
+    }
+
+
+def _candidate_governance_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "review" / "candidate-governance.yaml"
+    markdown_path = ai / "review" / "candidate-governance.md"
+    if not yaml_path.exists() and not markdown_path.exists():
+        return {"id": "content:candidate-governance", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or not markdown_path.exists():
+        errors.append("incomplete_candidate_governance_pair")
+
+    try:
+        log = CandidateGovernanceLog.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+        candidates = AssetCandidateReport.model_validate(yaml.safe_load((ai / "review" / "asset-candidates.yaml").read_text(encoding="utf-8")))
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:candidate-governance", "passed": False, "present": True, "errors": [str(exc)]}
+
+    candidates_by_id = {candidate.id: candidate for candidate in candidates.candidates}
+    for decision in log.decisions:
+        source = candidates_by_id.get(decision.candidate_id)
+        if source is None:
+            errors.append("unknown_candidate_id")
+        elif source.kind != decision.candidate_kind:
+            errors.append("candidate_kind_mismatch")
+        elif source.suggested_path != decision.suggested_path:
+            errors.append("suggested_path_mismatch")
+        elif source.source_candidate_id != decision.source_candidate_id:
+            errors.append("source_candidate_id_mismatch")
+        if decision.source_report != ".ai/review/asset-candidates.yaml":
+            errors.append("unexpected_source_report")
+        if not decision.suggested_path.startswith(".ai/"):
+            errors.append("suggested_path_outside_ai")
+        if any(not source_path.startswith(".ai/") for source_path in decision.evidence_sources):
+            errors.append("evidence_source_outside_ai")
+        for applied_path in decision.applied_paths:
+            if not applied_path.startswith(".ai/"):
+                errors.append("applied_path_outside_ai")
+                continue
+            if decision.decision == "applied" and not (ai.parent / applied_path).exists():
+                errors.append("applied_path_missing")
+        if decision.decision == "applied" and not decision.applied_paths:
+            errors.append("applied_decision_without_applied_path")
+
+    markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+    required_sections = ["# Candidate Governance", "## Decisions", "## Review Boundary"]
+    if any(section not in markdown for section in required_sections):
+        errors.append("missing_markdown_sections")
+
+    return {
+        "id": "content:candidate-governance",
+        "passed": not errors,
+        "present": True,
+        "decision_count": len(log.decisions),
         "errors": sorted(set(errors)),
     }
 

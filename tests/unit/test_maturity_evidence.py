@@ -52,11 +52,13 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
                 {"path": ".ai/experience/pending-improvements.md", "kind": "pending_improvements", "item_count": 2},
                 {"path": ".ai/review/maturity-review.yaml", "kind": "maturity_review", "item_count": 1},
                 {"path": ".ai/review/asset-candidates.yaml", "kind": "asset_candidates", "item_count": 3},
+                {"path": ".ai/review/candidate-governance.yaml", "kind": "candidate_governance", "item_count": 2},
                 {"path": ".ai/review/workflow-routing-recommendation.yaml", "kind": "workflow_recommendation", "item_count": 1},
             ],
             "pending_improvement_count": 2,
             "asset_candidate_count": 3,
             "maturity_review_count": 1,
+            "candidate_governance_decision_count": 2,
             "workflow_recommendation_count": 1,
             "runtime_task_run_count": 4,
             "warnings": [],
@@ -88,6 +90,7 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
     assert pack.experience.pending_improvement_count == 2
     assert pack.experience.asset_candidate_count == 3
     assert pack.experience.maturity_review_count == 1
+    assert pack.experience.candidate_governance_decision_count == 2
     assert pack.experience.workflow_recommendation_count == 1
     assert pack.experience.runtime_task_run_count == 4
     assert pack.experience.experience_file_count == 5
@@ -95,6 +98,7 @@ def test_collect_maturity_evidence_uses_experience_index(tmp_path: Path):
         ".ai/experience/pending-improvements.md",
         ".ai/review/maturity-review.yaml",
         ".ai/review/asset-candidates.yaml",
+        ".ai/review/candidate-governance.yaml",
         ".ai/review/workflow-routing-recommendation.yaml",
     ]
     assert pack.experience.sources[1].kind == "maturity_review"

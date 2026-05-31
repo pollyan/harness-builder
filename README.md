@@ -40,6 +40,7 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
 .venv/bin/harness-builder-agent assess --repo tests/fixtures/mini-spring-boot
 .venv/bin/harness-builder-agent improve --repo tests/fixtures/mini-spring-boot
 .venv/bin/harness-builder-agent self-improve --repo tests/fixtures/mini-spring-boot
+.venv/bin/harness-builder-agent review-candidate --repo tests/fixtures/mini-spring-boot --candidate-id guide-project-context-scope --decision accepted --rationale "Reviewed by Harness Maintainer."
 .venv/bin/harness-builder-agent benchmark --repo tests/fixtures/mini-spring-boot --profile java-spring
 ```
 
@@ -86,7 +87,11 @@ Harness Builder 不提供任务级 `run` 命令。真实 AI Coding 工具执行 
   experience-candidates.md
 ```
 
-`assess` 更新成熟度评估，`improve` 生成待确认改进候选，`self-improve` 串联成熟度评估、改进候选、LLM maturity review 和 review-only asset candidates，生成 `.ai/review/self-improve-package.*`。`self-improve` 不应用正式 Harness 变更，不执行 Runtime workflow，也不创建 `.ai/task-runs`。`benchmark` 会检查 Harness 资产文件存在、schema、内容质量、Workflow Skill 引用、review-only 智能改进产物和 hard gate command 证据。
+`assess` 更新成熟度评估，`improve` 生成待确认改进候选，`self-improve` 串联成熟度评估、改进候选、LLM maturity review 和 review-only asset candidates，生成 `.ai/review/self-improve-package.*`。`self-improve` 不应用正式 Harness 变更，不执行 Runtime workflow，也不创建 `.ai/task-runs`。
+
+`review-candidate` 是 Harness Maintainer 的显式候选治理动作。它读取 `.ai/review/asset-candidates.yaml`，把某个候选记录为 `accepted`、`deferred`、`rejected` 或 `applied`，并写入 `.ai/review/candidate-governance.*`。`applied` 当前只支持 Guide / Sensor Markdown 候选追加到正式 `.ai/**/*.md` 资产；workflow policy 候选只能先记录治理决策，不能自动 patch `.ai/harness-config.yaml`。
+
+`benchmark` 会检查 Harness 资产文件存在、schema、内容质量、Workflow Skill 引用、review-only 智能改进产物、candidate governance 产物和 hard gate command 证据。
 
 `benchmark-report.yaml` 中：
 

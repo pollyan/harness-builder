@@ -55,6 +55,7 @@ class ExperienceEvidence(BaseModel):
     sources: list[ExperienceSource] = Field(default_factory=list)
     asset_candidate_count: int = 0
     maturity_review_count: int = 0
+    candidate_governance_decision_count: int = 0
     workflow_recommendation_count: int = 0
     runtime_task_run_count: int = 0
     experience_file_count: int = 0

@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
+from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
@@ -181,6 +182,54 @@ def test_benchmark_report_accepts_quality_scores():
     assert payload["quality_status"] == "degraded"
     assert payload["quality_scores"]["guide_quality"]["evidence_reference"]["score"] == 3
     assert payload["quality_summary"]["degraded_items"] == ["guide_quality.evidence_reference"]
+
+
+def test_candidate_governance_log_records_review_decisions():
+    log = CandidateGovernanceLog.model_validate(
+        {
+            "schema_version": "1.0",
+            "decisions": [
+                {
+                    "candidate_id": "guide-project-context-scope",
+                    "candidate_kind": "guide",
+                    "source_report": ".ai/review/asset-candidates.yaml",
+                    "source_candidate_id": "maturity-next-step-guides",
+                    "suggested_path": ".ai/guides/project-context.md",
+                    "decision": "applied",
+                    "rationale": "Maintainer accepted the guide scope addition.",
+                    "reviewer": "harness-maintainer",
+                    "decided_at": "2026-05-31T00:00:00Z",
+                    "applied_paths": [".ai/guides/project-context.md"],
+                    "acceptance_checks": ["Run benchmark."],
+                    "evidence_sources": [".ai/maturity-evidence.yaml"],
+                }
+            ],
+        }
+    )
+
+    assert log.decisions[0].decision == "applied"
+    assert log.decisions[0].applied_paths == [".ai/guides/project-context.md"]
+
+
+def test_candidate_governance_log_rejects_unknown_decision():
+    with pytest.raises(ValidationError):
+        CandidateGovernanceLog.model_validate(
+            {
+                "schema_version": "1.0",
+                "decisions": [
+                    {
+                        "candidate_id": "guide-project-context-scope",
+                        "candidate_kind": "guide",
+                        "source_report": ".ai/review/asset-candidates.yaml",
+                        "suggested_path": ".ai/guides/project-context.md",
+                        "decision": "auto_merged",
+                        "rationale": "Invalid state.",
+                        "reviewer": "harness-maintainer",
+                        "decided_at": "2026-05-31T00:00:00Z",
+                    }
+                ],
+            }
+        )
 
 
 def test_command_catalog_requires_source_and_gate_metadata():

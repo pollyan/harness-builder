@@ -18,6 +18,7 @@
 
 | Todo | 状态 | 优先级 | 说明 |
 | --- | --- | --- | --- |
+| [Workflow Policy Candidate Apply](workflow-policy-candidate-apply.md) | open | high | 为 `workflow_policy` asset candidate 设计结构化 patch schema，允许经 candidate governance 显式应用到 `.ai/harness-config.yaml` |
 
 ## 管理规则
 

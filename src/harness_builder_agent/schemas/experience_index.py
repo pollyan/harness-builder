@@ -12,6 +12,7 @@ class ExperienceSource(BaseModel):
         "maturity_review",
         "asset_candidates",
         "workflow_recommendation",
+        "candidate_governance",
         "runtime_task_runs",
         "manual_experience",
     ]
@@ -25,6 +26,7 @@ class ExperienceIndex(BaseModel):
     pending_improvement_count: int = 0
     asset_candidate_count: int = 0
     maturity_review_count: int = 0
+    candidate_governance_decision_count: int = 0
     workflow_recommendation_count: int = 0
     runtime_task_run_count: int = 0
     warnings: list[str] = Field(default_factory=list)

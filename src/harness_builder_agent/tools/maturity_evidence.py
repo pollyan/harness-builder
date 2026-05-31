@@ -172,6 +172,7 @@ def _experience(ai: Path) -> ExperienceEvidence:
             sources=index.sources,
             asset_candidate_count=index.asset_candidate_count,
             maturity_review_count=index.maturity_review_count,
+            candidate_governance_decision_count=index.candidate_governance_decision_count,
             workflow_recommendation_count=index.workflow_recommendation_count,
             runtime_task_run_count=index.runtime_task_run_count,
             experience_file_count=experience_file_count,

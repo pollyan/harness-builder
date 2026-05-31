@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from harness_builder_agent.cli import app
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
+from harness_builder_agent.schemas.candidate_governance import CandidateGovernanceLog
 from harness_builder_agent.schemas.experience_summary import ExperienceSummaryReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
@@ -342,6 +343,72 @@ def test_generate_asset_candidates_writes_review_only_drafts(tmp_path: Path, mon
     assert (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8") == formal_guide_before
     trace = _latest_trace(repo)
     assert trace["command"] == "generate-asset-candidates"
+
+
+def test_review_candidate_applies_reviewed_guide_candidate_with_trace(tmp_path: Path, monkeypatch):
+    repo = _prepared_harness_repo(tmp_path, "mini-spring-boot", "java-spring", monkeypatch)
+    review_dir = repo / ".ai" / "review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    (review_dir / "asset-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_maturity_review",
+                "candidates": [
+                    {
+                        "id": "guide-project-context-scope",
+                        "kind": "guide",
+                        "source_candidate_id": None,
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/guides/project-context.md",
+                        "title": "Scope project context guide",
+                        "rationale": "Candidate is grounded in maturity evidence.",
+                        "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                        "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                        "risk_level": "medium",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "review-candidate",
+            "--repo",
+            str(repo),
+            "--candidate-id",
+            "guide-project-context-scope",
+            "--decision",
+            "applied",
+            "--rationale",
+            "Maintainer accepted the candidate after review.",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    candidate_report = yaml.safe_load((review_dir / "asset-candidates.yaml").read_text(encoding="utf-8"))
+    guide_text = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    governance = CandidateGovernanceLog.model_validate(
+        yaml.safe_load((review_dir / "candidate-governance.yaml").read_text(encoding="utf-8"))
+    )
+    experience_index = yaml.safe_load((repo / ".ai" / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
+    assert candidate_report["candidates"][0]["review_status"] == "pending_harness_maintainer_review"
+    assert "## Applied Candidate: Scope project context guide" in guide_text
+    assert governance.decisions[0].decision == "applied"
+    assert governance.decisions[0].applied_paths == [".ai/guides/project-context.md"]
+    assert experience_index["candidate_governance_decision_count"] == 1
+    trace = _latest_trace(repo)
+    assert trace["command"] == "review-candidate"
+    artifacts = yaml.safe_load((repo / ".ai" / "runs" / trace["run_id"] / "artifacts.yaml").read_text(encoding="utf-8"))
+    assert {"path": ".ai/review/candidate-governance.yaml", "kind": "candidate_governance"} in artifacts["artifacts"]
+    assert {"path": ".ai/experience/experience-index.yaml", "kind": "experience_index"} in artifacts["artifacts"]
 
 
 def test_self_improve_writes_review_only_package(tmp_path: Path, monkeypatch):

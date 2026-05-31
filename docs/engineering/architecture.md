@@ -10,6 +10,7 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - `assess`：生成或更新成熟度评估。
 - `improve`：生成待确认的改进候选。
 - `self-improve`：串联 maturity assessment、deterministic improvement candidates、LLM maturity review 和 review-only asset candidates，生成自改进审查包；不应用正式 Harness 变更，不执行 Runtime。
+- `review-candidate`：记录 Harness Maintainer 对 review-only asset candidate 的显式治理决策；仅在 `applied` 且候选是 Guide / Sensor Markdown 时追加正式 `.ai/**/*.md` 资产。
 - `benchmark`：对完整链路产物做结构、内容和质量门禁检查。
 - `recommend-workflow`：基于任务 brief、`workflow_routing` 和成熟度证据生成 review-only workflow 推荐，并刷新 Experience / Maturity 派生证据；不执行 Runtime。
 
@@ -78,6 +79,7 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - `harness-config.yaml` 必须包含可被宿主 Runtime 消费的 workflow definitions 和 `workflow_routing` 策略；Builder 只生成策略契约，不执行任务路由。
 - `recommend-workflow` 只能输出 `.ai/review/workflow-routing-recommendation.*` 审查产物，并刷新 `.ai/experience/experience-index.yaml`、`.ai/maturity-score.yaml` 和 `.ai/maturity-evidence.yaml` 等派生证据；正式任务执行、Harness Map、`.ai/task-runs` 和正式 routing policy 应用仍由宿主 Runtime / 后续审核流程承担。
 - `self-improve` 只能输出 `.ai/review/self-improve-package.*` 以及被其串联命令生成的 review-only 改进产物；正式 Guide、Sensor、Workflow Skill 和 routing policy 仍需后续审核流程应用。
+- `review-candidate` 是候选治理层的显式应用入口。它必须把治理决策写入 `.ai/review/candidate-governance.*`，保持原始 LLM candidate report 为 review-only；`applied` 不得支持 workflow policy 自动 patch，直到有结构化 patch schema 和更强验收。
 - 如果 writer 文件持续膨胀，应优先按产物类型拆分，而不是继续堆在单文件中。
 
 ### Prompt 资产层
