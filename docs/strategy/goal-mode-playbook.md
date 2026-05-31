@@ -25,6 +25,49 @@
 4. milestone 必须写成用户故事或工程信任故事，说明角色、真实场景、完整动作、独立价值。
 5. 技术债、契约 hardening、测试或重构也必须说明保护的用户工作流和降低的风险。
 
+## Current State Gap Analysis
+
+每轮目标模式必须先做 Current State Gap Analysis，再选择 milestone。Gap Analysis 的目标不是机械执行固定清单，而是基于最新代码、测试、文档和 North Star 判断下一步最有价值、最可验收、最少破坏当前契约的工作包。
+
+分析维度至少覆盖：
+
+- 产品能力：当前 Harness Builder 是否继续靠近 Maturity-driven Self-Improve AI Coding Harness Builder。
+- init 用户旅程：启动说明、扫描进度、扫描理解对齐、成熟度初评、补充吸收、设计预览、写入摘要是否顺畅。
+- CLI 体验：终端输出是否中文、分组清晰、低内部字段暴露、能表达事实 / 推断 / 待确认 / 下一步。
+- 渐进式交互：关键用户输入是否发生在相关设计决策前，并被后续成熟度、推荐或资产生成消费。
+- L0-L4 成熟度叙事：是否先讲等级、证据、阻断项和下一等级差距，再用维度评分解释。
+- 仓库理解深度：evidence、LLM-guided expansion、scan reconcile、coverage gap、多栈 / 噪声目录 / 高风险目录是否足够支撑判断。
+- Harness 推荐质量：Guides、Sensors、Workflow Skills、routing policy 和候选资产是否围绕当前仓库与成熟度缺口生成。
+- 智能化闭环：LLM 是否负责判断 / 候选 / 推荐，Python 是否负责 schema、evidence、reconciler、validation 和审计。
+- Runtime 分工：Builder 是否只生成和只读消费 Runtime 契约，不越界执行任务或创建 `.ai/task-runs`。
+- schema / 数据契约：机器消费文件是否有 Pydantic schema，跨文件引用和 review-only 状态是否可验证。
+- 测试与 benchmark：unit / integration / e2e / acceptance / benchmark 是否覆盖新增行为，断言是否超过“文件存在”。
+- 工程架构：模块边界、prompt 管理、writer、scanner、maturity、experience、benchmark 是否继续清晰。
+- 健壮性：LLM 不可用、schema 错误、低置信度、coverage gap、缺少验证命令等是否显式失败或显式记录风险。
+- 技术债：是否存在重复代码、规则散落、过小切片造成流程成本过高、测试过慢或边界混乱。
+- 文档事实源：AGENTS、README、engineering、strategy、todo、spec / plan 和当前代码是否有冲突或过期内容。
+
+每个候选 gap 应记录：
+
+- 目标态：North Star 期望用户或系统能获得什么。
+- 当前能力：当前代码、测试和文档已经做到什么。
+- 缺口：还差什么，缺口发生在哪个用户旅程或工程链路。
+- 价值：解决后保护哪个用户工作流、提升哪类信任或降低哪类风险。
+- 风险 / 复杂度：是否涉及 schema、LLM、benchmark、runtime 契约、真实 acceptance 或高风险迁移。
+- 可测试性：可以用哪些 unit / integration / e2e / acceptance / benchmark / CLI transcript / 文档 diff 验证。
+- 依赖项：是否依赖外部凭证、真实仓库、已有 todo、上游 schema 或产品决策。
+- 验收方式：完成后用什么证据证明用户故事或工程信任故事成立。
+
+候选 gap 排序时优先考虑：
+
+1. 对 `init-north-star.md` 的推进程度。
+2. Harness Maintainer 或后续维护者的独立价值。
+3. 是否形成从输入、判断、产物到验证的闭环。
+4. 对当前风险和测试缺口的降低程度。
+5. 是否可在一个清晰 milestone 内完成并验收。
+
+Gap Analysis 的结论要写入当轮 spec 和 `docs/evolution-log.md`，但不要把临时推理、一次性调研细节或未稳定的猜测沉淀为长期规则。
+
 ## Milestone 粒度
 
 milestone 的边界是完整用户价值，不是最小代码改动。
@@ -55,6 +98,20 @@ milestone 的边界是完整用户价值，不是最小代码改动。
 - systematic-debugging：测试失败或行为异常时先定位根因，不降低断言。
 - verification-before-completion：完成前必须用命令结果证明，而不是凭感觉宣称完成。
 - requesting-code-review：较大、高风险或跨模块改动后使用。
+
+每轮执行顺序：
+
+1. 重新读取事实源和相关工程规则，不能用上一轮记忆替代当前文件。
+2. 执行 Current State Gap Analysis。
+3. 选择一个且只选择一个 milestone。
+4. 定义可执行验收标准。
+5. 使用 brainstorming 写中文 spec。
+6. 使用 writing-plans 写中文 implementation plan。
+7. 使用 test-driven-development 先写失败测试再实现。
+8. 使用 systematic-debugging 处理失败。
+9. 使用 verification-before-completion 完成前验证。
+10. 创建本地 commit，并按 push 节奏决定是否同步远端。
+11. 执行 Self-Harness Gate，然后进入下一轮 Gap Analysis。
 
 如果只是沉淀稳定流程规则或文档索引，可以保持轻量，不为避免小成本而制造更大的过程文档。
 
@@ -94,6 +151,66 @@ milestone 的边界是完整用户价值，不是最小代码改动。
 - sub agent 使用是否充分。
 
 Gate 缺口若影响后续迭代质量，优先作为下一轮 milestone；若很小且与当前轮强相关，可当前轮补齐；若较大，记录到 `docs/todos/`。
+
+不要为了赶功能跳过 Gate。Gate 不是泛泛复盘，而是决定下一轮是否应优先修复执行系统、测试契约、CLI transcript、成熟度叙事或文档事实源的质量门。
+
+## 决策规则
+
+1. milestone 必须来自当轮 Gap Analysis，不机械执行固定清单。
+2. 短中期优先选择更符合 `init-north-star.md`、更有独立价值、更可测试、更可审计、更少破坏当前契约的方案。
+3. `init` 必须保持渐进式协作：关键用户输入应发生在相关设计决策前，并被后续成熟度、推荐或资产生成消费；事后确认不算有效交互。
+4. 成熟度面向用户以 L0-L4 为主线，维度评分只用于解释等级和下一等级差距。
+5. 智能化与确定性验证冲突时，采用“LLM 做判断 / 候选 / 推荐，Python 做 schema / evidence / reconciler / validation”。
+6. 正式资产自动更新有风险时，生成候选资产和审核状态，不直接覆盖正式资产。
+7. 缺少信息时从代码、docs、测试和 git 历史推断，并在 spec 中记录 assumption。
+8. 每轮只做一个清晰 milestone，不做无边界大重构。
+9. 测试或验收失败时，先定位根因；不要降低断言、跳过验收、放宽 schema 或引入 silent fallback。
+10. 文档只沉淀稳定规则、产品边界、契约和长期决策；临时过程和一次性判断不写入长期文档。
+11. 对可并行且边界清晰的工作，优先使用 sub agent。
+
+## 每轮记录
+
+每轮至少保留：
+
+- 当轮 spec。
+- 当轮 implementation plan。
+- 本地 commit summary。
+- `docs/evolution-log.md` 中文演进记录。
+
+演进记录应简要包含：
+
+- North Star 能力模块。
+- init North Star 对应旅程阶段。
+- Gap Analysis 摘要。
+- 用户故事或工程信任故事。
+- 当前代码 gap。
+- 关键决策 / 取舍。
+- assumptions / risks。
+- sub agent 使用情况。
+- 价值切分说明。
+- 验收标准及验证方式。
+- 完成内容。
+- 验证结果。
+- Self-Harness Gate 结论。
+- 下一轮候选 gap。
+
+记录原则：
+
+- 过程文档尽量中文。
+- 演进记录只记稳定决策、选题理由、验收结果、Gate 结论和下一轮候选 gap。
+- 每轮 milestone 控制在一个可审查 commit 或小型 commit 组内。
+
+## 停止条件
+
+目标模式持续推进，除非出现以下情况：
+
+1. 权限、联网审批、凭证、外部服务或仓库访问导致无法继续。
+2. 连续三轮同一阻塞且无合理替代路径。
+3. 当前架构与 North Star 根本冲突，需要重新界定产品边界。
+4. 用户主动暂停、变更目标或结束。
+5. 已完成当前可实施的主要目标态能力，并有测试、文档和 benchmark 证明。
+
+当前可实施指在现有凭证、权限、仓库访问、产品边界和工程架构下可完成；需要外部 Runtime、未授权服务或重大产品决策的内容记录为后续 gap，不强行实现。
 
 ## 目标提示词精简建议
 
