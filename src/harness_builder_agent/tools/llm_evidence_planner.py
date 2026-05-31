@@ -21,15 +21,44 @@ def plan_evidence_expansion_with_llm(
     config: DeepSeekConfig | None = None,
 ) -> LLMEvidencePlan:
     messages = build_evidence_plan_messages(evidence)
-    content = caller(messages) if caller else call_deepseek(messages, config=config)
-    if not content.strip():
-        raise ValueError("DeepSeek evidence plan response is empty")
-    return parse_llm_evidence_plan_response(content, {item.path for item in evidence.files})
+    allowed_paths = {item.path for item in evidence.files}
+    last_error: ValueError | None = None
+    for attempt in range(2):
+        content = caller(messages) if caller else call_deepseek(messages, config=config)
+        if not content.strip():
+            raise ValueError("DeepSeek evidence plan response is empty")
+        try:
+            return parse_llm_evidence_plan_response(content, allowed_paths)
+        except ValueError as exc:
+            last_error = exc
+            if attempt == 1:
+                break
+            messages = _retry_messages(messages, content, exc)
+    raise last_error if last_error else ValueError("DeepSeek evidence plan response failed validation")
 
 
 def build_evidence_plan_messages(evidence: EvidenceBundle) -> list[dict[str, str]]:
     payload = evidence.model_dump(mode="json", exclude_none=True)
     return build_machine_prompt_messages(LLM_EVIDENCE_PLAN_V1.key, payload)
+
+
+def _retry_messages(
+    messages: list[dict[str, str]],
+    invalid_content: str,
+    error: ValueError,
+) -> list[dict[str, str]]:
+    return messages + [
+        {"role": "assistant", "content": invalid_content},
+        {
+            "role": "user",
+            "content": (
+                "上一次 evidence plan 响应未通过契约校验。\n"
+                f"校验错误：{error}\n\n"
+                "请重新输出一个 JSON object。requested_paths 只能从 files[].path 中逐字复制路径；"
+                "如果无法确认精确路径，请返回空的 requested_paths。不要发明、纠正或近似匹配路径。"
+            ),
+        },
+    ]
 
 
 def parse_llm_evidence_plan_response(content: str, allowed_paths: set[str]) -> LLMEvidencePlan:

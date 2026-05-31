@@ -97,6 +97,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
 
     scan_overrides = GuidedScanOverrides()
     _show_scan_findings(inventory, commands)
+    _show_scan_maturity_snapshot(repo, inventory, commands)
     scan_overrides = _collect_scan_supplement(inventory)
     _apply_scan_overrides(inventory, commands, scan_overrides)
 
@@ -264,6 +265,43 @@ def _show_scan_attention_summary(inventory: ProjectInventory, commands: CommandC
     typer.echo("\n建议补充")
     for line in _human_followup_lines(inventory, commands):
         typer.echo(f"- {line}")
+
+
+def _show_scan_maturity_snapshot(repo: Path, inventory: ProjectInventory, commands: CommandCatalog) -> None:
+    planned = build_maturity_report(
+        ai=None,
+        inventory=inventory,
+        commands=commands,
+        config=HarnessConfig.default(),
+        weapon_selection=select_weapon_library(inventory, commands),
+    )
+
+    typer.echo("\n扫描后的成熟度初评")
+    if _has_existing_partial_harness(repo):
+        typer.echo("- 当前从 L1 起步：已发现部分 `.ai` 资产，但还不足以构成完整项目级 Harness。")
+    else:
+        typer.echo("- 当前从 L0 起步：尚未发现项目级 `.ai` Harness，后续 AI Coding 仍主要依赖临时 prompt 和个人经验。")
+    typer.echo(f"- 按当前扫描写入后预计建立：{planned.overall_level} 基线。")
+    typer.echo(f"- 下一目标：{planned.target_next_level or planned.overall_level}。")
+    typer.echo("- 说明：这是基于当前扫描结果的写入前预测，不代表正式 Harness 已经写入或 benchmark 已经通过。")
+
+    typer.echo("\n主要差距")
+    blockers = planned.blocking_reasons[:3] or ["暂无明确阻断项；仍建议通过 benchmark 和真实任务运行验证。"]
+    for blocker in blockers:
+        typer.echo(f"- {blocker}")
+
+    typer.echo("\n建议优先补充")
+    for line in _scan_maturity_followup_lines(planned):
+        typer.echo(f"- {line}")
+
+
+def _scan_maturity_followup_lines(planned: MaturityReport) -> list[str]:
+    return [
+        "真实可执行的 hard gate 命令，以及哪些命令只能作为 soft signal。",
+        "主要模块边界、入口目录和职责，避免 Guides 过于泛化。",
+        "高风险区域，例如权限、数据迁移、配置、支付或核心状态变更路径。",
+        "团队规则、架构边界或测试策略，这些会影响成熟度判断和后续 Harness 推荐。",
+    ]
 
 
 def _risk_attention_lines(inventory: ProjectInventory) -> list[str]:

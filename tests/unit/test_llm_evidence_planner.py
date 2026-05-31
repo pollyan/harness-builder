@@ -75,6 +75,7 @@ def test_build_evidence_plan_messages_uses_registered_prompt_asset():
     assert [message["role"] for message in messages] == ["system", "user"]
     assert "Evidence planning input JSON" in combined
     assert "requested_paths" in combined
+    assert "逐字复制某一个 `files[].path` 字符串" in combined
     assert "src/checkout/RefundService.java" in combined
 
 
@@ -84,3 +85,34 @@ def test_plan_evidence_expansion_with_llm_rejects_empty_response():
 
     with pytest.raises(ValueError, match="empty"):
         plan_evidence_expansion_with_llm(_bundle(), caller=caller)
+
+
+def test_plan_evidence_expansion_retries_once_on_allowlist_validation_error():
+    responses = iter(
+        [
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "requested_paths": ["src/checkout/FakeRefundService.java"],
+                    "risk_focus": ["checkout refund flow"],
+                    "rationale": "I inferred a path that is not in the provided index.",
+                    "confidence": "medium",
+                }
+            ),
+            _plan_json(),
+        ]
+    )
+    calls: list[list[dict[str, str]]] = []
+
+    def caller(messages):
+        calls.append(messages)
+        return next(responses)
+
+    plan = plan_evidence_expansion_with_llm(_bundle(), caller=caller)
+
+    assert plan.requested_paths == ["src/checkout/RefundService.java"]
+    assert len(calls) == 2
+    retry_content = calls[1][-1]["content"]
+    assert "上一次 evidence plan 响应未通过契约校验" in retry_content
+    assert "DeepSeek evidence plan requested unknown evidence path" in retry_content
+    assert "只能从 files[].path 中逐字复制路径" in retry_content

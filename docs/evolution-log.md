@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 扫描后成熟度初评前置
+
+- North Star 模块：CLI Experience、Maturity & Evolution、Progressive Collaboration、深度扫描。
+- init North Star 旅程阶段：扫描结果友好呈现、成熟度初评与差距解释、与用户对齐扫描理解。
+- Gap Analysis 摘要：guided `init` 已经有扫描发现、风险 / 不确定性 / 验证缺口分组和写入前成熟度设计预览，但成熟度解释发生在团队规则、候选审查和 Workflow 展示之后；用户在扫描补充前还不知道当前扫描会如何影响 L0-L4 等级、下一等级差距和后续 Harness 推荐。
+- 用户故事：作为 Harness Maintainer，当我首次 guided `init` 扫描一个遗留仓库并准备补充或修正扫描理解时，我可以先看到基于当前扫描结果的 L0-L4 成熟度初评、下一等级差距和会影响判断的补充方向，从而知道应该优先确认哪些模块、命令、风险或团队规则。
+- 当前代码 gap：`_show_prewrite_maturity_preview()` 只服务最终写入前确认；`_collect_scan_supplement()` 之前缺少成熟度语境，用户补充仍偏字段修正。
+- 关键决策 / 取舍：本轮只新增 guided CLI 前置初评，复用 `build_maturity_report()`、`HarnessConfig.default()` 和 `select_weapon_library()`；不改 maturity schema、不改评分规则、不改变非交互输出和正式资产契约。
+- Assumptions / risks：前置初评是基于当前扫描的写入前预测，不代表正式 Harness 已写入或 benchmark 已通过；用户后续修正后，最终写入前 preview 仍会重新计算。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行审查 guided init 用户旅程和资产质量缺口。一个推荐后续做用户补充影响链路可见化；另一个推荐后续做仓库特异性资产注入与成熟度缺口叙事。
+- 价值切分说明：本轮保护的是“扫描发现 -> 用户补充”之间的决策质量，让用户知道为什么要补充 hard gate、模块边界、风险区域和团队规则，而不是盲目回答字段。
+- 验收标准及验证方式：integration 覆盖 `扫描后的成熟度初评` 出现在 `扫描发现` 后、`需要你补充或修正的地方` 前，并包含 L0 起步、预计基线、下一目标、主要差距和建议优先补充；非交互输出不出现该 guided 文案。
+- 完成内容：`interactive_init.py` 新增扫描后成熟度初评 helper；init workflow、spec/plan 和演进记录同步。
+- 全量回归修正：真实 RuoYi-Vue acceptance 暴露 DeepSeek evidence planner 偶发请求未在 `files[].path` 中的近似路径；已补一次契约修正重试，重试仍失败时继续显式失败，不放宽 allowlist、不做 Python 近似匹配、不引入确定性 fallback，并同步 LLM contract 和 prompt 精确路径要求。
+- Self-Harness Gate：下一轮候选 gap 首选“用户补充影响链路可见化”或“仓库特异性资产注入”，重点让结构化补充和团队规则更明确进入 preview、summary、Guides / Sensors 和质量断言。
+
 ## 2026-05-31 Guided Init 扫描内部阶段进度
 
 - North Star 模块：CLI Experience、Progressive Collaboration、深度扫描、可解释失败边界。

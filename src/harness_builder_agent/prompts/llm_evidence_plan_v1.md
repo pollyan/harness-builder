@@ -6,6 +6,8 @@
 
 - 只输出一个 JSON object，不要输出 Markdown、解释文本或代码块以外的内容。
 - `requested_paths` 只能从输入 JSON 的 `files[].path` 中选择。
+- 每个 `requested_paths` 值必须逐字复制某一个 `files[].path` 字符串；不要根据包名、目录名、class 名或相似文件名重写、猜测或纠正路径。
+- 如果你想看的文件不在 `files[].path` 中，必须放弃该文件，不要输出近似路径。
 - 不得发明路径，不得请求 `.ai/`、依赖目录、构建产物、仓库外路径或绝对路径。
 - 不要请求已经在 `key_files`、`config_files`、`ci_files`、`documents`、`source_samples`、`priority_files`、`test_files`、`api_entrypoints`、`risk_files` 中有足够摘要的文件，除非它确实是理解风险或业务流程的关键文件。
 - 优先选择能解释业务流程、权限/安全、数据库/迁移、API 入口、非标准测试位置、核心领域模型和异常命名模块的文件。

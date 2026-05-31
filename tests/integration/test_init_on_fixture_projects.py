@@ -349,6 +349,7 @@ def test_init_non_interactive_generates_existing_assets(tmp_path: Path, monkeypa
     assert decisions["mode"] == "non_interactive"
     assert decisions["final_confirmation"]["status"] == "not_confirmed"
     assert "当前阶段：收集仓库 evidence" not in result.output
+    assert "扫描后的成熟度初评" not in result.output
 
 
 def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch):
@@ -385,6 +386,17 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "验证缺口" in result.output
     assert "建议补充" in result.output
     assert result.output.index("扫描发现") < result.output.index("\n风险区域")
+    assert "扫描后的成熟度初评" in result.output
+    assert "按当前扫描写入后预计建立" in result.output
+    assert "主要差距" in result.output
+    assert "建议优先补充" in result.output
+    assert "hard gate 命令" in result.output
+    assert "模块边界" in result.output
+    assert "风险区域" in result.output
+    assert "团队规则、架构边界或测试策略" in result.output
+    assert result.output.index("扫描发现") < result.output.index("扫描后的成熟度初评")
+    assert result.output.index("扫描后的成熟度初评") < result.output.index("需要你补充或修正的地方")
+    assert result.output.index("扫描后的成熟度初评") < result.output.index("当前 Harness 成熟度初评")
     assert result.output.index("建议补充") < result.output.index("团队规则")
     assert "主要技术栈" in result.output
     assert "团队规则" in result.output
