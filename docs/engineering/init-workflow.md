@@ -133,6 +133,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 自然语言 scan 补充必须明确标记为人工补充说明，进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`，不能伪装成扫描事实。
 - scan 补充的即时复述必须发生在 `_apply_scan_overrides()` 更新内存态 inventory / command catalog 之后，让用户知道后续 weapon selection、maturity preview 和正式资产生成将基于已吸收的补充继续推进。
 - 团队规则必须说明会进入团队上下文 Guide 和 `human-input-needed.md`。
+- 首次 guided `init` 收到团队规则后，必须在进入候选审查前立即复述这些规则，并说明它们会进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`；CLI 必须明确团队规则是用户提供的约束，不能被当作扫描事实。
+- 写入前 Harness 设计预览必须展示团队规则约束；如果没有团队规则输入，也要说明当前按扫描证据和内置 Harness 基线生成。
 - Workflow 补充必须说明会进入 Workflow 说明和人工确认记录；除非经过候选治理或结构化 policy patch，不能直接修改正式 routing policy。
 - 最终确认摘要不能只显示补充数量，必须展示具体补充内容的可读摘要，让用户在写入前确认系统理解了输入。
 

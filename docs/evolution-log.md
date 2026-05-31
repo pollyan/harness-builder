@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init 团队规则影响与预览
+
+- North Star 模块：CLI Experience、Maturity & Evolution、资产生成与审核接管。
+- init North Star 旅程阶段：团队规则补充、用户输入吸收、写入前 Harness 设计预览。
+- Gap Analysis 摘要：当前 open todo 为空。本轮重新读取事实源后，候选 gap 包括团队规则输入后的即时影响说明、`InteractionDecisions.context_confirmation` 结构化 impact 字段、团队规则参与候选生成或 weapon selection、以及 push 前 full regression 先决条件。选择团队规则即时影响与预览，因为当前 `inline_contexts` 已进入 interaction decisions、project-context 和 human-input-needed，但 CLI 在团队规则输入后直接进入候选审查，写入前 preview 也不展示这些规则如何约束本次 Harness 设计。
+- 用户故事：作为 Harness Maintainer，当我在 guided `init` 中输入团队代码规范、架构约束或测试策略时，我可以在进入候选审查前立即看到系统如何理解这些规则、它们会进入哪些 Harness 资产，并在写入前设计预览中看到这些规则作为 Guides / human-input-needed / 后续审查的约束，从而确认团队隐性规则已经进入本次 Harness 设计，而不是只在最终确认阶段被动记录。
+- 当前代码 gap：`_collect_team_rules()` 只返回文本；即时反馈缺失。`_show_prewrite_maturity_preview()` 只展示 Guides、Sensors 和 Workflow routing，没有团队规则约束区块。
+- 关键决策 / 取舍：新增 `团队规则理解` / `团队规则影响` 即时 CLI 区块，并在写入前 preview 增加 `团队规则约束`；不新增 schema，不声称团队规则已改变 maturity score，也不直接修改正式 workflow routing policy。
+- Assumptions / risks：Guide writer 和 human-input writer 已消费 `context_confirmation.inline_contexts`；本轮只提升用户可见闭环。输出长度会增加，因此仅在有团队规则时输出即时区块。
+- 边界情况 / 失败模式：无团队规则时不输出即时区块，preview 明确按扫描证据和内置基线生成；团队规则是用户提供约束，不是扫描事实；本轮不执行 Runtime、不创建 `.ai/task-runs`、不默认运行 benchmark。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer，但当前返回 `agent thread limit reached`，未能使用子代理；主线程完成调研与验证。
+- 价值切分说明：本轮补齐团队规则输入到候选审查 / 设计预览之间的可见闭环；结构化 impact schema 和团队规则驱动候选生成留给后续 Gap Analysis。
+- 可执行验收标准及验证方式：integration 测试断言 `团队规则理解` 和 `团队规则影响` 位于团队规则输入后、`建议生成的规则` 前；写入前 preview 包含 `团队规则约束`、具体规则、Guides、human-input-needed 和不直接修改正式 workflow routing policy 的边界。
+- 完成内容：`interactive_init.py` 增加团队规则即时反馈和 preview 小节；`docs/engineering/init-workflow.md` 固化规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 integration 测试通过；commit 前 fast regression 见本轮提交前验证。
+- Self-Harness Gate：README 当前描述 guided init 会收集团队规则和展示设计预览，但未细到每个即时反馈区块，暂不更新；`docs/todos/` 暂不新增。下一轮候选 gap：context impact schema、团队规则参与候选生成、或 push 前 full regression 先决条件。
+
 ## 2026-06-01 Guided Init 扫描补充即时影响说明
 
 - North Star 模块：CLI Experience、Maturity & Evolution、资产生成与审核接管。

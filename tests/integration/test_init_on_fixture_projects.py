@@ -950,6 +950,25 @@ def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path,
     )
 
     assert result.exit_code == 0, result.output
+    team_prompt_index = result.output.index("可以输入一段规则说明")
+    team_understanding_index = result.output.index("团队规则理解")
+    team_impact_index = result.output.index("团队规则影响")
+    candidate_review_index = result.output.index("建议生成的规则")
+    assert team_prompt_index < team_understanding_index < team_impact_index < candidate_review_index
+    team_summary = result.output[team_understanding_index:candidate_review_index]
+    assert "Controller 只能调用 Service" in team_summary
+    assert "配置变更必须说明回滚方式" in team_summary
+    assert "interaction-decisions.yaml" in team_summary
+    assert "project-context.md" in team_summary
+    assert "human-input-needed.md" in team_summary
+    assert "不会被当作扫描事实" in team_summary
+    preview = result.output[result.output.index("写入前 Harness 设计预览") : result.output.index("\n最终确认\n")]
+    assert "团队规则约束" in preview
+    assert "Controller 只能调用 Service" in preview
+    assert "配置变更必须说明回滚方式" in preview
+    assert "Guides" in preview
+    assert "human-input-needed" in preview
+    assert "不直接修改正式 workflow routing policy" in preview
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert decisions["scan_confirmation"]["status"] == "amended"
     assert "批处理入口" in decisions["scan_confirmation"]["notes"][0]

@@ -123,6 +123,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     _show_scan_supplement_immediate_summary(scan_overrides)
 
     inline_contexts: list[str] = _collect_team_rules()
+    _show_team_rules_immediate_summary(inline_contexts)
     weapon_selection = select_weapon_library(inventory, commands)
     candidate_report = build_llm_enhancement_candidates(inventory, commands)
     candidate_decisions = _review_candidates(candidate_report, weapon_selection, commands)
@@ -130,7 +131,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     candidate_ids = [item.id for item in candidate_report.candidates]
 
     while True:
-        _show_prewrite_maturity_preview(repo, inventory, commands, weapon_selection)
+        _show_prewrite_maturity_preview(repo, inventory, commands, weapon_selection, inline_contexts)
         action = _confirm_summary(
             inventory,
             commands,
@@ -155,6 +156,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             continue
         if action == "rules":
             inline_contexts = _collect_team_rules()
+            _show_team_rules_immediate_summary(inline_contexts)
             continue
         if action == "candidates":
             candidate_decisions = _review_candidates(candidate_report, weapon_selection, commands)
@@ -1584,6 +1586,21 @@ def _collect_team_rules() -> list[str]:
     return [answer] if answer else []
 
 
+def _show_team_rules_immediate_summary(inline_contexts: list[str]) -> None:
+    if not inline_contexts:
+        return
+    typer.echo("\n团队规则理解")
+    for item in inline_contexts[:5]:
+        typer.echo(f"- 团队规则：{item}")
+    if len(inline_contexts) > 5:
+        typer.echo(f"- 还有 {len(inline_contexts) - 5} 条团队规则会进入交互决策。")
+
+    typer.echo("\n团队规则影响")
+    typer.echo("- 这些规则会进入 interaction-decisions.yaml、project-context.md 和 human-input-needed.md。")
+    typer.echo("- 它们会作为团队提供的约束影响 Guides 和后续人工审查，但不会被当作扫描事实。")
+    typer.echo("- 如果规则需要改变正式 workflow routing policy，后续仍应通过候选治理或结构化 patch 审核。")
+
+
 def _review_candidates(
     report,
     weapon_selection: WeaponLibrarySelection,
@@ -1645,6 +1662,7 @@ def _show_prewrite_maturity_preview(
     inventory: ProjectInventory,
     commands: CommandCatalog,
     weapon_selection: WeaponLibrarySelection,
+    inline_contexts: list[str] | None = None,
 ) -> None:
     config = HarnessConfig.default()
     planned = build_maturity_report(
@@ -1676,6 +1694,16 @@ def _show_prewrite_maturity_preview(
         typer.echo(f"- {step}")
 
     typer.echo("\n写入前 Harness 设计预览")
+    typer.echo("团队规则约束")
+    if inline_contexts:
+        for item in inline_contexts[:5]:
+            typer.echo(f"- {item}")
+        if len(inline_contexts) > 5:
+            typer.echo(f"- 还有 {len(inline_contexts) - 5} 条团队规则会写入团队上下文。")
+        typer.echo("- 影响范围：进入 Guides、human-input-needed 和后续人工审查；不直接修改正式 workflow routing policy。")
+    else:
+        typer.echo("- 暂无团队规则输入；当前按扫描证据和内置 Harness 基线生成。")
+
     typer.echo("将生成的 Guides")
     for weapon in weapon_selection.guide_weapons[:3]:
         _show_weapon_preview_item(weapon, planned)
