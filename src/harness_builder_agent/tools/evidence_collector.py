@@ -44,7 +44,20 @@ def collect_evidence(repo: Path, max_summary_chars: int = 600, max_source_sample
     selected_by_bucket = _select_by_bucket(buckets, max_source_samples)
     selected_paths = [path for bucket in sorted(selected_by_bucket) for path in selected_by_bucket[bucket]]
 
-    evidence_files = [_evidence_file(path, root, "file", 0) for path in files]
+    evidence_files = []
+    for path in files:
+        bucket = _bucket_for(path, root)
+        evidence_files.append(
+            _evidence_file(
+                path,
+                root,
+                "file",
+                0,
+                bucket=bucket,
+                priority=_priority_for(bucket),
+                reason=_reason_for(path, root, bucket),
+            )
+        )
     selected_evidence = [_evidence_for_bucket(path, root, max_summary_chars, _bucket_for(path, root)) for path in selected_paths]
 
     key_files = [item for item in selected_evidence if item.bucket == "build"]

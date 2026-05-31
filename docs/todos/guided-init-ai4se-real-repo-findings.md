@@ -15,6 +15,7 @@
   - `2026-05-31 Guided Init 高风险发现确认链路`：疑似 API key / 凭证 / 安全 / 支付 / 权限 / 数据迁移风险会在 CLI 中标记为待确认高风险，并进入 questionnaire、human-input-needed、Guide 和 Sensor 的确认与升级说明。
   - `2026-05-31 Guided Init 多栈仓库组合建模`：scan schema 支持 `python-flask`，reconciler 可验证 Python Flask + React / TypeScript 组合栈并派生 `stack_profile`，guided CLI 用中文展示组合技术栈，weapon library 可同时选择 Python Flask 后端和 Node / 前端 Guide / Sensor。
   - `2026-05-31 成熟度叙事中文化`：`MaturityReport` 源头的 blocker、evidence summary、next level requirement 和 blocking cap 改为中文；`maturity-report.md` 使用中文维度标签和“证据 / 阻断”展示标签，guided CLI 不再泄漏已知英文 maturity blocker。
+  - `2026-06-01 LLM 规划式深度扫描 Manifest 语义增强`：全量轻量 `files[]` manifest 为每个文件保留 bucket、priority、reason，让 LLM evidence planner 在 coverage gap 下能主动选择未采样但高价值的风险、入口、测试或业务文件深度读取；仍不无限制读取全仓。
 - 剩余 LLM-planned deep scan 仍保持 open。
 
 ## 背景

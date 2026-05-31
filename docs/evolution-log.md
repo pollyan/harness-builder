@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 LLM 规划式深度扫描 Manifest 语义增强
+
+- 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。
+- North Star 模块：Scanner & Analyzer、CLI Experience、Maturity & Evolution、智能化闭环。
+- init North Star 旅程阶段：基础扫描、阶段化扫描与进度反馈、扫描结果友好呈现、成熟度初评输入。
+- Gap Analysis 摘要：当前已有 `collect evidence -> LLM evidence plan -> 读取补充文件 -> LLM scan -> reconcile` 链路，但全量轻量 `EvidenceBundle.files` 只有路径和大小，未携带 bucket / priority / reason；这会让 LLM planner 虽然能看到全量路径，却难以区分未采样文件中的风险、API 入口、测试和核心源码优先级。
+- 用户故事：作为 Harness Maintainer，当我在大型多栈仓库运行首次 guided `init` 且初始 source sampling 跳过大量文件时，我可以相信 LLM evidence planner 在最终扫描前基于全量轻量 manifest 主动选择未采样但高价值的文件补读，而不是只被确定性采样结果牵引。
+- 当前代码 gap：`collect_evidence()` 对 `files[]` 使用 `_evidence_file(..., max_summary_chars=0)`，没有传入 `_bucket_for()`、`_priority_for()` 和 `_reason_for()`；`llm_evidence_plan_v1.md` 没有明确要求 LLM 消费 full manifest 语义和 coverage gap。
+- 关键决策 / 取舍：复用 `EvidenceFile` 现有字段，不新增 schema；全量 manifest 仍不读取正文摘要；LLM 只能从 allowlist 中逐字复制路径，Python 继续负责路径校验、预算读取和 no silent fallback。
+- Assumptions / risks：bucket / priority / reason 是 evidence classification，不是最终业务判断；真实 LLM 的 requested paths 可能变化，但仍被 schema、max 8、allowlist 和 retry 约束。
+- Sub agent 使用情况：使用一个 explorer 子代理只读调研当前 deep scan 链路；其结论确认 full manifest 偏薄，并建议后续补 planner rationale / requested paths 进入 scan metadata、claim-level validation 和 ai4se-like integration。
+- 价值切分说明：本轮完成“全量轻量 manifest -> planner prompt -> LLM requested file -> final scan evidence”的最小纵向闭环，不把 metadata 审计、二次 self-check 和完整 claim validation 混进同一 milestone。
+- 验收标准及验证方式：unit 覆盖全量 `files[]` 未采样文件带 bucket / priority / reason 且不读 summary；planner prompt 覆盖 full manifest 语义、coverage warnings 和未进入初始摘要的高价值文件；scan repo 测试覆盖 planner 从增强 manifest 请求未采样文件并进入 final scan prompt。
+- 完成内容：`collect_evidence()` 为全量轻量文件索引填充 bucket / priority / reason；`llm_evidence_plan_v1.md` 增加 full manifest、coverage warnings、未采样高价值文件的规划规则；同步 spec、plan 和 todo。
+- Self-Harness Gate：剩余 LLM-planned deep scan 仍 open。下一轮候选 gap 优先考虑将 `LLMEvidencePlan` 的 rationale、risk_focus、requested_paths、实际读取文件和 planner confidence 写入 scan metadata，并让 coverage gap / low confidence 显式影响 human confirmation；其次是严格化 `LLMScanProposal` 中 modules / risk_areas / configs / ci_files schema 和 claim-level support/conflict/unknown。
+
 ## 2026-05-31 成熟度叙事中文化
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

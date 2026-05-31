@@ -85,7 +85,13 @@ def test_scan_repository_uses_llm_evidence_plan_before_final_scan(tmp_path: Path
 
     def planner_caller(messages):
         calls.append("planner")
-        assert "zz_RefundRiskService.java" in messages[-1]["content"]
+        combined = "\n".join(message["content"] for message in messages)
+        content = messages[-1]["content"]
+        assert "zz_RefundRiskService.java" in content
+        assert '"path": "src/zz_RefundRiskService.java"' in content
+        assert '"bucket": "source:.java"' in content
+        assert '"reason": "Representative .java source sample."' in content
+        assert "全量轻量 file manifest" in combined
         return json.dumps(
             {
                 "schema_version": "1.0",

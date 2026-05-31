@@ -79,6 +79,71 @@ def test_build_evidence_plan_messages_uses_registered_prompt_asset():
     assert "src/checkout/RefundService.java" in combined
 
 
+def test_evidence_plan_prompt_explains_full_manifest_semantics_and_coverage_gap():
+    bundle = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[
+            EvidenceFile(
+                path="src/ordinary.py",
+                kind="file",
+                bucket="source:.py",
+                priority="medium",
+                reason="Representative .py source sample.",
+            ),
+            EvidenceFile(
+                path="src/auth/AuthService.py",
+                kind="file",
+                bucket="risk",
+                priority="high",
+                reason="Security, auth, database, or migration risk area.",
+            ),
+        ],
+        source_samples=[
+            EvidenceFile(
+                path="src/ordinary.py",
+                kind="source",
+                bucket="source:.py",
+                priority="medium",
+                summary="print('ordinary')",
+            ),
+        ],
+        coverage={
+            "detected_file_count": 2,
+            "selected_evidence_count": 1,
+            "bucket_coverage": [
+                {
+                    "bucket": "source:.py",
+                    "total_count": 2,
+                    "selected_count": 1,
+                    "skipped_count": 1,
+                    "selected_paths": ["src/ordinary.py"],
+                }
+            ],
+            "warnings": [
+                {
+                    "code": "source_sampling_truncated",
+                    "bucket": "source:.py",
+                    "total_count": 2,
+                    "selected_count": 1,
+                    "skipped_count": 1,
+                    "message": "source:.py skipped 1 files",
+                }
+            ],
+        },
+    )
+
+    combined = "\n".join(message["content"] for message in build_evidence_plan_messages(bundle))
+
+    assert "全量轻量 file manifest" in combined
+    assert "bucket / priority / reason" in combined
+    assert "coverage warnings" in combined
+    assert "未进入初始摘要" in combined
+    assert "src/auth/AuthService.py" in combined
+    assert '"bucket": "risk"' in combined
+    assert '"priority": "high"' in combined
+
+
 def test_plan_evidence_expansion_with_llm_rejects_empty_response():
     def caller(_messages):
         return ""

@@ -135,6 +135,27 @@ def test_collect_evidence_keeps_full_file_index_lightweight(tmp_path: Path):
     assert selected_source.summary == "class Ordinary {}"
 
 
+def test_collect_evidence_full_manifest_keeps_bucket_priority_reason_without_summary(tmp_path: Path):
+    _write(tmp_path / "src" / "api" / "UserController.py", "from flask import Flask\n")
+    _write(tmp_path / "src" / "auth" / "AuthService.py", "class AuthService: pass\n")
+    for index in range(6):
+        _write(tmp_path / "src" / f"Ordinary{index:02d}.py", "print('ordinary')\n")
+
+    bundle = collect_evidence(tmp_path, max_source_samples=1)
+
+    auth = next(item for item in bundle.files if item.path == "src/auth/AuthService.py")
+    assert auth.summary is None
+    assert auth.bucket == "risk"
+    assert auth.priority == "high"
+    assert auth.reason == "Security, auth, database, or migration risk area."
+
+    controller = next(item for item in bundle.files if item.path == "src/api/UserController.py")
+    assert controller.summary is None
+    assert controller.bucket == "api_entrypoint"
+    assert controller.priority == "critical"
+    assert controller.reason == "API or application entrypoint signal."
+
+
 def test_expand_evidence_adds_llm_requested_file_skipped_by_source_sampling(tmp_path: Path):
     for index in range(8):
         _write(tmp_path / "src" / f"Ordinary{index:02d}.java", f"class Ordinary{index:02d} {{}}")
