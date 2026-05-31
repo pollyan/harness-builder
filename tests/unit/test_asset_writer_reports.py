@@ -18,12 +18,86 @@ def _inventory(repo: Path) -> ProjectInventory:
         stacks=["java", "maven", "spring-boot"],
         modules=[{"name": "app", "path": ".", "kind": "backend"}],
         evidence=[{"path": "pom.xml", "reason": "maven build file"}],
+        documents=[{"path": "README.md", "kind": "project documentation"}],
+        configs=[{"path": "src/main/resources/application.yml", "kind": "spring configuration"}],
+        ci_files=[{"path": ".github/workflows/ci.yml", "kind": "github actions"}],
+        stack_extensions={
+            "scan_metadata": {
+                "schema_version": "1.0",
+                "llm_status": "succeeded",
+                "prompt_version": "test",
+                "evidence_file_count": 12,
+                "coverage": {
+                    "schema_version": "1.0",
+                    "detected_file_count": 12,
+                    "selected_evidence_count": 4,
+                    "bucket_coverage": [
+                        {
+                            "bucket": "test",
+                            "total_count": 2,
+                            "selected_count": 1,
+                            "skipped_count": 1,
+                            "selected_paths": ["src/test/java/com/example/demo/DemoControllerTest.java"],
+                        },
+                        {
+                            "bucket": "api_entrypoint",
+                            "total_count": 1,
+                            "selected_count": 1,
+                            "skipped_count": 0,
+                            "selected_paths": ["src/main/java/com/example/demo/DemoController.java"],
+                        },
+                    ],
+                    "warnings": [],
+                },
+                "evidence_expansion": {
+                    "schema_version": "1.0",
+                    "planner_prompt_version": "llm-evidence-planner-v1",
+                    "requested_paths": ["src/main/java/com/example/demo/DemoController.java"],
+                    "risk_focus": ["controller routing"],
+                    "rationale": "Controller route ownership needed deeper inspection.",
+                    "confidence": "medium",
+                    "read_paths": ["src/main/java/com/example/demo/DemoController.java"],
+                    "read_file_count": 1,
+                },
+                "warnings": [
+                    {
+                        "code": "test_evidence_not_found",
+                        "message": "Some test evidence needs confirmation.",
+                        "severity": "warning",
+                        "evidence": ["test"],
+                    }
+                ],
+            },
+            "scan_validation": {
+                "checked_claims": ["java-spring", "maven"],
+                "supported_claims": ["java-spring"],
+                "unsupported_claims": [{"stack": "maven", "reason": "Wrapper not found."}],
+            },
+            "scan_warnings": [
+                {
+                    "code": "test_evidence_not_found",
+                    "message": "Some test evidence needs confirmation.",
+                    "severity": "warning",
+                    "evidence": ["test"],
+                }
+            ],
+            "risk_areas": [{"path": "src/main/resources/application.yml", "reason": "database config risk"}],
+        },
     )
 
 
 def _commands() -> CommandCatalog:
     return CommandCatalog(
-        commands=[CommandDefinition(id="unit_test", command="mvn test", type="test", gate="hard", source="pom.xml")]
+        commands=[
+            CommandDefinition(
+                id="unit_test",
+                command="mvn test",
+                type="test",
+                gate="hard",
+                source="pom.xml",
+                confidence="high",
+            )
+        ]
     )
 
 
@@ -48,6 +122,30 @@ def test_write_report_assets_writes_reports_scores_plan_and_records_trace(tmp_pa
     assert (ai / "maturity-score.yaml").exists()
     assert (ai / "maturity-evidence.yaml").exists()
     assert (ai / "evolution-plan.md").exists()
+    scan_report = (ai / "scan-report.md").read_text(encoding="utf-8")
+    assert "## Evidence" in scan_report
+    assert "README.md" in scan_report
+    assert ".github/workflows/ci.yml" in scan_report
+    assert "## LLM Evidence Expansion" in scan_report
+    assert "requested_paths=`src/main/java/com/example/demo/DemoController.java`" in scan_report
+    assert "read_paths=`src/main/java/com/example/demo/DemoController.java`" in scan_report
+    assert "risk_focus=`controller routing`" in scan_report
+    assert "confidence=`medium`" in scan_report
+    assert "read_file_count=1" in scan_report
+    assert "Controller route ownership needed deeper inspection." in scan_report
+    assert "## Evidence Coverage" in scan_report
+    assert "evidence_selected=4/12" in scan_report
+    assert "selected_paths=`src/test/java/com/example/demo/DemoControllerTest.java`" in scan_report
+    assert "selected_paths=`src/main/java/com/example/demo/DemoController.java`" in scan_report
+    assert "## Stack Evidence Validation" in scan_report
+    assert "checked_claims=`java-spring`, `maven`" in scan_report
+    assert "unsupported_claim=`maven`: Wrapper not found." in scan_report
+    assert "## Scan Warnings" in scan_report
+    assert "`warning` `test_evidence_not_found`: Some test evidence needs confirmation." in scan_report
+    assert "## Risk Areas" in scan_report
+    assert "src/main/resources/application.yml" in scan_report
+    assert "## Command Candidates" in scan_report
+    assert "confidence=`high`" in scan_report
     maturity_report = (ai / "maturity-report.md").read_text(encoding="utf-8")
     assert "## 证据" in maturity_report
     assert "evidence:" not in maturity_report

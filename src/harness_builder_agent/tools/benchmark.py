@@ -327,6 +327,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _self_improve_package_check(ai),
         _experience_summary_artifact_check(ai),
         _runtime_task_run_artifacts_check(ai),
+        _scan_report_check(ai, inventory),
         _init_summary_check(ai),
         _guide_quality_check(ai),
         _project_context_evidence_context_check(ai, inventory),
@@ -372,6 +373,179 @@ def _init_summary_check(ai: Path) -> dict[str, Any]:
         "passed": not missing,
         "missing": missing,
     }
+
+
+def _scan_report_check(ai: Path, inventory: ProjectInventory) -> dict[str, Any]:
+    path = ai / "scan-report.md"
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    required_headings = [
+        "# Scan Report",
+        "## Evidence",
+        "## LLM Evidence Expansion",
+        "## Evidence Coverage",
+        "## Stack Evidence Validation",
+        "## Scan Warnings",
+        "## Risk Areas",
+        "## Command Candidates",
+    ]
+    missing = [item for item in required_headings if not _has_markdown_heading(text, item)]
+    if "Primary stack: `" not in text:
+        missing.append("Primary stack: `")
+
+    evidence_text = _section_text(text, "## Evidence", "## LLM Evidence Expansion")
+    for evidence_path in _inventory_evidence_paths(inventory):
+        if f"`{evidence_path}`" not in evidence_text:
+            missing.append(f"missing_evidence_path:{evidence_path}")
+
+    expansion_text = _section_text(text, "## LLM Evidence Expansion", "## Evidence Coverage")
+    _append_missing_evidence_expansion_details(missing, expansion_text, inventory)
+
+    coverage_text = _section_text(text, "## Evidence Coverage", "## Stack Evidence Validation")
+    coverage = _scan_metadata(inventory).get("coverage")
+    if isinstance(coverage, dict):
+        selected = coverage.get("selected_evidence_count")
+        detected = coverage.get("detected_file_count", _scan_metadata(inventory).get("evidence_file_count"))
+        if selected is not None and detected is not None and f"evidence_selected={selected}/{detected}" not in coverage_text:
+            missing.append(f"missing_evidence_selected:{selected}/{detected}")
+        for selected_path in _coverage_selected_paths(coverage):
+            if f"`{selected_path}`" not in coverage_text:
+                missing.append(f"missing_coverage_selected_path:{selected_path}")
+
+    validation_text = _section_text(text, "## Stack Evidence Validation", "## Scan Warnings")
+    validation = inventory.stack_extensions.get("scan_validation")
+    if isinstance(validation, dict):
+        for claim in _list_value(validation, "checked_claims"):
+            if f"`{claim}`" not in validation_text:
+                missing.append(f"missing_checked_claim:{claim}")
+        for claim in _list_value(validation, "supported_claims"):
+            if f"`{claim}`" not in validation_text:
+                missing.append(f"missing_supported_claim:{claim}")
+        unsupported = validation.get("unsupported_claims")
+        if isinstance(unsupported, list):
+            for item in unsupported:
+                if isinstance(item, dict):
+                    stack = str(item.get("stack") or "").strip()
+                    if stack and f"unsupported_claim=`{stack}`" not in validation_text:
+                        missing.append(f"missing_unsupported_claim:{stack}")
+
+    warning_text = _section_text(text, "## Scan Warnings", "## Risk Areas")
+    for warning in _scan_report_warnings(inventory):
+        code = str(warning.get("code") or "").strip()
+        if code and f"`{code}`" not in warning_text:
+            missing.append(f"missing_scan_warning:{code}")
+
+    risk_text = _section_text(text, "## Risk Areas", "## Command Candidates")
+    for risk in _benchmark_risk_areas(inventory)[:8]:
+        risk_path = str(risk.get("path") or risk.get("area") or "").strip()
+        if risk_path and f"`{risk_path}`" not in risk_text:
+            missing.append(f"missing_risk_area:{risk_path}")
+
+    command_text = _section_text(text, "## Command Candidates", None)
+    try:
+        catalog = CommandCatalog.model_validate(yaml.safe_load((ai / "command-catalog.yaml").read_text(encoding="utf-8")))
+    except Exception:
+        catalog = CommandCatalog(commands=[])
+    for command in catalog.commands:
+        if f"`{command.id}`" not in command_text:
+            missing.append(f"missing_command_id:{command.id}")
+        if not _command_report_line_has_confidence(command_text, command.id):
+            missing.append(f"missing_command_confidence:{command.id}")
+
+    return {
+        "id": "content:scan-report",
+        "passed": not missing,
+        "missing": missing,
+    }
+
+
+def _section_text(text: str, start: str, end: str | None) -> str:
+    if start not in text:
+        return ""
+    section = text.split(start, 1)[1]
+    if end and end in section:
+        section = section.split(end, 1)[0]
+    return section
+
+
+def _has_markdown_heading(text: str, heading: str) -> bool:
+    return text.startswith(f"{heading}\n") or f"\n{heading}\n" in text
+
+
+def _command_report_line_has_confidence(command_text: str, command_id: str) -> bool:
+    command_marker = f"`{command_id}`"
+    return any(command_marker in line and "confidence=`" in line for line in command_text.splitlines())
+
+
+def _append_missing_evidence_expansion_details(
+    missing: list[str],
+    expansion_text: str,
+    inventory: ProjectInventory,
+) -> None:
+    plan = _inventory_evidence_expansion(inventory)
+    if not plan:
+        if "evidence_expansion=not_run" not in expansion_text:
+            missing.append("missing_evidence_expansion_not_run")
+        return
+    for path in _plan_list_value(plan, "requested_paths"):
+        if f"`{path}`" not in expansion_text:
+            missing.append(f"missing_expansion_requested_path:{path}")
+    for path in _plan_list_value(plan, "read_paths"):
+        if f"`{path}`" not in expansion_text:
+            missing.append(f"missing_expansion_read_path:{path}")
+    for focus in _plan_list_value(plan, "risk_focus"):
+        if f"`{focus}`" not in expansion_text:
+            missing.append(f"missing_expansion_risk_focus:{focus}")
+    confidence = _plan_scalar_value(plan, "confidence")
+    if confidence and f"confidence=`{confidence}`" not in expansion_text:
+        missing.append(f"missing_expansion_confidence:{confidence}")
+    read_file_count = _plan_scalar_value(plan, "read_file_count")
+    if read_file_count and f"read_file_count={read_file_count}" not in expansion_text:
+        missing.append(f"missing_expansion_read_file_count:{read_file_count}")
+    rationale = _plan_scalar_value(plan, "rationale")
+    if rationale and rationale not in expansion_text:
+        missing.append("missing_expansion_rationale")
+
+
+def _scan_metadata(inventory: ProjectInventory) -> dict[str, Any]:
+    metadata = inventory.stack_extensions.get("scan_metadata", {})
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _coverage_selected_paths(coverage: dict[str, Any]) -> list[str]:
+    paths: list[str] = []
+    seen: set[str] = set()
+    buckets = coverage.get("bucket_coverage")
+    if not isinstance(buckets, list):
+        return []
+    for bucket in buckets:
+        if not isinstance(bucket, dict):
+            continue
+        selected_paths = bucket.get("selected_paths")
+        if not isinstance(selected_paths, list):
+            continue
+        for item in selected_paths:
+            path = str(item).strip()
+            if path and path not in seen:
+                seen.add(path)
+                paths.append(path)
+    return paths
+
+
+def _list_value(container: dict[str, Any], field: str) -> list[str]:
+    value = container.get(field)
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
+
+
+def _scan_report_warnings(inventory: ProjectInventory) -> list[dict[str, Any]]:
+    warnings = inventory.stack_extensions.get("scan_warnings")
+    if isinstance(warnings, list) and warnings:
+        return [item for item in warnings if isinstance(item, dict)]
+    metadata_warnings = _scan_metadata(inventory).get("warnings", [])
+    if isinstance(metadata_warnings, list):
+        return [item for item in metadata_warnings if isinstance(item, dict)]
+    return []
 
 
 def _missing_init_summary_confirmation_ids(ai: Path, text: str) -> list[str]:

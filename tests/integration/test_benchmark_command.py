@@ -595,6 +595,99 @@ def _add_consistent_project_context_evidence_context(ai: Path) -> ProjectInvento
     return ProjectInventory.model_validate_json(inventory_path.read_text(encoding="utf-8"))
 
 
+def _add_consistent_scan_report_context(ai: Path) -> ProjectInventory:
+    inventory_path = ai / "project-inventory.json"
+    inventory_payload = json.loads(inventory_path.read_text(encoding="utf-8"))
+    inventory_payload["documents"] = [{"path": "README.md", "kind": "project documentation"}]
+    inventory_payload["configs"] = [{"path": "src/main/resources/application.yml", "kind": "spring configuration"}]
+    inventory_payload["ci_files"] = [{"path": ".github/workflows/ci.yml", "kind": "github actions"}]
+    inventory_payload.setdefault("stack_extensions", {})["risk_areas"] = [
+        {"path": "src/main/resources/application.yml", "reason": "database config risk"}
+    ]
+    inventory_payload["stack_extensions"]["scan_warnings"] = [
+        {
+            "code": "test_evidence_not_found",
+            "message": "Some test evidence needs confirmation.",
+            "severity": "warning",
+            "evidence": ["test"],
+        }
+    ]
+    inventory_payload["stack_extensions"]["scan_validation"] = {
+        "checked_claims": ["java-spring", "maven"],
+        "supported_claims": ["java-spring"],
+        "unsupported_claims": [{"stack": "maven", "reason": "Wrapper not found."}],
+    }
+    scan_metadata = inventory_payload["stack_extensions"].setdefault("scan_metadata", {})
+    scan_metadata["coverage"] = {
+        "schema_version": "1.0",
+        "detected_file_count": 12,
+        "selected_evidence_count": 4,
+        "bucket_coverage": [
+            {
+                "bucket": "test",
+                "total_count": 2,
+                "selected_count": 1,
+                "skipped_count": 1,
+                "selected_paths": ["src/test/java/com/example/demo/DemoControllerTest.java"],
+            },
+            {
+                "bucket": "api_entrypoint",
+                "total_count": 1,
+                "selected_count": 1,
+                "skipped_count": 0,
+                "selected_paths": ["src/main/java/com/example/demo/DemoController.java"],
+            },
+        ],
+        "warnings": [],
+    }
+    scan_metadata["evidence_expansion"] = {
+        "schema_version": "1.0",
+        "planner_prompt_version": "llm-evidence-planner-v1",
+        "requested_paths": ["src/main/java/com/example/demo/DemoController.java"],
+        "risk_focus": ["controller routing"],
+        "rationale": "Controller route ownership needed deeper inspection.",
+        "confidence": "medium",
+        "read_paths": ["src/main/java/com/example/demo/DemoController.java"],
+        "read_file_count": 1,
+    }
+    inventory_path.write_text(json.dumps(inventory_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    report = ai / "scan-report.md"
+    report.write_text(
+        "# Scan Report\n\n"
+        "Repository: `mini-spring-boot`\n\n"
+        "Primary stack: `java-spring`\n\n"
+        "## Evidence\n\n"
+        "- `pom.xml`: maven build file\n"
+        "- `README.md`: project documentation\n"
+        "- `src/main/resources/application.yml`: spring configuration\n"
+        "- `.github/workflows/ci.yml`: github actions\n\n"
+        "## LLM Evidence Expansion\n\n"
+        "- requested_paths=`src/main/java/com/example/demo/DemoController.java`\n"
+        "- read_paths=`src/main/java/com/example/demo/DemoController.java`\n"
+        "- risk_focus=`controller routing`\n"
+        "- confidence=`medium`\n"
+        "- read_file_count=1\n"
+        "- rationale=Controller route ownership needed deeper inspection.\n\n"
+        "## Evidence Coverage\n\n"
+        "- evidence_selected=4/12\n"
+        "- `test`: selected=1 total=2 skipped=1 selected_paths=`src/test/java/com/example/demo/DemoControllerTest.java`\n"
+        "- `api_entrypoint`: selected=1 total=1 skipped=0 selected_paths=`src/main/java/com/example/demo/DemoController.java`\n\n"
+        "## Stack Evidence Validation\n\n"
+        "- checked_claims=`java-spring`, `maven`\n"
+        "- supported_claims=`java-spring`\n"
+        "- unsupported_claim=`maven`: Wrapper not found.\n\n"
+        "## Scan Warnings\n\n"
+        "- `warning` `test_evidence_not_found`: Some test evidence needs confirmation. evidence=`test`\n\n"
+        "## Risk Areas\n\n"
+        "- `src/main/resources/application.yml`: database config risk\n\n"
+        "## Command Candidates\n\n"
+        "- `hard` `test` `unit_test`: `mvn test` (source=`pom.xml`, confidence=`high`)\n",
+        encoding="utf-8",
+    )
+    return ProjectInventory.model_validate_json(inventory_path.read_text(encoding="utf-8"))
+
+
 def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch):
     repo = _copy_fixture_repo(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.benchmark.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
@@ -621,6 +714,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-skills" in check_ids
     assert "content:workflow-skill-config-reference" in check_ids
     assert "content:workflow-routing-policy" in check_ids
+    assert "content:scan-report" in check_ids
     assert "content:risk-context-consistency" in check_ids
     assert "content:project-context-evidence-context" in check_ids
     assert "content:maturity-routing-evidence" in check_ids
@@ -935,6 +1029,89 @@ def test_benchmark_fails_when_project_context_omits_llm_evidence_expansion_detai
     checks = _content_checks(ai, inventory)
 
     check = next(item for item in checks if item["id"] == "content:project-context-evidence-context")
+    assert check["passed"] is False
+    assert "missing_expansion_requested_path:src/main/java/com/example/demo/DemoController.java" in check["missing"]
+    assert "missing_expansion_read_path:src/main/java/com/example/demo/DemoController.java" in check["missing"]
+    assert "missing_expansion_read_file_count:1" in check["missing"]
+    assert "missing_expansion_rationale" in check["missing"]
+
+
+def test_benchmark_passes_when_scan_report_preserves_evidence_context(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_scan_report_context(ai)
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:scan-report")
+    assert check["passed"] is True
+
+
+def test_benchmark_scan_report_allows_later_command_confidence_edits(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_scan_report_context(ai)
+    catalog_path = ai / "command-catalog.yaml"
+    catalog = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    catalog["commands"][0]["confidence"] = "low"
+    catalog_path.write_text(yaml.safe_dump(catalog, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:scan-report")
+    assert check["passed"] is True
+
+
+def test_benchmark_fails_when_scan_report_omits_required_audit_section(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+    report = ai / "scan-report.md"
+    report.write_text(report.read_text(encoding="utf-8").replace("## Evidence\n\n", "## Source Evidence\n\n", 1), encoding="utf-8")
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:scan-report")
+    assert check["passed"] is False
+    assert "## Evidence" in check["missing"]
+
+
+def test_benchmark_fails_when_scan_report_omits_coverage_selected_path(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_scan_report_context(ai)
+    report = ai / "scan-report.md"
+    report.write_text(
+        report.read_text(encoding="utf-8").replace(
+            "`src/test/java/com/example/demo/DemoControllerTest.java`",
+            "`src/test/java/com/example/demo/OtherTest.java`",
+        ),
+        encoding="utf-8",
+    )
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:scan-report")
+    assert check["passed"] is False
+    assert "missing_coverage_selected_path:src/test/java/com/example/demo/DemoControllerTest.java" in check["missing"]
+
+
+def test_benchmark_fails_when_scan_report_omits_llm_evidence_expansion_detail(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = _add_consistent_scan_report_context(ai)
+    report = ai / "scan-report.md"
+    report.write_text(
+        report.read_text(encoding="utf-8")
+        .replace("`src/main/java/com/example/demo/DemoController.java`", "`src/main/java/com/example/demo/OtherController.java`")
+        .replace("read_file_count=1", "read_file_count=0")
+        .replace("Controller route ownership needed deeper inspection.", "rationale removed."),
+        encoding="utf-8",
+    )
+
+    checks = _content_checks(ai, inventory)
+
+    check = next(item for item in checks if item["id"] == "content:scan-report")
     assert check["passed"] is False
     assert "missing_expansion_requested_path:src/main/java/com/example/demo/DemoController.java" in check["missing"]
     assert "missing_expansion_read_path:src/main/java/com/example/demo/DemoController.java" in check["missing"]

@@ -95,7 +95,7 @@ Evidence 是 LLM 的输入，也是调和阶段的审计依据。
 - Evidence collector 收集事实，不做最终业务判断。
 - LLM evidence planner 可以基于初始 `EvidenceBundle.files` 选择少量需要深入读取的补充文件；它只能引用已发现的仓库内路径，Python 必须用 Pydantic schema 和 allowlist 校验后再读取摘要。
 - LLM evidence planner 的结构化输出必须进入 `ScanMetadata.evidence_expansion`，记录 planner prompt version、requested paths、risk focus、rationale、confidence、实际读取 paths 和读取文件数量，便于调试和审计深度扫描决策。
-- `ScanMetadata.evidence_expansion` 不能只停留在机器 metadata 中；生成的 `.ai/guides/project-context.md` 必须以 `## LLM 证据扩展` 展示 requested/read paths、risk focus、confidence、read file count 和 rationale，benchmark 用 `content:project-context-evidence-context` 防止该审计上下文漂移。
+- `ScanMetadata.evidence_expansion` 不能只停留在机器 metadata 中；生成的 `.ai/scan-report.md` 必须以 `## LLM Evidence Expansion` 展示 requested/read paths、risk focus、confidence、read file count 和 rationale，生成的 `.ai/guides/project-context.md` 必须以 `## LLM 证据扩展` 展示同类审计信息。benchmark 分别用 `content:scan-report` 和 `content:project-context-evidence-context` 防止审计上下文漂移。
 - LLM-guided evidence expansion 不允许读取 `.ai/`、依赖目录、构建产物、仓库外路径或模型发明的路径；非法请求必须显式失败，不能回退成确定性采样成功。
 - 如果 LLM evidence planner 返回低置信度，调和阶段必须保留 warning 和 human confirmation 信号；不能把低置信度规划伪装成完全可信的扫描结果。
 - coverage gap、LLM stack claim 缺少 evidence、primary stack unknown、模块边界不清或测试 evidence 缺失时，调和阶段必须生成结构化 follow-up questions，并写入 `ScanMetadata.followup_questions`。这些问题用于驱动 guided CLI 的 targeted 追问、二次自检和后续人工确认；它们不能自动修正 LLM proposal。

@@ -83,6 +83,7 @@ Benchmark 应检查：
 - workflow skill 文件存在并被引用。
 - generation trace 存在且包含阶段和 artifact。
 - weapon library selection 与生成 guide/sensor 内容一致。
+- scan report evidence visibility 可审计；`.ai/scan-report.md` 必须展示 Evidence、LLM Evidence Expansion、Evidence Coverage、Stack Evidence Validation、Scan Warnings、Risk Areas 和 Command Candidates。缺失章节、inventory evidence path、coverage selected path、evidence expansion detail、scan warning code、risk path 或 command confidence 时，`content:scan-report` 必须失败并保留具体 `missing_*` detail。
 - project-context evidence context 可审计；`.ai/guides/project-context.md` 的 `## 来源证据` 必须保留 `ProjectInventory` 中的 evidence、documents、configs 和 CI 路径，`## LLM 证据扩展` 必须保留 `ScanMetadata.evidence_expansion` 的 requested/read paths、risk focus、confidence、read file count 和 rationale。缺失时 `content:project-context-evidence-context` 必须失败并保留具体 `missing_evidence_path:<path>`、`missing_llm_evidence_expansion_section` 或 `missing_expansion_*`。
 - scan risk path 在 Guide、Sensor 和 standard routing 之间一致；`ProjectInventory` 中的风险路径必须出现在 `.ai/guides/project-context.md`、`.ai/sensors/verification.md`，并以 `risk_area:<path>` trigger 或 rationale 进入 `.ai/harness-config.yaml` 的 `standard-escalation`。缺失时 `content:risk-context-consistency` 必须失败并保留具体 `missing_*_risk:<path>`。
 - hard gate command 有 source、confidence、type 和 gate 证据；source 必须指向目标仓库内真实存在的文件。source 为空、low confidence、source path 不存在或逃出仓库时，benchmark 必须让 `content:hard-gate-command-evidence` 失败，并在 `weak_commands` 中保留 command id、source、confidence 和 reason。
@@ -148,6 +149,7 @@ Sensor 不是孤立文件。它应该和以下产物一致：
 - Sensor Markdown 包含必需章节。
 - Stack-specific sensor weapon id 出现在输出中。
 - hard gate passed 时 benchmark 可以通过。
+- scan report 缺少 evidence coverage、selected path、LLM evidence expansion、scan warning、risk area 或 command confidence 时 benchmark 失败并列出具体 missing detail。
 - project-context 缺少来源证据路径或 LLM evidence expansion 审计细节时 benchmark 失败并列出具体 missing detail。
 - scan risk path 缺少 Guide、Sensor 或 routing 任一环时 benchmark 失败并列出具体路径。
 - hard gate command source 缺失、source path 不存在、source path 逃出仓库或 low confidence 时 benchmark 失败并列出失败摘要。

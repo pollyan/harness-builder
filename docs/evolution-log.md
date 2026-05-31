@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Scan Report Evidence Visibility 迁移
+
+- North Star 模块：Deep Scan Evidence、Benchmark / Review Intelligence、Maturity & Evolution。
+- init North Star 旅程阶段：扫描理解可解释；写入后的扫描审计报告；质量门禁解释。
+- Gap Analysis 摘要：当前唯一 open todo 仍是本地独有 / 更细能力迁移。上一轮已把 LLM evidence expansion 推到 project-context 并由 benchmark 守住，但 `.ai/scan-report.md` 仍只展示 repo、primary stack、少量 evidence 和 commands，无法承载 coverage、stack validation、warnings、risk areas 或 LLM requested evidence 的审计。本轮候选包括 scan-report evidence visibility、init-summary evidence audit、failed check detail preservation 和 evidence helper 去重，优先选择 scan-report，因为它是扫描链路最直接的审计产物。
+- 工程信任故事：作为 Harness Maintainer，当我查看 `.ai/scan-report.md` 或运行 `benchmark` 验收 Harness 时，我可以看到 evidence coverage、selected paths、LLM evidence expansion、stack validation、scan warnings、risk areas 和命令候选置信度；如果这些审计信息丢失，benchmark 会用 `content:scan-report` 给出具体 missing detail。
+- 当前代码 gap：`asset_writers/reports.py` 的 `_scan_report()` 只列 `inventory.evidence` 和 command；`benchmark.py` 没有 `content:scan-report`；旧分支实现更完整但依赖当前 schema 不存在的顶层 evidence 字段和旧 `evidence_expansion_plan` 字段。
+- 关键决策 / 取舍：适配当前 `scan_metadata.coverage`、`scan_metadata.evidence_expansion`、`scan_validation`、`scan_warnings` 和 `risk_areas`；test/risk/API/document evidence visibility 先通过 coverage bucket selected paths 和现有 inventory documents/configs/CI 展示，不新增 ProjectInventory 顶层字段。
+- Assumptions / risks：旧 Harness 缺少 scan-report 审计章节会被 benchmark failed，这是有意暴露质量退化；本轮不改 LLM prompt、planner 策略或 evidence collector 预算。
+- Sub agent 使用情况：尝试启动只读审查 agent，但当前 agent thread limit reached；本轮由主线程完成旧分支对比、TDD 和实现。
+- 价值切分说明：本轮只强化 scan-report 与 benchmark，不把 init-summary evidence audit 混入；summary 可在下一轮基于稳定 scan-report 摘要化。
+- 可执行验收标准及验证方式：unit 覆盖 report writer 的稳定章节和关键字段；benchmark integration 覆盖 Java fixture check id、完整 scan-report context 通过、缺章节、缺 coverage selected path、缺 evidence expansion detail 失败。
+- 完成内容：`scan-report.md` 新增 Evidence、LLM Evidence Expansion、Evidence Coverage、Stack Evidence Validation、Scan Warnings、Risk Areas、Command Candidates 审计内容；benchmark 新增 `content:scan-report`；README、init workflow、LLM contracts、testing strategy、sensor/gate rules、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted unit / integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：长期文档已同步；Runtime 边界未变化，未执行任务、不创建 `.ai/task-runs`。下一轮候选 gap：init-summary evidence audit，或 failed check missing/errors/detail preservation。
+
 ## 2026-06-01 Project Context Evidence Context Gate 迁移
 
 - North Star 模块：Deep Scan Evidence、Sensor & Quality Gate、Maturity & Evolution。
