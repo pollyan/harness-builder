@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Human Input 待确认回访入口迁移
+
+- North Star 模块：Progressive Collaboration、CLI Experience、Maturity & Evolution。
+- init North Star 旅程阶段：再次进入已有 Harness；深度追问和人工确认回访。
+- Gap Analysis 摘要：当前迁移 todo 仍有 Existing Harness human-input-needed signals、benchmark failed preview 和 routing signals。Benchmark preview 依赖更细 BenchmarkCheck 字段，routing signals 主要解释正式 routing policy；human input 回访直接补齐“用户跳过的问题必须能回访处理”的渐进式协作闭环，因此本轮优先。
+- 用户故事：作为 Harness Maintainer，当我首次 init 后仍有待确认问题，并在之后再次运行 guided `init` 进入已有 Harness 维护入口时，我可以看到待确认项数量、scan 类确认数量、优先处理的 interaction id 和 `.ai/human-input-needed.md#处理方式` 入口，从而知道哪些人工上下文仍需补齐，以及应该用哪个命令或治理动作处理它们。
+- 当前代码 gap：`human-input-needed.md` 只有待确认问题和下一步建议，没有稳定 `## 处理方式`；已有 Harness 入口只显示 `human_input_needed=present/missing`，不能展示 questionnaire backlog。
+- 关键决策 / 取舍：复用现有 `Questionnaire` schema，不新增机器契约；scan 类确认项限定为当前 schema 类型；本轮不自动处理确认项，不修改正式 Guides / Sensors / routing policy，不执行 Runtime。
+- Assumptions / risks：当前 Questionnaire 还没有 processed 状态，因此本轮展示的是待确认问题总数和前几个 id；后续可结合 candidate governance / Experience evidence 做更细状态。
+- Sub agent 使用情况：未使用 sub agent；此前线程 agent 数量达到上限，本轮范围小且主线程可直接完成。
+- 价值切分说明：本轮同时更新 `human-input-needed.md` 和已有 Harness 入口，因为它们共享“待确认项回访”这一用户故事，不把 benchmark failed preview 或 routing signals 混入同一轮。
+- 可执行验收标准及验证方式：unit 覆盖 Markdown 章节与处理建议、helper 对 questionnaire 的 schema 校验和 missing 边界；integration 覆盖已有 Harness `init -> 1` 输出 backlog status 且 formal assets 不变。
+- 完成内容：`human_input_markdown()` 增加 `## 扫描待确认摘要` 和 `## 处理方式`；`interactive_init.py` 增加 `_human_input_needed_status_lines()` 并在 Experience / review signals 中展开 human input backlog；README、init workflow、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted unit / integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：长期文档已同步；无新增 schema。下一轮候选 gap：benchmark failed preview 与 BenchmarkCheck detail 字段、Workflow routing signals、init-summary 与 questionnaire `confirm:*` ID 对齐。
+
 ## 2026-06-01 Existing Harness 编号菜单与维护指引迁移
 
 - North Star 模块：CLI Experience、Maturity & Evolution、Experience & Self-Improve。

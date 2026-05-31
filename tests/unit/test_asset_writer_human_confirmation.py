@@ -29,6 +29,14 @@ def test_write_human_confirmation_assets_writes_context_questionnaire_and_markdo
                 "options": ["保持 candidate", "人工确认后提升为 confirmed"],
                 "confidence": "medium",
                 "reason": "扫描需要确认。",
+            },
+            {
+                "interaction_type": "scan_warning_confirmation",
+                "interaction_id": "confirm:scan-warning:test_evidence_not_found",
+                "question": "是否需要处理扫描警告：未找到测试 evidence？",
+                "options": ["接受当前降级处理", "人工修正 Harness 资产"],
+                "confidence": "low",
+                "reason": "No dedicated test evidence bucket was found.",
             }
         ],
     }
@@ -41,7 +49,14 @@ def test_write_human_confirmation_assets_writes_context_questionnaire_and_markdo
     assert yaml.safe_load((ai / "questionnaire.yaml").read_text(encoding="utf-8")) == questionnaire
     markdown = (ai / "human-input-needed.md").read_text(encoding="utf-8")
     assert "团队规则" in markdown
+    assert "## 扫描待确认摘要" in markdown
     assert "架构是否分层" in markdown
+    assert "confirm:scan-warning:test_evidence_not_found" in markdown
+    assert "## 处理方式" in markdown
+    assert "review-candidate --candidate-id <id> --decision accepted|deferred|rejected|applied" in markdown
+    assert "command=ID|命令|test|hard|来源|置信度" in markdown
+    assert "harness-builder-agent benchmark --repo <repo>" in markdown
+    assert ".ai/task-runs" in markdown
     artifacts = yaml.safe_load(
         (ai / "runs" / "20260530-120000-init" / "artifacts.yaml").read_text(encoding="utf-8")
     )

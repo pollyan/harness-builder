@@ -1157,6 +1157,11 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert "runtime_task_runs=" in result.output
     assert "self_improve_package=" in result.output
     assert "human_input_needed=" in result.output
+    assert "human_input_questionnaire=present" in result.output
+    assert "human_input_confirmations=" in result.output
+    assert "human_input_scan_confirmations=" in result.output
+    assert "human_input_first=confirm:" in result.output
+    assert "human_input_action_entry=.ai/human-input-needed.md#处理方式" in result.output
     assert "schema_content_failed_checks=" in result.output
     assert "exit" in result.output
     assert "== 启动说明 ==" not in result.output
@@ -1194,6 +1199,8 @@ def test_guided_init_existing_harness_can_exit_with_numbered_action(tmp_path: Pa
     assert "1. exit" in result.output
     assert "2. assess" in result.output
     assert "8. reinit" in result.output
+    assert "human_input_questionnaire=present" in result.output
+    assert "human_input_action_entry=.ai/human-input-needed.md#处理方式" in result.output
     _assert_formal_assets_unchanged(repo, formal_before)
 
     trace = _latest_init_trace(repo)

@@ -13,6 +13,7 @@ from harness_builder_agent.schemas.candidate_governance import CandidateGovernan
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.harness_config import HarnessConfig
+from harness_builder_agent.schemas.human_confirmation import Questionnaire
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.interaction_decision import CandidateDecision, WorkflowConfirmation
 from harness_builder_agent.schemas.maturity_report import MaturityReport
@@ -41,6 +42,13 @@ from harness_builder_agent.tools.scan_repo import ScanProgressEvent, scan_reposi
 from harness_builder_agent.tools.self_improve import run_self_improve
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 from harness_builder_agent.tools.write_assets import write_initial_assets
+
+SCAN_CONFIRMATION_TYPES = {
+    "scan_warning_confirmation",
+    "risk_area_confirmation",
+    "evidence_expansion_confirmation",
+    "scan_followup_confirmation",
+}
 
 
 @dataclass
@@ -1279,7 +1287,7 @@ def _experience_status_lines(ai: Path) -> list[str]:
             "experience_index=missing",
             *_workflow_recommendation_status_lines(ai),
             f"self_improve_package={_self_improve_package_status(ai)}",
-            f"human_input_needed={_human_input_needed_status(ai)}",
+            *_human_input_needed_status_lines(ai),
             f"schema_content_failed_checks={_benchmark_schema_content_failed_count(ai)}",
         ]
     index = ExperienceIndex.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
@@ -1293,7 +1301,7 @@ def _experience_status_lines(ai: Path) -> list[str]:
         *_workflow_recommendation_status_lines(ai),
         f"runtime_task_runs={index.runtime_task_run_count}",
         f"self_improve_package={_self_improve_package_status(ai)}",
-        f"human_input_needed={_human_input_needed_status(ai)}",
+        *_human_input_needed_status_lines(ai),
         f"schema_content_failed_checks={_benchmark_schema_content_failed_count(ai)}",
     ]
 
@@ -1354,8 +1362,32 @@ def _self_improve_package_status(ai: Path) -> str:
     )
 
 
-def _human_input_needed_status(ai: Path) -> str:
-    return "present" if (ai / "human-input-needed.md").exists() else "missing"
+def _human_input_needed_status_lines(ai: Path) -> list[str]:
+    if not (ai / "human-input-needed.md").exists():
+        return ["human_input_needed=missing"]
+    questionnaire_path = ai / "questionnaire.yaml"
+    if not questionnaire_path.exists():
+        return [
+            "human_input_needed=present",
+            "human_input_questionnaire=missing",
+            "human_input_action_entry=.ai/human-input-needed.md#处理方式",
+        ]
+    questionnaire = Questionnaire.model_validate(yaml.safe_load(questionnaire_path.read_text(encoding="utf-8")) or {})
+    questions = questionnaire.questions
+    scan_confirmation_count = sum(1 for question in questions if question.interaction_type in SCAN_CONFIRMATION_TYPES)
+    lines = [
+        "human_input_needed=present",
+        "human_input_questionnaire=present",
+        f"human_input_confirmations={len(questions)}",
+        f"human_input_scan_confirmations={scan_confirmation_count}",
+    ]
+    for question in questions[:3]:
+        lines.append(f"human_input_first={question.interaction_id}")
+    omitted = len(questions) - 3
+    if omitted > 0:
+        lines.append(f"human_input_omitted={omitted}")
+    lines.append("human_input_action_entry=.ai/human-input-needed.md#处理方式")
+    return lines
 
 
 def _benchmark_schema_content_failed_count(ai: Path) -> str:

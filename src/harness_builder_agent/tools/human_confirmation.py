@@ -7,6 +7,12 @@ from harness_builder_agent.schemas.human_confirmation import ContextInputs, Ques
 from harness_builder_agent.tools.risk_signals import high_impact_risk_areas, risk_slug
 
 SUMMARY_LIMIT = 1200
+SCAN_CONFIRMATION_TYPES = {
+    "scan_warning_confirmation",
+    "risk_area_confirmation",
+    "evidence_expansion_confirmation",
+    "scan_followup_confirmation",
+}
 
 
 def read_context_inputs(paths: list[Path]) -> dict[str, Any]:
@@ -177,14 +183,85 @@ def human_input_markdown(context_inputs: dict[str, Any], questionnaire: dict[str
         f"- `{item['interaction_id']}`：{item['question']}（confidence={item['confidence']}）"
         for item in questionnaire.get("questions", [])
     ]
+    scan_confirmation_lines = _scan_confirmation_lines(questionnaire.get("questions", []))
+    action_guidance_lines = _action_guidance_lines(questionnaire.get("questions", []))
     return (
         "# Human Input Needed\n\n"
         "## 已提供上下文\n\n"
         + "\n".join(context_lines)
+        + "\n\n## 扫描待确认摘要\n\n"
+        + "\n".join(scan_confirmation_lines)
         + "\n\n## 待确认问题\n\n"
         + "\n".join(question_lines)
+        + "\n\n## 处理方式\n\n"
+        + "\n".join(action_guidance_lines)
         + ("\n\n" + decision_markdown if decision_markdown else "")
         + "\n\n## 下一步建议\n\n"
         "- 如需补充团队规范，请使用 `init --context <file>` 重新生成 Harness。\n"
         "- 候选 Guides / Sensors 在维护者确认前保持 candidate 状态。\n"
     )
+
+
+def _scan_confirmation_lines(questions: list[dict[str, Any]]) -> list[str]:
+    scan_questions = [item for item in questions if item.get("interaction_type") in SCAN_CONFIRMATION_TYPES]
+    if not scan_questions:
+        return ["- 当前没有额外扫描待确认项；仍建议复核高影响判断。"]
+    return [
+        f"- `{item['interaction_id']}`：{item['question']}（confidence={item['confidence']}；reason={item['reason']}）"
+        for item in scan_questions
+    ]
+
+
+def _action_guidance_lines(questions: list[dict[str, Any]]) -> list[str]:
+    if not questions:
+        return [
+            "- 当前没有待确认问题；仍建议运行 `harness-builder-agent benchmark --repo <repo>` 验收生成资产。",
+            "- Harness Builder 不执行 Runtime，也不创建 `.ai/task-runs`。",
+        ]
+    lines = [_action_guidance_line(item) for item in questions]
+    lines.extend(
+        [
+            "- 需要重新进入向导时运行 `harness-builder-agent init --repo <repo>`；处理扫描修正时可在 guided summary 使用 `back` 返回 scan 步骤。",
+            "- 处理完成后运行 `harness-builder-agent benchmark --repo <repo>` 生成 `.ai/benchmark-report.yaml`，再回到 guided `init` 查看 Maintenance triage。",
+            "- Harness Builder 不执行 Runtime，也不创建 `.ai/task-runs`；任务级 workflow 过程数据由宿主 AI Coding Runtime 生成。",
+        ]
+    )
+    return lines
+
+
+def _action_guidance_line(question: dict[str, Any]) -> str:
+    interaction_id = str(question.get("interaction_id", "confirm:unknown"))
+    interaction_type = str(question.get("interaction_type", "unknown"))
+    if interaction_type == "scan_warning_confirmation":
+        return f"- `{interaction_id}`：{_scan_warning_action_hint(_scan_warning_code_from_interaction_id(interaction_id))}"
+    guidance_by_type = {
+        "context_confirmation": "用 `harness-builder-agent init --repo <repo> --context <file>` 补充团队规范、架构约束或测试策略。",
+        "candidate_asset_confirmation": "用 `review-candidate --candidate-id <id> --decision accepted|deferred|rejected|applied` 治理 review-only Guide / Sensor 候选。",
+        "sensor_gate_confirmation": "先在目标仓库和 CI 中确认命令稳定性，再调整 Sensor / gate 语义并运行 benchmark 验收。",
+        "risk_area_confirmation": "在 guided scan correction 中补充 `risk=路径|原因`，让风险区进入 Guide、Sensor 和 workflow routing 叙事。",
+        "evidence_expansion_confirmation": "查看 `.ai/scan-metadata.yaml` 的 evidence expansion，必要时用 `--context <file>` 或 scan correction 补充关键路径。",
+        "scan_followup_confirmation": "重新进入 guided `init`，根据追问补充 `stack=...`、`module=路径|类型|名称`、`command=ID|命令|类型|gate|来源|置信度` 或 `risk=路径|原因`。",
+    }
+    guidance = guidance_by_type.get(
+        interaction_type,
+        "在 `.ai/questionnaire.yaml` 中保留该问题，待 Harness Maintainer 人工确认后再更新对应 Harness 资产。",
+    )
+    return f"- `{interaction_id}`：{guidance}"
+
+
+def _scan_warning_code_from_interaction_id(interaction_id: str) -> str:
+    prefix = "confirm:scan-warning:"
+    if interaction_id.startswith(prefix):
+        return interaction_id[len(prefix):] or "unknown"
+    return "unknown"
+
+
+def _scan_warning_action_hint(code: str) -> str:
+    hints = {
+        "test_evidence_not_found": "补充测试命令：`command=ID|命令|test|hard|来源|置信度`，或用 `--context <file>` 补充测试策略。",
+        "command_without_evidence": "补充带真实 source 的验证命令，例如 `command=ID|命令|test|hard|docs/testing.md|high`。",
+        "llm_stack_claim_without_evidence": "补充 `stack=<value>` 或通过 `--context <file>` 说明技术栈判断依据。",
+        "source_sampling_truncated": "查看 `.ai/scan-report.md` / `.ai/scan-metadata.yaml`，必要时补充 `module=路径|类型|名称` 或 `risk=路径|原因`。",
+        "llm_evidence_plan_low_confidence": "复核 `.ai/scan-metadata.yaml` 中的 evidence expansion，并补充关键模块、风险路径或团队上下文。",
+    }
+    return hints.get(code, "查看 warning reason 和 evidence，用 scan correction 或 `--context <file>` 补充事实。")
