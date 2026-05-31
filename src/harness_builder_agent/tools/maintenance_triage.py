@@ -9,6 +9,7 @@ from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
 from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.human_confirmation import Questionnaire
 from harness_builder_agent.schemas.maturity_report import MaturityReport
+from harness_builder_agent.tools.existing_harness_actions import existing_harness_action_number
 
 
 @dataclass(frozen=True)
@@ -20,19 +21,6 @@ class MaintenanceAction:
     next_action: str
     count: int | None = None
     detail: str | None = None
-
-
-EXISTING_HARNESS_ACTION_NUMBERS = {
-    "exit": "1",
-    "assess": "2",
-    "improve": "3",
-    "benchmark": "4",
-    "recommend-workflow": "5",
-    "review-candidate": "6",
-    "review-human-input": "7",
-    "self-improve": "8",
-    "reinit": "9",
-}
 
 
 def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> list[MaintenanceAction]:
@@ -239,7 +227,7 @@ def render_maintenance_triage_menu_hint_lines(actions: list[MaintenanceAction]) 
 
 
 def _maintenance_action_menu_hint(index: int, action: MaintenanceAction) -> str:
-    number = EXISTING_HARNESS_ACTION_NUMBERS.get(action.next_action)
+    number = existing_harness_action_number(action.next_action)
     if number is None:
         return (
             f"建议优先选择 {index}：`{action.next_action}` 当前没有维护菜单编号；"

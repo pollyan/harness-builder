@@ -26,6 +26,10 @@ from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.candidate_governance import review_candidate
 from harness_builder_agent.tools.experience_index import write_experience_index
+from harness_builder_agent.tools.existing_harness_actions import (
+    existing_harness_action_menu_lines,
+    normalize_existing_harness_action,
+)
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.human_input_governance import review_human_input
@@ -1151,73 +1155,11 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
 
 
 def _existing_harness_action_menu_lines() -> list[str]:
-    return [
-        "1. exit：退出，不覆盖现有 Harness。",
-        "2. assess：重新评估成熟度，只刷新 maturity 和 init summary 产物。",
-        "3. improve：基于成熟度缺口生成 review-only 改进候选，不覆盖正式 Harness 资产。",
-        "4. benchmark：运行 Harness 质量门禁，刷新 benchmark / maturity / improvement 派生产物，不覆盖正式 Harness 资产。",
-        "5. recommend-workflow：输入任务说明，生成 review-only Workflow 推荐，不执行任务或修改正式 routing policy。",
-        "6. review-candidate：记录候选 accepted / deferred / rejected；Guide/Sensor 可显式 applied，workflow_policy 仍需专家命令。",
-        "7. review-human-input：处理 scan follow-up 人工复核 resolved / reopened，不修改正式 Harness 资产。",
-        "8. self-improve：生成 review-only 自改进审查包，不应用正式资产或执行 Runtime。",
-        "9. reinit：继续重新扫描并进入当前生成向导。",
-    ]
+    return existing_harness_action_menu_lines()
 
 
 def _normalize_existing_harness_action(value: str) -> str:
-    action = value.strip().lower()
-    aliases = {
-        "1": "exit",
-        "exit": "exit",
-        "quit": "exit",
-        "q": "exit",
-        "退出": "exit",
-        "2": "assess",
-        "assess": "assess",
-        "reassess": "assess",
-        "复评": "assess",
-        "重新评估": "assess",
-        "3": "improve",
-        "improve": "improve",
-        "recommendations": "improve",
-        "建议": "improve",
-        "改进": "improve",
-        "4": "benchmark",
-        "benchmark": "benchmark",
-        "bench": "benchmark",
-        "质量": "benchmark",
-        "验收": "benchmark",
-        "5": "recommend-workflow",
-        "recommend-workflow": "recommend-workflow",
-        "recommend": "recommend-workflow",
-        "workflow": "recommend-workflow",
-        "工作流": "recommend-workflow",
-        "路由": "recommend-workflow",
-        "6": "review-candidate",
-        "review-candidate": "review-candidate",
-        "candidate": "review-candidate",
-        "governance": "review-candidate",
-        "候选": "review-candidate",
-        "治理": "review-candidate",
-        "7": "review-human-input",
-        "review-human-input": "review-human-input",
-        "human-input": "review-human-input",
-        "human": "review-human-input",
-        "input": "review-human-input",
-        "人工输入": "review-human-input",
-        "待确认": "review-human-input",
-        "复核": "review-human-input",
-        "8": "self-improve",
-        "self-improve": "self-improve",
-        "self": "self-improve",
-        "自改进": "self-improve",
-        "智能改进": "self-improve",
-        "9": "reinit",
-        "reinit": "reinit",
-        "重新生成": "reinit",
-        "regenerate": "reinit",
-    }
-    return aliases.get(action, action)
+    return normalize_existing_harness_action(value)
 
 
 def _benchmark_summary(report: BenchmarkReport) -> str:

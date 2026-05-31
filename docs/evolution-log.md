@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 动作契约同源
+
+- North Star 模块：CLI Experience、Maturity-driven Init、审查接管、工程架构。
+- init North Star 旅程阶段：再次进入已有 Harness 的状态感知维护入口。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo。本轮重新读取事实源后，候选包括 existing Harness 动作契约同源、completion summary 视觉紧凑化、existing Harness 维护入口模块拆分。当前维护入口已展示 triage guidance、action shortcuts 和 1-9 菜单，但菜单定义、编号映射和输入 normalization 分散在 `interactive_init.py` / `maintenance_triage.py`，后续菜单调整存在编号漂移风险。
+- 工程信任故事：作为 Harness Builder 维护者，当我继续增强已有 Harness 维护入口或调整菜单动作时，我可以依赖一份同源动作契约同时驱动菜单、编号快捷提示和用户输入 normalization，从而避免 Maintainer 在 guided `init` 中看到的推荐编号和实际动作发生漂移。
+- 当前代码 gap：`interactive_init.py` 维护菜单行和 alias normalization；`maintenance_triage.py` 另有 `EXISTING_HARNESS_ACTION_NUMBERS`；同一个用户可见编号契约重复维护。
+- 关键决策 / 取舍：新增 `existing_harness_actions.py` 作为单一动作契约；`interactive_init.py` 保留 underscore facade 兼容既有测试和内部调用；`maintenance_triage.py` 通过共享 helper 查询编号，不再维护独立映射。
+- Assumptions / risks：当前 1-9 菜单顺序已经是稳定 CLI 契约，本轮只集中维护不重排；新增模块必须避免反向依赖业务分支，防止循环导入。
+- 边界情况 / 失败模式：不改变动作执行语义、不改变默认 `1` exit、不改变 triage 排序、不执行 Runtime、不创建 `.ai/task-runs`、不覆盖正式 Harness 资产；未知 action 仍显示无菜单编号，不能伪造。
+- Sub agent 使用情况：尝试启动 explorer 做只读交叉审查，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮不是泛化大重构，而是先把维护入口用户可见动作编号契约收束为后续菜单演进的稳定基础；完整 `_handle_existing_harness_entry()` 模块拆分留给后续。
+- 可执行验收标准及验证方式：unit 覆盖菜单行顺序、编号查询、英文 / 中文 alias normalization 和 triage shortcut 共享编号；integration 覆盖 existing Harness `1` exit transcript 仍展示快捷编号且正式资产不变；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：新增共享动作契约模块；`interactive_init.py` 菜单 / normalization 改为 facade；`maintenance_triage.py` 移除独立编号表；新增本轮 spec / plan / unit tests。
+- 验证结果：targeted unit / integration 18 passed；`git diff --check` passed；`scripts/test-fast.sh` 417 passed。
+- Self-Harness Gate：无需新增长期产品规则，README 和 `init-workflow.md` 已描述菜单与 shortcuts；本轮只收束实现契约。下一轮候选 gap：首次 init completion summary 视觉紧凑化、existing Harness 维护入口模块拆分，或 push 前 full regression / 远端同步外部前置。
+
 ## 2026-06-01 Init Completion 优先下一步
 
 - North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
