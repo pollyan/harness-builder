@@ -8,6 +8,5 @@ scripts/test-full.sh
 
 cat <<'MSG'
 Local full regression passed.
-After the push completes, run:
-  scripts/check-ci.sh
+Push may proceed; GitHub Actions are not checked as a blocking local step.
 MSG

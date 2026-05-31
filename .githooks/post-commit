@@ -4,6 +4,5 @@ set -euo pipefail
 cat <<'MSG'
 Commit created.
 Before pushing, the pre-push hook will run full local regression tests, including DeepSeek acceptance.
-After pushing, run:
-  scripts/check-ci.sh
+Push no longer waits for GitHub Actions in the Codex workflow.
 MSG

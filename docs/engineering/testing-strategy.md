@@ -240,9 +240,9 @@ CI 不应默认运行真实 DeepSeek acceptance，原因：
 
 - `pre-commit`：运行 `scripts/test-fast.sh`；如果当前工作树已有匹配的 `.pytest_cache/harness-builder-test-fast.stamp`，可以跳过重复 fast regression。该 stamp 只表示当前工作树 fast 已通过，不能替代 Codex 主动运行 fast 的规则。
 - `pre-push`：运行 `scripts/test-full.sh`。
-- `post-commit`：提醒 push 后运行 `scripts/check-ci.sh`。
+- `post-commit`：提醒 push 前本地 full regression 边界；不要求 push 后等待 GitHub Actions。
 
-Codex 侧的强制规则不依赖 Git hook：创建 commit 前必须主动运行 `scripts/test-fast.sh`；push 前必须主动运行 `scripts/test-full.sh`；push 完成后必须主动运行 `scripts/check-ci.sh` 查看 GitHub Actions 结果。这样小步 commit 保持快速反馈，真实 DeepSeek / 开源仓库 acceptance 仍在代码进入 GitHub 前作为硬验收。Git 没有标准 `post-push` hook，因此远端 CI 状态检查由 Codex 工作流规则保证。
+Codex 侧的强制规则不依赖 Git hook：创建 commit 前必须主动运行 `scripts/test-fast.sh`；push 前必须主动运行 `scripts/test-full.sh`。push 后不再把 `scripts/check-ci.sh` 或 GitHub Actions 查询作为阻塞步骤；该脚本只作为人工需要时的手动查询工具。这样小步 commit 保持快速反馈，真实 DeepSeek / 开源仓库 acceptance 仍在代码进入 GitHub 前作为硬验收。
 
 如果缺少 `DEEPSEEK_API_KEY`、真实 benchmark 仓库、网络或 API 可用性，acceptance 必须失败并暴露原因，不能跳过。
 

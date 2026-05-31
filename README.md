@@ -175,8 +175,8 @@ scripts/install-git-hooks.sh
 安装后：
 
 - `pre-commit` 会在提交前运行 `scripts/test-fast.sh`，作为快速兜底。
-- `post-commit` 会提醒推送后运行 `scripts/check-ci.sh` 查看 GitHub Actions。
+- `post-commit` 会提醒推送前本地 full regression 边界；不会要求 push 后等待 GitHub Actions。
 - `pre-push` 会在推送前运行 `scripts/test-full.sh`，包含真实 DeepSeek 和真实开源仓库验收。
-- 推送完成后，运行 `scripts/check-ci.sh` 查看当前分支最新 GitHub Actions 结果。
+- `scripts/check-ci.sh` 保留为人工需要时的手动 GitHub Actions 查询工具，不是 push 后阻塞步骤。
 
-Codex 侧的规则写在 [AGENTS.md](/Users/anhui/Documents/myProgram/harness-builder/AGENTS.md)：创建 commit 前必须主动运行 `scripts/test-fast.sh`，push 前必须主动运行 `scripts/test-full.sh`，push 完成后必须主动运行 `scripts/check-ci.sh`。
+Codex 侧的规则写在 [AGENTS.md](/Users/anhui/Documents/myProgram/harness-builder/AGENTS.md)：创建 commit 前必须主动运行 `scripts/test-fast.sh`，push 前必须主动运行 `scripts/test-full.sh`；push 后不再把远端 CI 查询作为阻塞步骤。
