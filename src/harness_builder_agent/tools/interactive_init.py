@@ -149,11 +149,16 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             trace.finish("failed", {"cancelled": True})
             raise typer.Abort()
         if action == "scan":
+            previous_scan_overrides = scan_overrides
+            _show_scan_back_revision_notice(previous_scan_overrides)
             _show_scan_findings(base_inventory, base_commands)
             _show_scan_maturity_snapshot(repo, base_inventory, base_commands)
             scan_overrides = _collect_scan_supplement(base_inventory)
             inventory, commands = _scan_state_with_overrides(base_inventory, base_commands, scan_overrides)
-            _show_scan_supplement_immediate_summary(scan_overrides)
+            if _has_scan_overrides(scan_overrides):
+                _show_scan_supplement_immediate_summary(scan_overrides)
+            elif _has_scan_overrides(previous_scan_overrides):
+                _show_scan_supplement_cleared_summary()
             weapon_selection = select_weapon_library(inventory, commands)
             candidate_report = build_llm_enhancement_candidates(inventory, commands)
             candidate_ids = [item.id for item in candidate_report.candidates]
@@ -1916,13 +1921,7 @@ def _show_supplement_impact_summary(
 
 
 def _show_scan_supplement_immediate_summary(scan_overrides: GuidedScanOverrides) -> None:
-    if not (
-        scan_overrides.primary_stack
-        or scan_overrides.notes
-        or scan_overrides.modules
-        or scan_overrides.commands
-        or scan_overrides.risk_areas
-    ):
+    if not _has_scan_overrides(scan_overrides):
         return
 
     typer.echo("\n扫描补充理解")
@@ -1949,6 +1948,47 @@ def _show_scan_supplement_immediate_summary(scan_overrides: GuidedScanOverrides)
         typer.echo("- 验证命令会进入 command catalog，并影响 Sensors、hard gate 摘要和后续 benchmark 证据检查。")
     if scan_overrides.risk_areas:
         typer.echo("- 风险区域会影响 Workflow 升级、人工确认项和 human-input-needed。")
+
+
+def _has_scan_overrides(scan_overrides: GuidedScanOverrides) -> bool:
+    return bool(
+        scan_overrides.primary_stack
+        or scan_overrides.notes
+        or scan_overrides.modules
+        or scan_overrides.commands
+        or scan_overrides.risk_areas
+    )
+
+
+def _show_scan_back_revision_notice(previous_scan_overrides: GuidedScanOverrides) -> None:
+    if not _has_scan_overrides(previous_scan_overrides):
+        return
+    typer.echo("\n扫描补充返回修改")
+    typer.echo("- 你将基于原始扫描结果重新填写扫描补充。")
+    typer.echo("- 新输入会替换上一版扫描补充；直接回车会清空上一版补充，并按扫描基线继续。")
+    summary = _scan_override_brief(previous_scan_overrides)
+    if summary:
+        typer.echo(f"- 上一版补充摘要：{summary}")
+
+
+def _show_scan_supplement_cleared_summary() -> None:
+    typer.echo("\n扫描补充已清空")
+    typer.echo("- 已移除上一版扫描补充；后续预览和正式资产将按扫描基线、团队规则和候选决策继续。")
+
+
+def _scan_override_brief(scan_overrides: GuidedScanOverrides) -> str:
+    parts: list[str] = []
+    if scan_overrides.primary_stack:
+        parts.append(f"stack={scan_overrides.primary_stack}")
+    if scan_overrides.modules:
+        parts.append("modules=" + ", ".join(item["path"] for item in scan_overrides.modules[:3]))
+    if scan_overrides.commands:
+        parts.append("commands=" + ", ".join(item.id for item in scan_overrides.commands[:3]))
+    if scan_overrides.risk_areas:
+        parts.append("risks=" + ", ".join(item["path"] for item in scan_overrides.risk_areas[:3]))
+    if scan_overrides.notes:
+        parts.append("notes=" + "；".join(scan_overrides.notes[:2]))
+    return "；".join(parts)
 
 
 def _apply_scan_overrides(

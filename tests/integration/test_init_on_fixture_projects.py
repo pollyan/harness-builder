@@ -1268,6 +1268,54 @@ def test_guided_init_final_summary_back_to_scan_replaces_previous_corrections(tm
     assert "make final-test" in verification
 
 
+def test_guided_init_final_summary_back_to_scan_can_clear_previous_corrections(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "module=legacy|backend|legacy; command=legacy_test|make legacy-test|test|hard|legacy/Makefile|high; risk=legacy|旧风险\n"
+            "\n"
+            "\n\n\n"
+            "\n"
+            "back\n"
+            "scan\n"
+            "\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "扫描补充返回修改" in result.output
+    assert "新输入会替换上一版扫描补充" in result.output
+    assert "直接回车会清空上一版补充" in result.output
+    assert "扫描补充已清空" in result.output
+
+    inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
+    assert {"name": "legacy", "path": "legacy", "kind": "backend"} not in inventory["modules"]
+    assert {"path": "legacy", "reason": "旧风险"} not in inventory["stack_extensions"].get("risk_areas", [])
+    assert "human_overrides" not in inventory["stack_extensions"]
+
+    catalog = yaml.safe_load((repo / ".ai" / "command-catalog.yaml").read_text(encoding="utf-8"))
+    command_ids = {command["id"] for command in catalog["commands"]}
+    assert "legacy_test" not in command_ids
+
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert all("legacy" not in note for note in decisions["scan_confirmation"]["notes"])
+
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    verification = (repo / ".ai" / "sensors" / "verification.md").read_text(encoding="utf-8")
+    init_summary = (repo / ".ai" / "init-summary.md").read_text(encoding="utf-8")
+    for content in (project_context, verification, init_summary):
+        assert "legacy" not in content
+        assert "旧风险" not in content
+        assert "make legacy-test" not in content
+
+
 def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))

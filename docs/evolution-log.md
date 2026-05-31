@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init Scan 返回修改清空提示
+
+- North Star 模块：CLI Experience、Deep Scan Evidence、资产生成与审核接管。
+- init North Star 旅程阶段：扫描理解对齐、用户补充吸收、最终确认返回修改、写入前 Harness 设计预览。
+- Gap Analysis 摘要：当前 open todo 为空，本地独有能力迁移包已 implemented。上一轮已经修复 `back -> scan` 的资产替换语义，最终 `.ai` 资产只保留最新 scan 补充；但 CLI 没有在返回 scan 时说明“新输入替换上一版补充，直接回车清空上一版补充”，直接回车清空也没有可见确认。候选还包括 scan correction diff preview、Workflow note 结构化 impact schema 和 push 前 full regression；本轮选择最贴近纠错信任感的 scan 返回修改提示。
+- 用户故事：作为 Harness Maintainer，当我在最终确认阶段返回 `scan` 修改或撤销扫描补充时，我可以在重新输入前看到新输入会替换上一版扫描补充、直接回车会清空上一版补充，并在清空后看到系统确认后续预览和资产将回到扫描基线，从而避免误以为旧补充仍会影响正式 Harness。
+- 当前代码 gap：`back -> scan` 已基于 clean baseline 重新应用最新补充，但没有用户可见的替换 / 清空边界说明。
+- 关键决策 / 取舍：新增 `_has_scan_overrides()`、返回修改提示和清空确认；提示只在上一版 scan 补充非空时展示；本轮不实现逐项 diff preview，不修改 schema、writer、LLM、benchmark 或 Runtime 契约。
+- Assumptions / risks：返回 scan 表达重新填写扫描补充，直接回车应清空上一版补充并回到扫描基线；如果未来需要累计补充或部分删除，应另行设计 add / remove / diff 交互。
+- 边界情况 / 失败模式：首次 scan 补充为空时不新增额外提示；返回 scan 后输入新补充仍走即时理解 / 影响说明；返回 scan 后直接回车会输出 `扫描补充已清空`。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer，但当前返回 `agent thread limit reached`，未能使用子代理；主线程完成调研与验证。
+- 价值切分说明：本轮只补用户纠错路径的可见语义，和上一轮资产替换语义形成完整“返回修改 -> 替换或清空 -> 预览刷新 -> 写入最新资产”闭环；更复杂 diff preview 留给后续。
+- 可执行验收标准及验证方式：新增 integration 测试覆盖首次输入 `legacy` scan 补充、最终确认返回 scan 后直接回车清空，断言 CLI 展示替换 / 清空提示和清空确认，且 project inventory、command catalog、interaction decisions、project-context、verification sensor 和 init-summary 不包含旧补充。
+- 完成内容：`interactive_init.py` 增加 scan 返回修改提示、清空确认和补充存在性 helper；`docs/engineering/init-workflow.md` 固化返回 scan 的替换 / 清空可见语义；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 integration 测试通过；相关 guided init 测试和 fast regression 见本轮提交前验证。
+- Self-Harness Gate：README 已概述 guided init 可返回修改，暂不为这一纠错提示更新；`docs/todos/` 暂不新增。下一轮候选 gap：scan correction diff preview、Workflow note 结构化 impact schema、或 push 前 full regression / 远端同步前置条件。
+
 ## 2026-06-01 Guided Init Scan 返回修改替换补充
 
 - North Star 模块：CLI Experience、Deep Scan Evidence、资产生成与审核接管。
