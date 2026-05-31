@@ -35,6 +35,7 @@ from harness_builder_agent.tools.maintenance_triage import (
     build_maintenance_triage,
     render_maintenance_triage_guidance_lines,
     render_maintenance_triage_lines,
+    render_maintenance_triage_menu_hint_lines,
 )
 from harness_builder_agent.tools.maturity_model import build_maturity_report
 from harness_builder_agent.tools.prewrite_preview import (
@@ -687,6 +688,9 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         typer.echo(f"  - {line}")
     typer.echo("- Maintenance triage guidance:")
     for line in render_maintenance_triage_guidance_lines(maintenance_actions):
+        typer.echo(f"  - {line}")
+    typer.echo("- Maintenance action shortcuts:")
+    for line in render_maintenance_triage_menu_hint_lines(maintenance_actions):
         typer.echo(f"  - {line}")
     typer.echo("\n可选动作")
     for line in _existing_harness_action_menu_lines():

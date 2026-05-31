@@ -22,6 +22,19 @@ class MaintenanceAction:
     detail: str | None = None
 
 
+EXISTING_HARNESS_ACTION_NUMBERS = {
+    "exit": "1",
+    "assess": "2",
+    "improve": "3",
+    "benchmark": "4",
+    "recommend-workflow": "5",
+    "review-candidate": "6",
+    "review-human-input": "7",
+    "self-improve": "8",
+    "reinit": "9",
+}
+
+
 def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> list[MaintenanceAction]:
     actions: list[MaintenanceAction] = []
     if score is None:
@@ -219,6 +232,25 @@ def render_maintenance_triage_lines(actions: list[MaintenanceAction]) -> list[st
 
 def render_maintenance_triage_guidance_lines(actions: list[MaintenanceAction]) -> list[str]:
     return [_maintenance_action_guidance(index, action) for index, action in enumerate(actions[:3], start=1)]
+
+
+def render_maintenance_triage_menu_hint_lines(actions: list[MaintenanceAction]) -> list[str]:
+    return [_maintenance_action_menu_hint(index, action) for index, action in enumerate(actions[:3], start=1)]
+
+
+def _maintenance_action_menu_hint(index: int, action: MaintenanceAction) -> str:
+    number = EXISTING_HARNESS_ACTION_NUMBERS.get(action.next_action)
+    if number is None:
+        return (
+            f"建议优先选择 {index}：`{action.next_action}` 当前没有维护菜单编号；"
+            f"请使用对应专家命令处理 `{action.reason}`（source={action.source}）。"
+        )
+    count = f"，count={action.count}" if action.count is not None else ""
+    detail = f"，detail={action.detail}" if action.detail else ""
+    return (
+        f"建议优先选择 {index}：输入 `{number}` 运行 `{action.next_action}`"
+        f"（reason={action.reason}，source={action.source}{count}{detail}）。"
+    )
 
 
 def _maintenance_action_guidance(index: int, action: MaintenanceAction) -> str:

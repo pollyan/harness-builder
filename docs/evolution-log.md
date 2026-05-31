@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 推荐动作编号提示
+
+- North Star 模块：CLI Experience、Maturity-driven Init、审查接管。
+- init North Star 旅程阶段：再次进入已有 Harness 的状态感知维护入口。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo，本轮重新读取事实源后，候选包括 existing Harness 推荐动作编号提示、completion summary 视觉紧凑化、existing Harness 维护入口模块拆分。当前维护入口已经展示 top actions、中文 guidance 和 1-9 菜单，但用户仍需把 `benchmark` / `review-human-input` 等动作名手动映射成菜单编号。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 进入已有 Harness 维护入口并看到 Maintenance triage 推荐动作时，我可以直接看到推荐动作对应的菜单编号，从而不用在长菜单中手动映射动作名，也能更稳地选择下一步维护动作。
+- 当前代码 gap：`render_maintenance_triage_guidance_lines()` 只说明应运行哪个 guided action；`_existing_harness_action_menu_lines()` 在后面单独列编号，没有把 triage top action 与可输入编号连接起来。
+- 关键决策 / 取舍：新增 `render_maintenance_triage_menu_hint_lines()`，集中维护 action -> 菜单编号映射；只增强 CLI 文案，不改变 triage 排序、菜单默认值、动作执行语义、schema、LLM 或 Runtime 分工。
+- Assumptions / risks：现有 1-9 菜单顺序是稳定用户界面；如果未来编号调整，unit 会防止 shortcuts 漂移。默认仍是 `1` exit，避免推荐提示被误解为自动执行。
+- 边界情况 / 失败模式：unknown action 显示当前菜单无直接编号，不伪造 fallback；推荐提示只做选择辅助，不自动执行动作、不覆盖正式 Harness 资产、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动 explorer 做只读调研，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮只补“维护信号 -> 推荐动作 -> 可输入菜单编号”的已有 Harness 维护入口选择闭环，不把 completion summary 压缩或大模块拆分混入。
+- 可执行验收标准及验证方式：unit 覆盖 benchmark / review-human-input / recommend-workflow / unknown action 的编号提示；integration 覆盖 guided existing Harness exit transcript 出现 `Maintenance action shortcuts` 且正式资产不变；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：`maintenance_triage.py` 新增编号映射和 shortcut renderer；`interactive_init.py` 在 guidance 后输出 `Maintenance action shortcuts`；README、`docs/engineering/init-workflow.md`、本轮 spec / plan 已同步。
+- 验证结果：targeted unit 2 passed；完整 `tests/unit/test_maintenance_triage.py` 13 passed；targeted guided existing Harness integration 2 passed；`git diff --check` passed；`scripts/test-fast.sh` 413 passed。
+- Self-Harness Gate：长期事实源已同步；不新增 todo。下一轮候选 gap：completion summary 视觉紧凑化、existing Harness 维护入口模块拆分，或 push 前 full regression / 远端同步外部前置。
+
 ## 2026-06-01 Init Completion User Supplements
 
 - North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。

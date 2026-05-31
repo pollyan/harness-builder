@@ -6,7 +6,9 @@ import yaml
 
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.tools.maintenance_triage import (
+    MaintenanceAction,
     build_maintenance_triage,
+    render_maintenance_triage_menu_hint_lines,
     render_maintenance_triage_guidance_lines,
     render_maintenance_triage_lines,
 )
@@ -185,6 +187,60 @@ def test_maintenance_triage_recommends_human_input_review_for_pending_scan_follo
     assert "detail=confirm:scan-followup:test-evidence" in lines[0]
     assert "运行 `review-human-input`" in guidance[0]
     assert "resolved / reopened" in guidance[0]
+
+
+def test_maintenance_triage_menu_hints_map_actions_to_existing_harness_numbers():
+    actions = [
+        MaintenanceAction(
+            priority=10,
+            action="benchmark",
+            reason="benchmark_not_run",
+            source=".ai/benchmark-report.yaml",
+            next_action="benchmark",
+        ),
+        MaintenanceAction(
+            priority=25,
+            action="review-human-input",
+            reason="human_input_scan_followups_pending",
+            source=".ai/questionnaire.yaml",
+            next_action="review-human-input",
+            count=2,
+            detail="confirm:scan-followup:test-evidence",
+        ),
+        MaintenanceAction(
+            priority=90,
+            action="recommend-workflow",
+            reason="no_pending_maintenance_signal",
+            source=".ai/harness-config.yaml",
+            next_action="recommend-workflow",
+        ),
+    ]
+
+    lines = render_maintenance_triage_menu_hint_lines(actions)
+
+    assert lines == [
+        "建议优先选择 1：输入 `4` 运行 `benchmark`（reason=benchmark_not_run，source=.ai/benchmark-report.yaml）。",
+        "建议优先选择 2：输入 `7` 运行 `review-human-input`（reason=human_input_scan_followups_pending，source=.ai/questionnaire.yaml，count=2，detail=confirm:scan-followup:test-evidence）。",
+        "建议优先选择 3：输入 `5` 运行 `recommend-workflow`（reason=no_pending_maintenance_signal，source=.ai/harness-config.yaml）。",
+    ]
+
+
+def test_maintenance_triage_menu_hints_do_not_invent_numbers_for_unknown_actions():
+    lines = render_maintenance_triage_menu_hint_lines(
+        [
+            MaintenanceAction(
+                priority=1,
+                action="custom-action",
+                reason="custom_reason",
+                source=".ai/custom.yaml",
+                next_action="custom-action",
+            )
+        ]
+    )
+
+    assert lines == [
+        "建议优先选择 1：`custom-action` 当前没有维护菜单编号；请使用对应专家命令处理 `custom_reason`（source=.ai/custom.yaml）。"
+    ]
 
 
 def test_maintenance_triage_keeps_benchmark_before_human_input_review(tmp_path: Path):

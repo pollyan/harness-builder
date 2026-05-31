@@ -1974,6 +1974,8 @@ def test_guided_init_existing_harness_can_exit_with_numbered_action(tmp_path: Pa
     assert result.exit_code == 0, result.output
     assert "Maintenance triage guidance" in result.output
     assert "建议处理 1：先运行 `benchmark`" in result.output
+    assert "Maintenance action shortcuts" in result.output
+    assert "建议优先选择 1：输入 `4` 运行 `benchmark`" in result.output
     assert "1. exit" in result.output
     assert "2. assess" in result.output
     assert "7. review-human-input" in result.output
