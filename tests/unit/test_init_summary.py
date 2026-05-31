@@ -212,6 +212,38 @@ def test_init_completion_message_reports_no_user_supplements(tmp_path: Path):
     assert "后续可在已有 Harness 维护入口继续补齐" in message
 
 
+def test_init_completion_message_compacts_many_user_supplements(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    (ai / "maturity-score.yaml").write_text(yaml.safe_dump(_score().model_dump(mode="json")), encoding="utf-8")
+    decisions = accepted_interactive_decisions(
+        str(tmp_path),
+        inline_contexts=["团队规则一：Controller 只能调用 Service", "团队规则二：Repository 不跨聚合访问"],
+        scan_notes=["扫描补充一：批处理入口在 jobs/", "扫描补充二：支付模块风险最高", "扫描补充三：迁移脚本需人工复核"],
+        workflow_confirmation=WorkflowConfirmation(
+            shown_workflows=["bugfix", "standard"],
+            confirmed=True,
+            notes=["Workflow 补充一：权限变更必须走 standard", "Workflow 补充二：跨模块任务必须人工确认"],
+        ),
+    )
+    (ai / "interaction-decisions.yaml").write_text(
+        yaml.safe_dump(decisions.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    message = render_init_completion_message(ai)
+
+    assert "扫描补充：3 条；示例：扫描补充一：批处理入口在 jobs/" in message
+    assert "团队规则：2 条；示例：团队规则一：Controller 只能调用 Service" in message
+    assert "Workflow 补充：2 条；示例：Workflow 补充一：权限变更必须走 standard" in message
+    assert "扫描补充二：支付模块风险最高" not in message
+    assert "团队规则二：Repository 不跨聚合访问" not in message
+    assert "Workflow 补充二：跨模块任务必须人工确认" not in message
+    assert ".ai/interaction-decisions.yaml" in message
+    assert "完整交付摘要见 `.ai/init-summary.md`" in message
+    assert "团队规则和 Workflow 补充不会被伪装成扫描事实或正式 routing policy" in message
+
+
 def test_init_completion_message_reports_missing_interaction_decisions(tmp_path: Path):
     ai = tmp_path / ".ai"
     ai.mkdir()

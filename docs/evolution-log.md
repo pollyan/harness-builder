@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Init Completion 用户补充紧凑摘要
+
+- North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
+- init North Star 旅程阶段：首次初始化、写入后的交付摘要、用户补充消费闭环。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo；本轮重新读取事实源后，候选包括 completion 用户补充紧凑摘要、existing Harness 维护入口模块拆分、push 前 full regression / 远端同步。当前 completion message 已能展示本次吸收的用户补充、source 和事实边界，但每类最多逐条展示 3 条，scan / team / workflow 合计可能达到 9 条，和 `init-north-star.md` 的短交付摘要目标不完全一致。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 中提供多条 scan 修正、团队规则或 Workflow 补充并完成写入后，我可以在终端 `== 初始化完成 ==` 中看到每类补充的条数、一个可读示例、结构化来源和事实边界，从而确认输入已被吸收，同时不用在完成摘要里阅读一长串补充明细。
+- 当前代码 gap：`_completion_user_supplement_lines()` 逐条输出每类前 3 条补充；完整细节虽可审计，但 completion message 作为终端主交付说明仍偏长。
+- 关键决策 / 取舍：每类补充只展示条数和首条示例；完整细节继续由 `.ai/init-summary.md` 和 `.ai/interaction-decisions.yaml` 承担；保留 source 和事实边界，防止团队规则或 Workflow note 被误读为扫描事实或正式 routing policy。
+- Assumptions / risks：终端 completion 中“条数 + 示例 + source”足以确认补充被吸收；如果用户需要逐条审查，必须打开持久化 Markdown / YAML。
+- 边界情况 / 失败模式：无人工补充时仍提示后续可在已有 Harness 维护入口补齐；缺少 interaction decisions 时仍显式显示 `interaction_decisions=missing`；shown workflows、source 和事实边界继续保留；不修改 `init-summary.md`、schema、benchmark 或 Runtime。
+- Sub agent 使用情况：尝试启动 explorer 做只读调研，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮只改善首次 init completion 的用户补充段长度，不改变用户补充的收集、写入、资产消费或后续治理流程。
+- 可执行验收标准及验证方式：unit 覆盖多条 scan / team / workflow 补充时只展示条数和首条示例，不展示后续明细；integration 覆盖真实 guided init completion 仍显示关键示例、source 和事实边界；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：`_completion_user_supplement_lines()` 改为紧凑摘要；README 和 `docs/engineering/init-workflow.md` 同步 completion 用户补充摘要契约；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED unit 已确认旧逐条输出失败；targeted compact unit 1 passed；`tests/unit/test_init_summary.py` 9 passed；targeted guided init integration 1 passed；`git diff --check` passed；`scripts/test-fast.sh` 421 passed。
+- Self-Harness Gate：长期文档已同步；不新增 todo。下一轮候选 gap：existing Harness 维护入口模块拆分、completion 生成清单进一步紧凑化，或 push 前 full regression / 远端同步外部前置。
+
 ## 2026-06-01 Init Completion 行动优先交付摘要
 
 - North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。

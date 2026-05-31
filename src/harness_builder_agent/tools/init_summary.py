@@ -171,12 +171,15 @@ def _completion_user_supplement_lines(ai: Path) -> str:
 
     decisions = InteractionDecisions.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
     lines: list[str] = []
-    for note in decisions.scan_confirmation.notes[:3]:
-        lines.append(f"- 扫描补充：{note}")
-    for item in decisions.context_confirmation.inline_contexts[:3]:
-        lines.append(f"- 团队规则：{item}")
-    for note in decisions.workflow_confirmation.notes[:3]:
-        lines.append(f"- Workflow 补充：{note}")
+    lines.extend(
+        item
+        for item in [
+            _completion_supplement_summary_line("扫描补充", decisions.scan_confirmation.notes),
+            _completion_supplement_summary_line("团队规则", decisions.context_confirmation.inline_contexts),
+            _completion_supplement_summary_line("Workflow 补充", decisions.workflow_confirmation.notes),
+        ]
+        if item is not None
+    )
 
     if not lines:
         lines.append("- 本次未提供人工补充；后续可在已有 Harness 维护入口继续补齐团队规则、风险边界和 workflow 约束。")
@@ -188,6 +191,12 @@ def _completion_user_supplement_lines(ai: Path) -> str:
     lines.append("- source=`.ai/interaction-decisions.yaml`；完整交付摘要见 `.ai/init-summary.md`。")
     lines.append("- 事实边界：团队规则和 Workflow 补充不会被伪装成扫描事实或正式 routing policy。")
     return "\n".join(lines)
+
+
+def _completion_supplement_summary_line(label: str, items: list[str]) -> str | None:
+    if not items:
+        return None
+    return f"- {label}：{len(items)} 条；示例：{items[0]}"
 
 
 def _generated_asset_summary(ai: Path) -> str:
