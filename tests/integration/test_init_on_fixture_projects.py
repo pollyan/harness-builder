@@ -19,6 +19,7 @@ from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
+from harness_builder_agent.tools import interactive_init
 from harness_builder_agent.tools.experience_index import write_experience_index
 from harness_builder_agent.tools.scan_repo import scan_repository
 
@@ -347,6 +348,13 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     )
 
     assert result.exit_code == 0, result.output
+    assert "扫描仓库" in result.output
+    assert "正在收集仓库文件、构建配置、CI、测试和文档证据" in result.output
+    assert "正在请求 LLM 做结构化扫描" in result.output
+    assert "正在调和 LLM 判断与 evidence" in result.output
+    assert "扫描完成" in result.output
+    assert result.output.index("扫描仓库") < result.output.index("扫描发现")
+    assert result.output.index("扫描完成") < result.output.index("扫描发现")
     assert "扫描发现" in result.output
     assert "主要技术栈" in result.output
     assert "团队规则" in result.output
@@ -380,6 +388,40 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert decisions["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix"]
     assert decisions["workflow_confirmation"]["confirmed"] is True
     assert decisions["final_confirmation"]["status"] == "confirmed"
+
+
+def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    messages: list[str] = []
+    original_echo = interactive_init.typer.echo
+
+    def record_echo(message="", *args, **kwargs):
+        messages.append(str(message))
+        return original_echo(message, *args, **kwargs)
+
+    def fail_scan(repo_path: Path):
+        assert any("扫描仓库" in message for message in messages)
+        raise RuntimeError("synthetic scan failure")
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.typer.echo", record_echo)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="\n")
+    output = _strip_ansi(result.output)
+
+    assert result.exit_code != 0
+    assert "扫描仓库" in output
+    assert "扫描阶段失败" in output
+    assert "未写入正式 Harness 资产" in output
+    assert "请检查 LLM 配置、网络或扫描错误后重试" in output
+    assert "synthetic scan failure" in output
+    assert output.index("扫描仓库") < output.index("扫描阶段失败")
+    assert not (repo / ".ai" / "project-inventory.json").exists()
+    assert not (repo / ".ai" / "harness-config.yaml").exists()
+    assert not (repo / ".ai" / "guides").exists()
+    assert not (repo / ".ai" / "sensors").exists()
+    assert not (repo / ".ai" / "skills").exists()
 
 
 def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):

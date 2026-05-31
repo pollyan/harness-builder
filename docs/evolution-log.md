@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 扫描进度反馈
+
+- North Star 模块：CLI Experience、Progressive Collaboration、深度扫描、可解释失败边界。
+- init North Star 旅程阶段：启动与目标说明、阶段化扫描与进度反馈、扫描结果友好呈现。
+- Gap Analysis 摘要：首次 guided `init` 在用户确认继续后会直接进入 `scan_repository()`，真实仓库和真实 LLM 场景下可能长时间无输出；扫描失败时虽然 CLI 会显式失败并记录 trace，但用户无法从屏幕上判断失败发生在扫描阶段，也不知道正式 `.ai` Harness 资产尚未写入。
+- 用户故事：作为 Harness Maintainer，当我首次运行 guided `init` 并确认继续后，我可以在耗时扫描开始前看到系统正在收集仓库证据、请求 LLM 结构化扫描和调和 evidence；如果扫描失败，我能看到失败阶段、原因摘要和“未写入正式 Harness 资产”的边界。
+- 当前代码 gap：`run_guided_init()` 只有 trace event，没有用户可见的扫描进度；`run_non_interactive_init()` 作为自动化路径不应被改变。
+- 关键决策 / 取舍：本轮只在 guided 分支的 `scan_repository()` 调用周边增加阶段提示和失败边界，不改变 `scan_repository()` 签名，不加入 callback，不拆分内部扫描 pipeline，避免破坏现有 monkeypatch 测试和非交互输出语义。更细粒度的 evidence / LLM / reconcile 分阶段 callback 保留为后续独立切片。
+- 边界情况 / 失败模式及回应：扫描失败继续重新抛出原异常，不吞异常、不 fallback、不写入正式 inventory、config、Guides、Sensors 或 Workflow Skills；异常类型和消息只作为原因摘要展示。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行审查实现切入点和测试策略；一个指出如给 `scan_repository()` 增加 progress 参数会破坏现有 monkeypatch，另一个建议用 `typer.echo` 调用顺序证明进度提示发生在扫描调用前。
+- 价值切分说明：本轮解决的是用户在 `init` 第一段耗时等待中的可解释性和失败边界，不是内部扫描智能增强；它为后续更深的交互扫描和阶段 callback 打基础。
+- 验收标准及验证方式：integration 覆盖 happy path 中 `扫描仓库` / `扫描完成` 出现在 `扫描发现` 前；失败路径 monkeypatch `scan_repository()` 抛错，断言扫描前已输出进度、失败提示包含原因和未写入正式资产，并断言正式 Harness 资产未生成。
+- 完成内容：`interactive_init.py` 新增 guided 扫描开始、完成、失败渲染；init workflow 规则和 spec/plan 同步。
+- 验证结果：targeted guided scan progress tests 已通过；fast/full/push 结果见本轮提交记录。
+- Self-Harness Gate：下一轮候选 gap 首选“扫描结果按风险 / 不确定性 / 验证缺口分组展示”，其次是“Guide / Sensor 推荐与成熟度维度、阻断项的更精确关联”。
+
 ## 2026-05-31 Guided Init 用户补充复述与影响说明
 
 - North Star 模块：CLI Experience、Progressive Collaboration、Maturity & Evolution、Guides / Sensors。

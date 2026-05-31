@@ -78,14 +78,21 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
         trace.finish("failed", {"cancelled": True})
         raise typer.Abort()
 
+    _show_scan_progress_start(repo)
     trace.event("scan", "started", "Repository scan started.")
-    inventory, commands = scan_repository(repo)
+    try:
+        inventory, commands = scan_repository(repo)
+    except Exception as exc:
+        trace.event("scan", "failed", "Repository scan failed before writing formal Harness assets.")
+        _show_scan_progress_failed(exc)
+        raise
     trace.event(
         "scan",
         "completed",
         "Repository scan completed.",
         {"primary_stack": inventory.primary_stack, "stacks": inventory.stacks, "command_count": len(commands.commands)},
     )
+    _show_scan_progress_completed(inventory, commands)
 
     scan_overrides = GuidedScanOverrides()
     _show_scan_findings(inventory, commands)
@@ -149,6 +156,29 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     )
     trace.finish("completed", {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)})
     return output_dir
+
+
+def _show_scan_progress_start(repo: Path) -> None:
+    typer.echo("\n扫描仓库")
+    typer.echo(f"- 目标仓库：{repo}")
+    typer.echo("- 正在收集仓库文件、构建配置、CI、测试和文档证据。")
+    typer.echo("- 正在识别构建、测试、验证命令、源码入口、模块线索和风险区域。")
+    typer.echo("- 正在请求 LLM 做结构化扫描，并校验返回 schema。")
+    typer.echo("- 正在调和 LLM 判断与 evidence；这个阶段可能需要一些时间。")
+
+
+def _show_scan_progress_completed(inventory: ProjectInventory, commands: CommandCatalog) -> None:
+    typer.echo("\n扫描完成")
+    typer.echo("- 已完成 evidence 收集、LLM 结构化分析和扫描调和。")
+    typer.echo(f"- 初步识别技术栈：{_stack_label(inventory.primary_stack)}。")
+    typer.echo(f"- 初步识别验证命令数量：{len(commands.commands)}。")
+
+
+def _show_scan_progress_failed(exc: Exception) -> None:
+    typer.echo("\n扫描阶段失败")
+    typer.echo(f"- 原因：{type(exc).__name__}: {exc}")
+    typer.echo("- 未写入正式 Harness 资产。")
+    typer.echo("- 请检查 LLM 配置、网络或扫描错误后重试。")
 
 
 def _show_scan_findings(inventory: ProjectInventory, commands: CommandCatalog) -> None:
