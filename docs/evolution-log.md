@@ -1,5 +1,19 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Goal Mode Retrospective Hardening
+
+- North Star 模块：CLI Experience、Prompt Contract、Benchmark / Review Intelligence、Experience & Self-Improve。
+- Gap Analysis 摘要：用户指出前几轮目标提示词不完整后，本轮用主线程和只读子代理回顾最近 13 个本地提交。结论是功能方向没有明显偏离北极星，但存在审计轨迹与契约硬度缺口：existing-Harness 状态摘要过粗、workflow recommendation LLM 缺字段可被 schema 默认值掩盖、maturity review 缺 review-only 状态与 Markdown 边界、formal asset snapshot 覆盖不完整，以及 todo / README 的少量陈旧描述。
+- 当前代码 gap：`interactive_init.py` 只输出 Experience 总数；`llm_workflow_router.py` 和 `llm_maturity_reviewer.py` 未要求模型显式返回所有顶层契约字段；`MaturityReviewReport` 没有 `review_status`；benchmark 未要求 maturity review Markdown 的 `## Review Boundary`；guided 维护测试未 snapshot architecture guide 与 task templates。
+- 决策：本轮做 hardening 小切片，不改变正式资产应用语义，不实现 guided apply，不恢复 Runtime / `run`。把 evidence source 白名单作为独立 high-priority todo，避免混入过大的跨 LLM 工具改造。
+- Assumptions / risks：显式字段校验可能让真实 LLM 更早失败，这是期望行为；prompt 已同步给出完整模板。状态摘要只读，不刷新 index、不跑 benchmark、不写文件，保持 `exit` 路径不覆盖资产。
+- 边界与失败模式：缺失 `experience-index.yaml`、`benchmark-report.yaml`、`self-improve-package.yaml` 等状态文件时显示 missing / not_available；schema 无效继续显式失败，不静默降级。
+- Sub agent 使用：启动两个只读 explorer 子代理分别审计文档/spec/plan/evolution 记录和 guided init/self-improve 代码契约；另一个既有 explorer 审计 existing-Harness 状态摘要字段。主线程综合结果后选择本轮修复切片。
+- 价值切分：修复 parser / prompt / benchmark / CLI 状态摘要 / 测试盲区 / 文档一致性；暂缓 evidence source whitelist、guided apply diff 和 recommendation history。
+- 验收方式：unit 覆盖 LLM 显式 `review_status` 缺失失败；integration 覆盖 maturity review review-only 边界、benchmark 缺边界失败、existing-Harness 分项状态摘要，以及 guided actions formal asset snapshot。
+- 验证结果：targeted regression 62 passed；fast regression 见本轮提交前验证。
+- Self-Harness Gate：README、init workflow、LLM contracts、guided init todo、follow-up todo、spec、plan 和演进记录已同步；下一轮候选 gap 首选 evidence source whitelist hardening，其次是 existing-Harness guided apply 前 diff / summary 或 recommendation history。
+
 ## 2026-05-31 Existing Harness Self-Improve Action
 
 - North Star 模块：CLI Experience、Experience & Self-Improve、Maturity & Evolution。

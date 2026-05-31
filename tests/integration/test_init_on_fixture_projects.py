@@ -239,6 +239,9 @@ def _formal_asset_snapshot(repo: Path) -> dict[str, str]:
         ai / "weapon-library-selection.yaml",
         ai / "guides" / "project-context.md",
         ai / "guides" / "coding-rules.md",
+        ai / "guides" / "architecture.md",
+        ai / "guides" / "task-templates" / "bugfix.md",
+        ai / "guides" / "task-templates" / "lightweight-feature.md",
         ai / "sensors" / "verification.md",
         ai / "sensors" / "test-strategy.md",
         ai / "skills" / "lightweight" / "SKILL.md",
@@ -516,6 +519,16 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert result.exit_code == 0, result.output
     assert "已存在 Harness" in result.output
     assert "当前成熟度" in result.output
+    assert "Experience / review signals" in result.output
+    assert "pending_improvements=" in result.output
+    assert "asset_candidates=" in result.output
+    assert "candidate_governance=" in result.output
+    assert "maturity_reviews=" in result.output
+    assert "workflow_recommendations=" in result.output
+    assert "runtime_task_runs=" in result.output
+    assert "self_improve_package=" in result.output
+    assert "human_input_needed=" in result.output
+    assert "schema_content_failed_checks=" in result.output
     assert "exit" in result.output
     assert (repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8") == inventory_before
     assert (repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8") == config_before

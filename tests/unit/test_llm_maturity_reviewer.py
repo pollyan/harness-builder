@@ -119,8 +119,10 @@ def test_review_maturity_with_llm_returns_schema_valid_review():
         _candidates(),
         caller=lambda _messages: json.dumps(
             {
+                "schema_version": "1.0",
                 "summary": "Review summary.",
                 "reviewer_model": "deepseek-test",
+                "review_status": "pending_harness_maintainer_review",
                 "candidate_reviews": [
                     {
                         "candidate_id": "candidate-1",
@@ -148,10 +150,22 @@ def test_review_maturity_with_llm_rejects_unknown_candidate_id():
             _candidates(),
             caller=lambda _messages: json.dumps(
                 {
+                    "schema_version": "1.0",
                     "summary": "bad",
+                    "reviewer_model": None,
+                    "review_status": "pending_harness_maintainer_review",
                     "candidate_reviews": [
-                        {"candidate_id": "missing", "decision": "support", "rationale": "bad"}
+                        {
+                            "candidate_id": "missing",
+                            "decision": "support",
+                            "rationale": "bad",
+                            "risks": [],
+                            "suggested_acceptance_checks": [],
+                            "evidence_sources": [],
+                        }
                     ],
+                    "missing_candidates": [],
+                    "global_risks": [],
                 }
             ),
         )
@@ -167,13 +181,39 @@ def test_parse_maturity_review_response_rejects_schema_invalid_review():
         parse_maturity_review_response(
             json.dumps(
                 {
+                    "schema_version": "1.0",
                     "summary": "Missing candidate review fields.",
+                    "reviewer_model": None,
+                    "review_status": "pending_harness_maintainer_review",
                     "candidate_reviews": [
                         {
                             "candidate_id": "candidate-1",
-                            "rationale": "Decision is missing.",
+                            "decision": "invalid",
+                            "rationale": "Decision value is invalid.",
+                            "risks": [],
+                            "suggested_acceptance_checks": [],
+                            "evidence_sources": [],
                         }
                     ],
+                    "missing_candidates": [],
+                    "global_risks": [],
+                }
+            ),
+            {"candidate-1"},
+        )
+
+
+def test_parse_maturity_review_response_rejects_missing_explicit_review_status():
+    with pytest.raises(ValueError, match="must include explicit keys: review_status"):
+        parse_maturity_review_response(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "summary": "Review summary.",
+                    "reviewer_model": None,
+                    "candidate_reviews": [],
+                    "missing_candidates": [],
+                    "global_risks": [],
                 }
             ),
             {"candidate-1"},
@@ -198,6 +238,7 @@ def test_build_maturity_review_messages_declares_complete_review_schema_and_temp
         "schema_version",
         "summary",
         "reviewer_model",
+        "review_status",
         "candidate_reviews",
         "candidate_reviews[].candidate_id",
         "candidate_reviews[].decision",
@@ -213,6 +254,7 @@ def test_build_maturity_review_messages_declares_complete_review_schema_and_temp
     assert "every candidate review object MUST include every candidate review key" in content
     assert '"candidate_id": "existing-improvement-candidate-id"' in content
     assert '"decision": "support"' in content
+    assert '"review_status": "pending_harness_maintainer_review"' in content
     assert '"missing_candidates": []' in content
     assert "Do not include markdown commentary, comments, trailing commas, or text outside the JSON object." in content
 

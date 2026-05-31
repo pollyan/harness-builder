@@ -17,6 +17,7 @@ related:
 > **计划定位**：本计划基于完整方案 `Harness Builder — 面向遗留代码库治理的 AI Coding Harness 生成器.md`，用于定义 Harness Builder Agent 的首轮 POC 范围。  
 > **核心目标**：验证一个独立 Harness Builder Agent 能否面向真实代码库生成第一版项目级 AI Coding Harness，并用这套 Harness 跑通一次受控 AI Coding 任务闭环。  
 > **推荐技术栈**：Python + LangChain Deep Agents 做快速 POC；核心扫描、生成、校验与命令执行逻辑保持确定性、schema 化、可迁移。
+> **当前状态说明（2026-05-31）**：本文是历史 POC 规划。文中 `run` 命令和 Builder 内部任务运行闭环属于历史上下文；当前代码与工程规则已经确认 Harness Builder 不提供任务级 `run`，任务级可观测产物由未来宿主 AI Coding Runtime 执行 Workflow Skill 时生成。
 
 ---
 

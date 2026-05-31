@@ -23,6 +23,7 @@ def _evidence_pack() -> MaturityEvidencePack:
 
 def _valid_payload() -> dict:
     return {
+        "schema_version": "1.0",
         "task_id": "task-1",
         "task_brief": "Fix checkout permission bug.",
         "recommended_workflow": "bugfix",
@@ -33,6 +34,7 @@ def _valid_payload() -> dict:
         "required_guides": [".ai/guides/task-templates/bugfix.md"],
         "required_sensors": [".ai/sensors/verification.md"],
         "human_confirmation_required": False,
+        "review_status": "pending_harness_maintainer_review",
         "evidence_sources": [".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"],
     }
 
@@ -53,6 +55,18 @@ def test_parse_workflow_recommendation_rejects_invalid_json():
     with pytest.raises(ValueError, match="must be valid JSON"):
         parse_workflow_recommendation_response(
             "not json",
+            configured_workflows={"lightweight", "bugfix", "standard"},
+            routing_rule_ids={"bugfix-intent"},
+        )
+
+
+def test_parse_workflow_recommendation_rejects_missing_explicit_review_status():
+    payload = _valid_payload()
+    payload.pop("review_status")
+
+    with pytest.raises(ValueError, match="must include explicit keys: review_status"):
+        parse_workflow_recommendation_response(
+            json.dumps(payload),
             configured_workflows={"lightweight", "bugfix", "standard"},
             routing_rule_ids={"bugfix-intent"},
         )
@@ -110,6 +124,8 @@ def test_build_workflow_recommendation_messages_include_task_policy_and_review_b
     assert "pending_harness_maintainer_review" in content
     assert "Do not execute the workflow" in content
     assert ".ai/task-runs" in content
+    assert "The response object MUST include every top-level key" in content
+    assert '"review_status": "pending_harness_maintainer_review"' in content
 
 
 def test_recommend_workflow_with_llm_returns_schema_valid_recommendation():

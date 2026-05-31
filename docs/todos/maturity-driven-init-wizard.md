@@ -13,6 +13,7 @@
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `recommend-workflow` 收集任务说明，生成 review-only Workflow 推荐，并刷新 Experience / Maturity 派生证据，不执行 Runtime 或修改正式 routing policy。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `review-candidate` 记录候选 `accepted` / `deferred` / `rejected` 治理决策，并刷新 Candidate Governance 与 Experience index；guided 模式不应用正式资产。
 - 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时支持 `self-improve` 显式生成 review-only 自改进审查包，串联 maturity review 和 asset candidates，不执行 Runtime 或应用正式资产。
+- 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时展示分项 Experience / review signals，包括 pending improvements、asset candidates、candidate governance、maturity reviews、workflow recommendations、runtime task runs、self-improve package、human-input-needed 和 schema/content failed checks。
 - 相关命令：`harness-builder-agent init`、`assess`、`improve`、`benchmark`、`recommend-workflow`、`self-improve`
 - 相关工程规则：`docs/engineering/init-workflow.md`、`docs/engineering/testing-strategy.md`、`docs/engineering/architecture.md`
 - 相关产品方向：`docs/strategy/Harness Builder — 面向遗留代码库治理的 AI Coding Harness 生成器.md`
@@ -38,12 +39,12 @@
 - `recommend-workflow` 能为单个任务生成 review-only workflow recommendation。
 - `self-improve` 能串联 maturity assessment、improvement candidates、LLM maturity review 和 asset candidates，生成 review-only package。
 
-当前问题：
+当前剩余问题：
 
-- 用户需要知道先执行哪个命令、后执行哪个命令。
-- 首次 `init` 已有完成摘要，但还没有把 `benchmark` 健康度、候选治理和已有 `.ai` 维护入口组织成完整成熟度主线。
-- 再次执行 `init` 已有只读状态入口，但还没有把复评、重新扫描、查看建议、处理候选和运行 benchmark 等动作接入完整维护菜单。
-- 底层专家命令的能力和普通用户向导旅程之间缺少清晰的信息架构。
+- 用户仍需要理解哪些动作只是 review-only，哪些专家命令可能应用正式资产。
+- 首次 `init` 已有完成摘要，但还没有在写入前后形成完整的 benchmark 健康度解释和下一步治理节奏。
+- 再次执行 `init` 已具备主要维护动作，但还缺少候选列表浏览、guided apply 前 diff / summary、recommendation 历史和更明确的 schema / contract 修复引导。
+- 底层专家命令的能力和普通用户向导旅程之间仍需要进一步压缩认知负担。
 
 ## 产品判断
 

@@ -16,6 +16,23 @@ from harness_builder_agent.tools.llm_config import DeepSeekConfig
 from harness_builder_agent.prompts.registry import LLM_MATURITY_REVIEW_V2, build_machine_prompt_messages
 
 REVIEW_PROMPT_VERSION = LLM_MATURITY_REVIEW_V2.version
+REQUIRED_MATURITY_REVIEW_KEYS = {
+    "schema_version",
+    "summary",
+    "reviewer_model",
+    "review_status",
+    "candidate_reviews",
+    "missing_candidates",
+    "global_risks",
+}
+REQUIRED_CANDIDATE_REVIEW_KEYS = {
+    "candidate_id",
+    "decision",
+    "rationale",
+    "risks",
+    "suggested_acceptance_checks",
+    "evidence_sources",
+}
 
 
 def review_maturity_with_llm(
@@ -56,6 +73,9 @@ def parse_maturity_review_response(content: str, candidate_ids: set[str]) -> Mat
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise ValueError("DeepSeek maturity review response must be valid JSON") from exc
+    _require_explicit_keys(payload, REQUIRED_MATURITY_REVIEW_KEYS, "DeepSeek maturity review response")
+    for index, item in enumerate(payload["candidate_reviews"]):
+        _require_explicit_keys(item, REQUIRED_CANDIDATE_REVIEW_KEYS, f"DeepSeek maturity review candidate_reviews[{index}]")
     try:
         report = MaturityReviewReport.model_validate(payload)
     except ValidationError as exc:
@@ -64,6 +84,14 @@ def parse_maturity_review_response(content: str, candidate_ids: set[str]) -> Mat
     if unknown:
         raise ValueError(f"DeepSeek maturity review response referenced unknown candidate_id: {', '.join(unknown)}")
     return report
+
+
+def _require_explicit_keys(payload: object, required: set[str], label: str) -> None:
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    missing = sorted(required - set(payload))
+    if missing:
+        raise ValueError(f"{label} must include explicit keys: {', '.join(missing)}")
 
 
 def _extract_json_text(content: str) -> str:

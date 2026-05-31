@@ -184,7 +184,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     if (ai / "maturity-score.yaml").exists():
         score = MaturityReport.model_validate(yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8")))
     benchmark = _read_benchmark_status(ai)
-    experience = _read_experience_status(ai)
+    experience_lines = _experience_status_lines(ai)
 
     typer.echo("\n我发现这个仓库已存在 Harness。")
     typer.echo(f"- 仓库：`{inventory.repo_name}`")
@@ -196,7 +196,9 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     else:
         typer.echo("- 当前成熟度：未发现 `.ai/maturity-score.yaml`，建议先运行 assess。")
     typer.echo(f"- 最近 benchmark：{benchmark}")
-    typer.echo(f"- 待处理 Experience / 候选信号：{experience}")
+    typer.echo("- Experience / review signals:")
+    for line in experience_lines:
+        typer.echo(f"  - {line}")
     typer.echo("\n可选动作")
     typer.echo("- exit：退出，不覆盖现有 Harness。")
     typer.echo("- assess：重新评估成熟度，只刷新 maturity 和 init summary 产物。")
@@ -657,25 +659,64 @@ def _read_benchmark_status(ai: Path) -> str:
     path = ai / "benchmark-report.yaml"
     if not path.exists():
         return "未发现 benchmark-report.yaml"
-    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    status = payload.get("status", "unknown")
-    quality = payload.get("quality_status", "unknown")
-    return f"{status}，quality={quality}"
+    report = BenchmarkReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    return f"{report.status}，quality={report.quality_status}"
 
 
-def _read_experience_status(ai: Path) -> str:
+def _experience_status_lines(ai: Path) -> list[str]:
     path = ai / "experience" / "experience-index.yaml"
     if not path.exists():
-        return "未发现 experience-index.yaml"
+        return [
+            "experience_index=missing",
+            f"self_improve_package={_self_improve_package_status(ai)}",
+            f"human_input_needed={_human_input_needed_status(ai)}",
+            f"schema_content_failed_checks={_benchmark_schema_content_failed_count(ai)}",
+        ]
     index = ExperienceIndex.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
-    total = (
-        index.pending_improvement_count
-        + index.asset_candidate_count
-        + index.candidate_governance_decision_count
-        + index.maturity_review_count
-        + index.workflow_recommendation_count
+    return [
+        "experience_index=present",
+        f"pending_improvements={index.pending_improvement_count}",
+        f"asset_candidates={index.asset_candidate_count}",
+        f"candidate_governance={index.candidate_governance_decision_count}",
+        f"maturity_reviews={index.maturity_review_count}",
+        f"workflow_recommendations={index.workflow_recommendation_count}",
+        f"runtime_task_runs={index.runtime_task_run_count}",
+        f"self_improve_package={_self_improve_package_status(ai)}",
+        f"human_input_needed={_human_input_needed_status(ai)}",
+        f"schema_content_failed_checks={_benchmark_schema_content_failed_count(ai)}",
+    ]
+
+
+def _self_improve_package_status(ai: Path) -> str:
+    yaml_path = ai / "review" / "self-improve-package.yaml"
+    markdown_path = ai / "review" / "self-improve-package.md"
+    if not yaml_path.exists() and not markdown_path.exists():
+        return "missing"
+    if not yaml_path.exists() or not markdown_path.exists():
+        return "incomplete"
+    manifest = SelfImprovePackageManifest.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+    return (
+        "present"
+        f"(maturity_reviews={manifest.candidate_counts.maturity_reviews},"
+        f"asset_candidates={manifest.candidate_counts.asset_candidates})"
     )
-    return str(total)
+
+
+def _human_input_needed_status(ai: Path) -> str:
+    return "present" if (ai / "human-input-needed.md").exists() else "missing"
+
+
+def _benchmark_schema_content_failed_count(ai: Path) -> str:
+    path = ai / "benchmark-report.yaml"
+    if not path.exists():
+        return "not_available"
+    report = BenchmarkReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    failed = [
+        check
+        for check in report.checks
+        if not check.passed and (check.id.startswith("schema:") or check.id.startswith("content:"))
+    ]
+    return str(len(failed))
 
 
 def _collect_scan_supplement(inventory: ProjectInventory) -> GuidedScanOverrides:

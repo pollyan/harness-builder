@@ -240,6 +240,7 @@ def _write_valid_maturity_review(ai: Path) -> None:
                 "schema_version": "1.0",
                 "summary": "Candidates are aligned with maturity evidence.",
                 "reviewer_model": "deepseek-test",
+                "review_status": "pending_harness_maintainer_review",
                 "candidate_reviews": [
                     {
                         "candidate_id": source_id,
@@ -263,7 +264,8 @@ def _write_valid_maturity_review(ai: Path) -> None:
         "## Summary\n\nCandidates are aligned.\n\n"
         "## Candidate Reviews\n\n- candidate: support\n\n"
         "## Missing Candidates\n\n- None.\n\n"
-        "## Global Risks\n\n- None.\n",
+        "## Global Risks\n\n- None.\n\n"
+        "## Review Boundary\n\n- review status: `pending_harness_maintainer_review`\n",
         encoding="utf-8",
     )
 
@@ -725,6 +727,22 @@ def test_benchmark_fails_maturity_review_when_markdown_sections_are_missing(tmp_
     ai = repo / ".ai"
     _write_valid_maturity_review(ai)
     (ai / "review" / "maturity-review.md").write_text("# Maturity Review\n", encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    review = next(check for check in checks if check["id"] == "content:maturity-review-artifact")
+    assert review["passed"] is False
+    assert "missing_markdown_sections" in review["errors"]
+
+
+def test_benchmark_fails_maturity_review_without_review_boundary(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_maturity_review(ai)
+    markdown = (ai / "review" / "maturity-review.md").read_text(encoding="utf-8")
+    markdown = markdown.replace("\n## Review Boundary\n\n- review status: `pending_harness_maintainer_review`\n", "")
+    (ai / "review" / "maturity-review.md").write_text(markdown, encoding="utf-8")
     inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
 
     checks = _content_checks(ai, inventory)

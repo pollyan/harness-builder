@@ -530,6 +530,9 @@ def _maturity_review_artifact_check(ai: Path) -> dict[str, Any]:
     except Exception as exc:  # pragma: no cover - captured in benchmark report
         return {"id": "content:maturity-review-artifact", "passed": False, "present": True, "errors": [str(exc)]}
 
+    if report.review_status != "pending_harness_maintainer_review":
+        errors.append("maturity_review_not_review_only")
+
     known_candidate_ids = {candidate.id for candidate in improvements.candidates}
     for item in report.candidate_reviews:
         if item.candidate_id not in known_candidate_ids:
@@ -538,7 +541,14 @@ def _maturity_review_artifact_check(ai: Path) -> dict[str, Any]:
             errors.append("evidence_source_outside_ai")
 
     markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
-    required_sections = ["# Maturity Review", "## Summary", "## Candidate Reviews", "## Missing Candidates", "## Global Risks"]
+    required_sections = [
+        "# Maturity Review",
+        "## Summary",
+        "## Candidate Reviews",
+        "## Missing Candidates",
+        "## Global Risks",
+        "## Review Boundary",
+    ]
     if any(section not in markdown for section in required_sections):
         errors.append("missing_markdown_sections")
 

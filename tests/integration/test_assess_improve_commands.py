@@ -253,9 +253,12 @@ def test_review_maturity_writes_llm_review_artifacts(tmp_path: Path, monkeypatch
     review = yaml.safe_load((repo / ".ai" / "review" / "maturity-review.yaml").read_text(encoding="utf-8"))
     markdown = (repo / ".ai" / "review" / "maturity-review.md").read_text(encoding="utf-8")
     assert review["schema_version"] == "1.0"
+    assert review["review_status"] == "pending_harness_maintainer_review"
     assert review["candidate_reviews"][0]["decision"] == "support"
     assert "# Maturity Review" in markdown
     assert "## Candidate Reviews" in markdown
+    assert "## Review Boundary" in markdown
+    assert "pending_harness_maintainer_review" in markdown
     trace = _latest_trace(repo)
     assert trace["command"] == "review-maturity"
 

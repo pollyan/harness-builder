@@ -14,6 +14,21 @@ from harness_builder_agent.tools.llm_config import DeepSeekConfig
 from harness_builder_agent.prompts.registry import LLM_WORKFLOW_ROUTER_V1, build_machine_prompt_messages
 
 WORKFLOW_ROUTER_PROMPT_VERSION = LLM_WORKFLOW_ROUTER_V1.version
+REQUIRED_WORKFLOW_RECOMMENDATION_KEYS = {
+    "schema_version",
+    "task_id",
+    "task_brief",
+    "recommended_workflow",
+    "matched_rule_ids",
+    "risk_level",
+    "confidence",
+    "rationale",
+    "required_guides",
+    "required_sensors",
+    "human_confirmation_required",
+    "review_status",
+    "evidence_sources",
+}
 
 
 def recommend_workflow_with_llm(
@@ -69,6 +84,7 @@ def parse_workflow_recommendation_response(
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise ValueError("DeepSeek workflow recommendation response must be valid JSON") from exc
+    _require_explicit_keys(payload, REQUIRED_WORKFLOW_RECOMMENDATION_KEYS, "DeepSeek workflow recommendation response")
     try:
         report = WorkflowRecommendationReport.model_validate(payload)
     except ValidationError as exc:
@@ -86,6 +102,14 @@ def parse_workflow_recommendation_response(
             + ", ".join(sorted(bad_evidence_sources))
         )
     return report
+
+
+def _require_explicit_keys(payload: object, required: set[str], label: str) -> None:
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    missing = sorted(required - set(payload))
+    if missing:
+        raise ValueError(f"{label} must include explicit keys: {', '.join(missing)}")
 
 
 def _extract_json_text(content: str) -> str:

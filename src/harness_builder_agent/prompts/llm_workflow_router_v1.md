@@ -20,6 +20,23 @@ Field contract:
 - review_status must be pending_harness_maintainer_review.
 - evidence_sources must reference provided .ai evidence paths.
 
+The response object MUST include every top-level key shown in this template, even when an array is empty:
+{
+  "schema_version": "1.0",
+  "task_id": "provided-task-id",
+  "task_brief": "provided task brief",
+  "recommended_workflow": "configured-workflow-name",
+  "matched_rule_ids": ["workflow-routing-rule-id"],
+  "risk_level": "medium",
+  "confidence": "high",
+  "rationale": "Evidence-grounded workflow routing rationale.",
+  "required_guides": [".ai/guides/task-templates/bugfix.md"],
+  "required_sensors": [".ai/sensors/verification.md"],
+  "human_confirmation_required": false,
+  "review_status": "pending_harness_maintainer_review",
+  "evidence_sources": [".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"]
+}
+
 Use workflow_routing rules as the policy source of truth.
 Use maturity evidence only as review context; do not treat it as a runtime execution record.
 Do not execute the workflow.

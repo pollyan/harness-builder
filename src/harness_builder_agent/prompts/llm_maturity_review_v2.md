@@ -10,6 +10,7 @@ Field contract:
 - schema_version: "1.0".
 - summary: short review summary.
 - reviewer_model: model name if known, otherwise null.
+- review_status: "pending_harness_maintainer_review".
 - candidate_reviews: array of candidate review objects.
 - candidate_reviews should review every provided improvement candidate. If evidence is too weak, use decision defer.
 - candidate_reviews[].candidate_id must reference an existing improvement candidate id.
@@ -26,6 +27,7 @@ The response object MUST include every top-level key shown in this template, and
   "schema_version": "1.0",
   "summary": "Short review summary.",
   "reviewer_model": null,
+  "review_status": "pending_harness_maintainer_review",
   "candidate_reviews": [
     {
       "candidate_id": "existing-improvement-candidate-id",

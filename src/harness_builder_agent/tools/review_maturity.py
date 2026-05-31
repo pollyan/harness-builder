@@ -59,6 +59,9 @@ def _write_markdown(path: Path, review: MaturityReviewReport) -> None:
         "## Missing Candidates\n\n"
         f"{missing}\n\n"
         "## Global Risks\n\n"
-        f"{risks}\n",
+        f"{risks}\n\n"
+        "## Review Boundary\n\n"
+        f"- review status: `{review.review_status}`\n"
+        "- This maturity review is review-only and does not apply formal Harness assets.\n",
         encoding="utf-8",
     )

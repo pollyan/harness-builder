@@ -19,6 +19,7 @@
 | Todo | 状态 | 优先级 | 说明 |
 | --- | --- | --- | --- |
 | [成熟度驱动的 init 主向导与命令信息架构重构](maturity-driven-init-wizard.md) | open | high | 将 `init` 强化为成熟度驱动的主入口，串联扫描、确认、成熟度初评、Harness 生成、benchmark 和下一步建议；再次执行时作为已有 Harness 的状态感知维护入口。 |
+| [LLM Evidence Source Whitelist Hardening](llm-evidence-source-whitelist.md) | open | high | 收紧 LLM review-only 产物的 evidence source 校验，避免未知 `.ai/` 路径伪装成可追溯证据。 |
 
 ## 管理规则
 
