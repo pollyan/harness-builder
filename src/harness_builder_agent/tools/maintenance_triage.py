@@ -18,6 +18,7 @@ class MaintenanceAction:
     source: str
     next_action: str
     count: int | None = None
+    detail: str | None = None
 
 
 def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> list[MaintenanceAction]:
@@ -45,11 +46,51 @@ def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> l
             )
         )
     else:
+        risk_context_failed = _risk_context_failed_count(benchmark)
+        hard_gate_detail = _hard_gate_weak_command_detail(benchmark)
+        project_context_evidence_failed = _project_context_evidence_failed_count(benchmark)
+        project_context_evidence_detail = _project_context_evidence_missing_detail(benchmark)
         schema_content_failed = _schema_content_failed_count(benchmark)
-        if schema_content_failed:
+        if risk_context_failed:
+            actions.append(
+                MaintenanceAction(
+                    priority=14,
+                    action="benchmark",
+                    reason="risk_context_inconsistent",
+                    source=".ai/benchmark-report.yaml",
+                    next_action="benchmark",
+                    count=risk_context_failed,
+                )
+            )
+        elif hard_gate_detail is not None:
+            command_id, detail = hard_gate_detail
             actions.append(
                 MaintenanceAction(
                     priority=15,
+                    action="benchmark",
+                    reason="hard_gate_command_evidence",
+                    source=f".ai/benchmark-report.yaml#content:hard-gate-command-evidence:{command_id}",
+                    next_action="benchmark",
+                    count=1,
+                    detail=detail,
+                )
+            )
+        elif project_context_evidence_failed:
+            actions.append(
+                MaintenanceAction(
+                    priority=15,
+                    action="benchmark",
+                    reason="project_context_evidence_incomplete",
+                    source=".ai/benchmark-report.yaml#content:project-context-evidence-context",
+                    next_action="benchmark",
+                    count=project_context_evidence_failed,
+                    detail=project_context_evidence_detail,
+                )
+            )
+        elif schema_content_failed:
+            actions.append(
+                MaintenanceAction(
+                    priority=16,
                     action="benchmark",
                     reason="schema_content_failed_checks",
                     source=".ai/benchmark-report.yaml",
@@ -133,12 +174,14 @@ def render_maintenance_triage_lines(actions: list[MaintenanceAction]) -> list[st
     lines: list[str] = []
     for index, action in enumerate(actions[:3], start=1):
         count = f" count={action.count}" if action.count is not None else ""
+        detail = f" detail={action.detail}" if action.detail else ""
         lines.append(
             f"top_action_{index}={action.action} "
             f"reason={action.reason} "
             f"source={action.source} "
             f"next={action.next_action}"
             f"{count}"
+            f"{detail}"
         )
     return lines
 
@@ -153,6 +196,14 @@ def _maintenance_action_guidance(index: int, action: MaintenanceAction) -> str:
         return f"{prefix}先运行 `assess` 刷新成熟度评分和入口摘要，再决定后续维护动作。"
     if action.reason == "benchmark_not_run":
         return f"{prefix}先运行 `benchmark` 生成质量门禁报告，再回到 guided `init` 查看 Benchmark signals。"
+    if action.reason == "risk_context_inconsistent":
+        return f"{prefix}同步检查 Guide / Sensor / Routing 中的风险路径表达，然后运行 `benchmark` 复验。"
+    if action.reason == "hard_gate_command_evidence":
+        detail = f"；问题详情 `{action.detail}`" if action.detail else ""
+        return f"{prefix}先修正 hard gate 命令的 source、confidence 或 gate 证据，再运行 `benchmark`{detail}。"
+    if action.reason == "project_context_evidence_incomplete":
+        detail = f"；缺失详情 `{action.detail}`" if action.detail else ""
+        return f"{prefix}补齐 project-context evidence 后运行 `benchmark`{detail}。"
     if action.reason == "schema_content_failed_checks":
         count = f"{action.count} 个 " if action.count else ""
         return f"{prefix}查看 `.ai/benchmark-report.yaml` 中的 {count}schema/content 失败项，修复 Harness 资产后运行 `benchmark`。"
@@ -195,6 +246,44 @@ def _schema_content_failed_count(report: BenchmarkReport) -> int:
         for check in report.checks
         if not check.passed and (check.id.startswith("schema:") or check.id.startswith("content:"))
     )
+
+
+def _risk_context_failed_count(report: BenchmarkReport) -> int:
+    return sum(1 for check in report.checks if not check.passed and check.id == "content:risk-context-consistency")
+
+
+def _project_context_evidence_failed_count(report: BenchmarkReport) -> int:
+    return sum(1 for check in report.checks if not check.passed and check.id == "content:project-context-evidence-context")
+
+
+def _project_context_evidence_missing_detail(report: BenchmarkReport) -> str | None:
+    for check in report.checks:
+        if check.passed or check.id != "content:project-context-evidence-context" or not check.missing:
+            continue
+        return str(check.missing[0])
+    return None
+
+
+def _hard_gate_weak_command_detail(report: BenchmarkReport) -> tuple[str, str] | None:
+    for check in report.checks:
+        if check.passed or check.id != "content:hard-gate-command-evidence" or not check.weak_commands:
+            continue
+        command = check.weak_commands[0]
+        command_id = str(command.id or "unknown")
+        reason = _weak_command_reason(command)
+        source = str(command.source or "missing_source")
+        return command_id, f"{command_id}:{reason}:{source}"
+    return None
+
+
+def _weak_command_reason(command) -> str:
+    if command.reason:
+        return str(command.reason)
+    if not command.source:
+        return "missing_source"
+    if command.confidence == "low":
+        return "low_confidence"
+    return "weak_command"
 
 
 def _workflow_recommendation_source(index: ExperienceIndex) -> str:

@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness Benchmark / Routing Signals 迁移
+
+- North Star 模块：CLI Experience、Maturity & Evolution、Sensor & Quality Gate、Runtime Boundary。
+- init North Star 旅程阶段：再次进入已有 Harness；健康状态、维护建议和下一步动作。
+- Gap Analysis 摘要：当前唯一 open todo 仍是本地独有 / 更细能力迁移。对比当前 main 与 `backup/local-61-before-migration` 后，本轮候选包括 Benchmark / Workflow routing 只读信号、Benchmark 深层 quality gate 迁移、Scan evidence 可审计细节。README 与 init workflow 已把 Benchmark signals / Workflow routing signals 描述为维护入口契约，但当前代码只在 Experience signals 中混合展示 `schema_content_failed_checks`，没有独立小节和 failed detail；因此本轮优先修正代码、schema 和测试的事实源漂移。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 进入已有 Harness 维护入口时，我可以直接看到最近 benchmark 失败项的数量、ID、中文解释、可行动错误详情，以及当前 workflow routing 的 default / standard escalation / risk trigger 状态，从而不用先打开多个 YAML 文件也能判断应该先修质量门禁还是调整 routing 策略。
+- 当前代码 gap：`BenchmarkReport` schema 没有保留 `errors`、`missing`、`weak_commands`；existing-Harness 入口没有输出 `Benchmark signals` / `Workflow routing signals`；Maintenance triage 不能把 hard gate weak command 或 project-context evidence missing 升级为专属 reason/detail。
+- 关键决策 / 取舍：新增宽松的 `BenchmarkWeakCommand` schema，兼容当前 benchmark 只写 `id/source/confidence` 和旧分支带 `reason` 的报告；保留 `schema_content_failed_checks` Experience 行以兼容现有输出；Workflow routing signals 只读解释 `.ai/harness-config.yaml`，不执行 Runtime、不修改 routing policy。
+- Assumptions / risks：`standard-escalation` 是当前 routing 健康度的关键观察点；schema 变宽只保留已有 report detail，不改变 benchmark pass/fail 计算；CLI 仍保留 `key=value` 稳定契约，后续可继续人类化展示。
+- Sub agent 使用情况：尝试启动 explorer 做旧分支对比，但当前 agent thread limit reached；本轮由主线程用 `git show` / `git grep` 完成只读对比。
+- 价值切分说明：本轮把 Benchmark failed preview 与 Workflow routing signals 合并，因为它们共享已有 Harness 维护入口的只读状态视图和同一 CLI 验收；不把更深 benchmark 检查或 scan evidence writer 混入。
+- 可执行验收标准及验证方式：unit 覆盖 BenchmarkReport detail schema、benchmark signal helper、workflow routing signal helper、maintenance triage 专属 reason/detail；integration 覆盖已有 Harness `init -> exit` 输出两个独立小节且不扫描、不覆盖正式资产。
+- 完成内容：`BenchmarkReport` 保留 check detail；`interactive_init.py` 输出 `Benchmark signals` 和 `Workflow routing signals`；`maintenance_triage.py` 增加 hard gate weak command、risk context、project-context evidence 专属排序与 guidance；README、init workflow、迁移 todo、spec 和 plan 同步。
+- 验证结果：targeted unit / integration 已通过；fast regression 见本轮提交前验证。
+- Self-Harness Gate：长期文档已同步；下一轮候选 gap 转向迁移 todo 中剩余的人机闭环细节，例如 `init-summary.md` 与 questionnaire `confirm:*` ID 对齐，或进入 Benchmark / quality gate 深层校验迁移。
+
 ## 2026-06-01 Human Input 待确认回访入口迁移
 
 - North Star 模块：Progressive Collaboration、CLI Experience、Maturity & Evolution。

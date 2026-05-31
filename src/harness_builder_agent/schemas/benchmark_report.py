@@ -5,6 +5,13 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
+class BenchmarkWeakCommand(BaseModel):
+    id: str
+    source: str | None = None
+    confidence: str | None = None
+    reason: str | None = None
+
+
 class BenchmarkCheck(BaseModel):
     id: str
     passed: bool
@@ -12,6 +19,9 @@ class BenchmarkCheck(BaseModel):
     expected: Any = None
     actual: Any = None
     error: str | None = None
+    errors: list[str] = Field(default_factory=list)
+    missing: list[str] = Field(default_factory=list)
+    weak_commands: list[BenchmarkWeakCommand] = Field(default_factory=list)
 
 
 class QualityScoreItem(BaseModel):

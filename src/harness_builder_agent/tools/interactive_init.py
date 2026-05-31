@@ -615,7 +615,7 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         return None
 
     inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
-    HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
+    config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
     score = None
     if (ai / "maturity-score.yaml").exists():
         score = MaturityReport.model_validate(yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8")))
@@ -632,6 +632,12 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     else:
         typer.echo("- 当前成熟度：未发现 `.ai/maturity-score.yaml`，建议先运行 assess。")
     typer.echo(f"- 最近 benchmark：{benchmark}")
+    typer.echo("- Benchmark signals:")
+    for line in _benchmark_signal_lines(ai):
+        typer.echo(f"  - {line}")
+    typer.echo("- Workflow routing signals:")
+    for line in _workflow_routing_status_lines(config):
+        typer.echo(f"  - {line}")
     typer.echo("- Experience / review signals:")
     for line in experience_lines:
         typer.echo(f"  - {line}")
@@ -1278,6 +1284,103 @@ def _read_benchmark_status(ai: Path) -> str:
         return "未发现 benchmark-report.yaml"
     report = BenchmarkReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
     return f"{report.status}，quality={report.quality_status}"
+
+
+def _benchmark_signal_lines(ai: Path) -> list[str]:
+    path = ai / "benchmark-report.yaml"
+    if not path.exists():
+        return ["benchmark_failed_checks=not_available"]
+    report = BenchmarkReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    failed_checks = [check for check in report.checks if not check.passed]
+    lines = [f"benchmark_failed_checks={len(failed_checks)}"]
+    lines.extend(f"benchmark_failed_check={check.id}" for check in failed_checks[:3])
+    lines.extend(
+        f"benchmark_failed_check_detail={check.id}|{_benchmark_failed_check_label(check.id)}"
+        for check in failed_checks[:3]
+    )
+    lines.extend(
+        f"benchmark_failed_check_error={check.id}|{detail}"
+        for check in failed_checks[:3]
+        if (detail := _benchmark_check_detail(check))
+    )
+    return lines
+
+
+def _benchmark_failed_check_label(check_id: str) -> str:
+    labels = {
+        "content:risk-context-consistency": "风险上下文在 Guide / Sensor / Routing 之间不一致",
+        "content:init-summary-workflow-routing": "init-summary 的 Workflow 与路由摘要缺失或与 harness-config 漂移",
+        "content:hard-gate-command-evidence": "hard gate 命令证据不足",
+        "content:workflow-routing-policy": "workflow routing policy 缺少必要升级规则",
+        "content:guides-quality": "project-context Guide 缺少必需章节或仓库特异性",
+        "content:project-context-evidence-context": "project-context Guide 缺少 inventory evidence 或 LLM 证据扩展摘要",
+        "content:sensors-quality": "verification Sensor 缺少必需章节或验证风险说明",
+    }
+    if check_id in labels:
+        return labels[check_id]
+    if check_id.startswith("schema:"):
+        return "机器消费产物 schema 校验失败"
+    return "查看 benchmark-report.yaml 获取完整失败详情"
+
+
+def _benchmark_check_detail(check) -> str:
+    details: list[str] = []
+    if check.error:
+        details.append(check.error)
+    details.extend(str(error) for error in check.errors[:3])
+    details.extend(str(item) for item in check.missing[:3])
+    details.extend(_weak_command_details(check.weak_commands[:3]))
+    if len(check.errors) > 3:
+        details.append(f"还有 {len(check.errors) - 3} 项错误")
+    if len(check.missing) > 3:
+        details.append(f"还有 {len(check.missing) - 3} 项缺失")
+    if len(check.weak_commands) > 3:
+        details.append(f"还有 {len(check.weak_commands) - 3} 个弱命令")
+    return "；".join(details)
+
+
+def _weak_command_details(weak_commands) -> list[str]:
+    details: list[str] = []
+    for item in weak_commands:
+        command_id = str(item.id or "unknown")
+        reason = _weak_command_reason(item)
+        source = str(item.source or "missing_source")
+        details.append(f"{command_id}:{reason}:{source}")
+    return details
+
+
+def _weak_command_reason(item) -> str:
+    if item.reason:
+        return str(item.reason)
+    if not item.source:
+        return "missing_source"
+    if item.confidence == "low":
+        return "low_confidence"
+    return "weak_command"
+
+
+def _workflow_routing_status_lines(config: HarnessConfig) -> list[str]:
+    rules = config.workflow_routing.rules
+    lines = [
+        f"routing_default={config.workflow_routing.default_workflow}",
+        f"routing_rule_count={len(rules)}",
+    ]
+    standard_rules = [rule for rule in rules if rule.id == "standard-escalation"]
+    if not standard_rules:
+        return [*lines, "standard_escalation=missing"]
+
+    standard = standard_rules[0]
+    risk_triggers = [trigger for trigger in standard.triggers if trigger.startswith("risk_area:")]
+    lines.extend(
+        [
+            "standard_escalation=present",
+            f"standard_human_confirmation={str(standard.human_confirmation_required).lower()}",
+            f"standard_risk_triggers={len(risk_triggers)}",
+        ]
+    )
+    lines.extend(f"risk_trigger={trigger}" for trigger in risk_triggers[:3])
+    lines.append(f"missing_hard_gate_trigger={'present' if 'missing_hard_gate' in standard.triggers else 'absent'}")
+    return lines
 
 
 def _experience_status_lines(ai: Path) -> list[str]:

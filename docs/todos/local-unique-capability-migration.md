@@ -59,8 +59,9 @@
 
 ## 已迁移切片
 
-- 2026-06-01：迁移 Existing Harness 维护入口的编号菜单、维护动作 normalization 和 `Maintenance triage guidance`。当前 guided `init` 在已有 Harness 入口支持输入 `1` 到 `8` 选择动作，并把 top maintenance actions 翻译成中文处理建议。未迁移项仍包括 routing signals、benchmark failed preview 和 human-input-needed signals。
+- 2026-06-01：迁移 Existing Harness 维护入口的编号菜单、维护动作 normalization 和 `Maintenance triage guidance`。当前 guided `init` 在已有 Harness 入口支持输入 `1` 到 `8` 选择动作，并把 top maintenance actions 翻译成中文处理建议。
 - 2026-06-01：迁移 Human Input 待确认回访入口。当前 `human-input-needed.md` 包含 `## 扫描待确认摘要` 和 `## 处理方式`，已有 Harness 维护入口会展示 questionnaire 状态、待确认总数、scan 类确认数量、前几个 interaction id 和 `.ai/human-input-needed.md#处理方式`。
+- 2026-06-01：迁移 Existing Harness Benchmark / Workflow routing 只读信号。当前维护入口会展示 `Benchmark signals`、`Workflow routing signals`、benchmark failed check 中文解释、error / missing / weak command detail，以及 hard gate weak command / project-context evidence 专属 triage reason。
 
 ## 理想状态
 
@@ -78,8 +79,8 @@
    - Maintenance triage top actions。
    - Maintenance triage guidance。（已迁移：2026-06-01）
    - 编号菜单。（已迁移：2026-06-01）
-   - routing signals。
-   - benchmark failed preview。
+   - routing signals。（已迁移：2026-06-01）
+   - benchmark failed preview。（已迁移：2026-06-01，包含 failed check detail 与 hard gate weak command / project-context missing triage）
    - human-input-needed signals。（已部分迁移：2026-06-01，包含 questionnaire backlog status 与 action entry）
 
 2. **Benchmark / quality gate 细化**

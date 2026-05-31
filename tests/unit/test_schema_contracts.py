@@ -276,6 +276,41 @@ def test_benchmark_report_accepts_quality_scores():
     assert payload["quality_summary"]["degraded_items"] == ["guide_quality.evidence_reference"]
 
 
+def test_benchmark_report_preserves_failed_check_details():
+    report = BenchmarkReport.model_validate(
+        {
+            "repo_name": "demo",
+            "profile": "java-spring",
+            "status": "failed",
+            "quality_status": "failed",
+            "checks": [
+                {
+                    "id": "content:hard-gate-command-evidence",
+                    "passed": False,
+                    "errors": ["hard_gate_without_source"],
+                    "missing": ["source_path"],
+                    "weak_commands": [
+                        {
+                            "id": "unit_test",
+                            "source": "missing-pom.xml",
+                            "confidence": "low",
+                            "reason": "source_path_missing",
+                        }
+                    ],
+                }
+            ],
+            "quality_scores": {},
+        }
+    )
+
+    check = report.checks[0]
+
+    assert check.errors == ["hard_gate_without_source"]
+    assert check.missing == ["source_path"]
+    assert check.weak_commands[0].id == "unit_test"
+    assert check.weak_commands[0].reason == "source_path_missing"
+
+
 def test_candidate_governance_log_records_review_decisions():
     log = CandidateGovernanceLog.model_validate(
         {

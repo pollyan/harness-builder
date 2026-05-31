@@ -132,6 +132,89 @@ def test_maintenance_triage_recommends_real_task_when_no_pending_signals(tmp_pat
     assert actions[0].reason == "no_pending_maintenance_signal"
 
 
+def test_maintenance_triage_prioritizes_hard_gate_command_evidence_detail(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_experience_index(ai, asset_candidates=3, governance=1)
+    (ai / "benchmark-report.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "repo_name": "demo",
+                "profile": "java-spring",
+                "status": "failed",
+                "quality_status": "failed",
+                "checks": [
+                    {
+                        "id": "content:hard-gate-command-evidence",
+                        "passed": False,
+                        "weak_commands": [
+                            {
+                                "id": "unit_test",
+                                "source": "docs/testing.md",
+                                "confidence": "low",
+                                "reason": "source_path_missing",
+                            }
+                        ],
+                    }
+                ],
+                "quality_scores": {},
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    actions = build_maintenance_triage(ai, score=_score())
+    lines = render_maintenance_triage_lines(actions)
+    guidance = render_maintenance_triage_guidance_lines(actions)
+
+    assert actions[0].reason == "hard_gate_command_evidence"
+    assert actions[0].detail == "unit_test:source_path_missing:docs/testing.md"
+    assert "source=.ai/benchmark-report.yaml#content:hard-gate-command-evidence:unit_test" in lines[0]
+    assert "detail=unit_test:source_path_missing:docs/testing.md" in lines[0]
+    assert "先修正 hard gate 命令的 source、confidence 或 gate 证据" in guidance[0]
+
+
+def test_maintenance_triage_prioritizes_project_context_evidence_missing_detail(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_experience_index(ai)
+    (ai / "benchmark-report.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "repo_name": "demo",
+                "profile": "java-spring",
+                "status": "failed",
+                "quality_status": "failed",
+                "checks": [
+                    {
+                        "id": "content:project-context-evidence-context",
+                        "passed": False,
+                        "missing": ["llm_requested_evidence_summary"],
+                    }
+                ],
+                "quality_scores": {},
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    actions = build_maintenance_triage(ai, score=_score())
+    lines = render_maintenance_triage_lines(actions)
+    guidance = render_maintenance_triage_guidance_lines(actions)
+
+    assert actions[0].reason == "project_context_evidence_incomplete"
+    assert actions[0].detail == "llm_requested_evidence_summary"
+    assert "source=.ai/benchmark-report.yaml#content:project-context-evidence-context" in lines[0]
+    assert "detail=llm_requested_evidence_summary" in lines[0]
+    assert "补齐 project-context evidence 后运行 `benchmark`" in guidance[0]
+
+
 def test_maintenance_triage_guidance_explains_next_actions(tmp_path: Path):
     ai = tmp_path / ".ai"
     ai.mkdir()

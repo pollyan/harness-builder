@@ -9,8 +9,10 @@ from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry
 from harness_builder_agent.tools.interactive_init import (
+    _benchmark_signal_lines,
     _human_input_needed_status_lines,
     _normalize_existing_harness_action,
+    _workflow_routing_status_lines,
     _weapon_blocker_summary,
     _weapon_maturity_dimension_keys,
     _weapon_next_lift_summary,
@@ -88,6 +90,95 @@ def test_existing_harness_action_normalization_accepts_numbers_and_aliases():
     assert _normalize_existing_harness_action("治理") == "review-candidate"
     assert _normalize_existing_harness_action("重新生成") == "reinit"
     assert _normalize_existing_harness_action("unknown") == "unknown"
+
+
+def test_workflow_routing_status_lines_show_standard_risk_context():
+    config = HarnessConfig.default()
+    standard = next(rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation")
+    standard.triggers.extend(
+        [
+            "risk_area:security_or_permission",
+            "risk_area:data_or_migration",
+            "missing_hard_gate",
+        ]
+    )
+    lines = _workflow_routing_status_lines(config)
+
+    assert "routing_default=lightweight" in lines
+    assert "routing_rule_count=3" in lines
+    assert "standard_escalation=present" in lines
+    assert "standard_human_confirmation=true" in lines
+    assert "standard_risk_triggers=2" in lines
+    assert "risk_trigger=risk_area:security_or_permission" in lines
+    assert "risk_trigger=risk_area:data_or_migration" in lines
+    assert "missing_hard_gate_trigger=present" in lines
+
+
+def test_benchmark_signal_lines_preview_failed_checks_with_action_details(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    (ai / "benchmark-report.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "repo_name": "demo",
+                "profile": "java-spring",
+                "status": "failed",
+                "quality_status": "failed",
+                "checks": [
+                    {"id": "schema:project-inventory", "passed": True},
+                    {
+                        "id": "content:hard-gate-command-evidence",
+                        "passed": False,
+                        "errors": ["hard_gate_without_source"],
+                        "missing": ["source_path"],
+                        "weak_commands": [
+                            {
+                                "id": "unit_test",
+                                "source": "docs/testing.md",
+                                "confidence": "low",
+                                "reason": "source_path_missing",
+                            }
+                        ],
+                    },
+                    {
+                        "id": "content:project-context-evidence-context",
+                        "passed": False,
+                        "missing": ["llm_requested_evidence_summary"],
+                    },
+                ],
+                "quality_scores": {},
+            },
+            allow_unicode=True,
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    lines = _benchmark_signal_lines(ai)
+
+    assert "benchmark_failed_checks=2" in lines
+    assert "benchmark_failed_check=content:hard-gate-command-evidence" in lines
+    assert (
+        "benchmark_failed_check_detail=content:hard-gate-command-evidence|hard gate 命令证据不足"
+        in lines
+    )
+    assert (
+        "benchmark_failed_check_error=content:hard-gate-command-evidence|"
+        "hard_gate_without_source；source_path；unit_test:source_path_missing:docs/testing.md"
+        in lines
+    )
+    assert (
+        "benchmark_failed_check_error=content:project-context-evidence-context|llm_requested_evidence_summary"
+        in lines
+    )
+
+
+def test_benchmark_signal_lines_report_missing_when_absent(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+
+    assert _benchmark_signal_lines(ai) == ["benchmark_failed_checks=not_available"]
 
 
 def test_human_input_needed_status_lines_summarize_questionnaire(tmp_path: Path):

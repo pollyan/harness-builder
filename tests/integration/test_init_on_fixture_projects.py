@@ -1143,6 +1143,14 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert result.exit_code == 0, result.output
     assert "已存在 Harness" in result.output
     assert "当前成熟度" in result.output
+    assert "Benchmark signals" in result.output
+    assert "benchmark_failed_checks=not_available" in result.output
+    assert "Workflow routing signals" in result.output
+    assert "routing_default=lightweight" in result.output
+    assert "routing_rule_count=3" in result.output
+    assert "standard_escalation=present" in result.output
+    assert "standard_human_confirmation=true" in result.output
+    assert "missing_hard_gate_trigger=" in result.output
     assert "Experience / review signals" in result.output
     assert "Maintenance triage" in result.output
     assert "top_action_1=benchmark" in result.output
