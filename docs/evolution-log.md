@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 用户补充复述与影响说明
+
+- North Star 模块：CLI Experience、Progressive Collaboration、Maturity & Evolution、Guides / Sensors。
+- init North Star 旅程阶段：扫描理解对齐、成熟度初评、深度追问、设计预览、最终确认。
+- Gap Analysis 摘要：guided `init` 已能收集自然语言和结构化补充，并把它们写入部分资产；但最终确认只展示数量，用户无法在写入前看到系统如何理解这些补充，也不知道它们会影响 Guide、Sensor、成熟度预览或 Workflow 说明。CLI 阶段进度、扫描结果分组、推荐项成熟度关联和写入后 summary 一致性仍是后续 gap。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 中补充模块边界、真实验证命令、风险区域、团队规则或工作流说明时，我可以在写入前看到系统如何理解这些补充，以及它们会影响哪些 Guides、Sensors、成熟度预览或 Workflow 说明，从而确认 Harness Builder 不是只记录文本，而是在用我的输入调整 Harness 设计。
+- 当前代码 gap：`_collect_scan_supplement()` 和 `_apply_scan_overrides()` 已能记录和应用补充，但 `_confirm_summary()` 只输出团队规则数量、hard gate 命令和 workflow 名称，缺少补充内容与影响面复述。
+- 关键决策 / 取舍：不新增 LLM 语义理解；结构化补充继续更新 inventory / commands / risk，非结构化自然语言保持人工补充说明；Workflow note 只进入说明和确认记录，不直接修改 routing policy。
+- Assumptions / risks：自然语言补充不能自动变成正式规则；长补充在 CLI 中只展示摘要，完整内容仍进入 interaction decisions 和 Markdown 产物。
+- Sub agent 使用情况：使用两个只读 explorer 子代理分别审查 init North Star 旅程 gap 和测试覆盖缺口；两者都把“用户补充复述与影响说明”列为高价值下一步。
+- 价值切分说明：本轮保护的是“渐进式协作”用户价值，不是孤立字段或文案；用户在最终确认前能看到自己的输入被系统吸收，并理解其对后续 Harness 设计的影响。
+- 验收标准及验证方式：新增 integration 测试断言 `最终确认` 之后包含具体 scan note、团队规则、workflow note 和“补充影响”；断言 `interaction-decisions.yaml`、`project-context.md`、`human-input-needed.md` 保留补充；相关 guided init 测试保持通过。
+- 完成内容：`interactive_init.py` 在最终确认前输出“已吸收的用户补充”和“补充影响”；init workflow 规则和 spec/plan 同步。
+- 验证结果：targeted guided init tests 已通过；fast/full/push 结果见本轮提交记录。
+- Self-Harness Gate：本轮强化了用户输入消费链路。下一轮候选 gap：CLI 扫描阶段进度反馈、扫描结果按风险/不确定性分组、preview 与落盘资产 / init-summary 的一致性验收。
+
 ## 2026-05-31 Guided Init 写入前成熟度预览
 
 - North Star 模块：CLI Experience、Maturity & Evolution、Workflow Routing、Guides / Sensors。

@@ -411,6 +411,49 @@ def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path,
     assert "bugfix 工作流适合缺陷修复" in project_context
 
 
+def test_guided_init_restates_user_supplements_before_write_and_persists_them(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "模块 app 实际包含批处理入口，修改任务需要额外说明。\n"
+            "团队规则：Controller 只能调用 Service，配置变更必须说明回滚方式。\n"
+            "\n\n\n"
+            "bugfix 工作流适合缺陷修复。\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    final_summary = result.output[result.output.index("最终确认"):]
+    assert "已吸收的用户补充" in final_summary
+    assert "补充影响" in final_summary
+    assert "批处理入口" in final_summary
+    assert "Controller 只能调用 Service" in final_summary
+    assert "bugfix 工作流适合缺陷修复" in final_summary
+    assert "影响 Guides 与写入前成熟度预览" in final_summary
+    assert "影响团队上下文 Guide 与 human-input-needed" in final_summary
+    assert "影响 Workflow 说明与后续人工确认记录" in final_summary
+
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert "批处理入口" in decisions["scan_confirmation"]["notes"][0]
+    assert "Controller 只能调用 Service" in decisions["context_confirmation"]["inline_contexts"][0]
+    assert "bugfix 工作流适合缺陷修复" in decisions["workflow_confirmation"]["notes"][0]
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
+    assert "批处理入口" in project_context
+    assert "Controller 只能调用 Service" in project_context
+    assert "bugfix 工作流适合缺陷修复" in project_context
+    assert "批处理入口" in human_input
+    assert "Controller 只能调用 Service" in human_input
+    assert "bugfix 工作流适合缺陷修复" in human_input
+
+
 def test_guided_init_stack_correction_updates_inventory_and_decisions(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

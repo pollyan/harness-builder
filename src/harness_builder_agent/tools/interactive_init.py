@@ -104,6 +104,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
         action = _confirm_summary(
             inventory,
             commands,
+            scan_overrides,
             inline_contexts,
             candidate_decisions,
             workflow_confirmation,
@@ -1081,6 +1082,7 @@ def _has_existing_partial_harness(repo: Path) -> bool:
 def _confirm_summary(
     inventory: ProjectInventory,
     commands: CommandCatalog,
+    scan_overrides: GuidedScanOverrides,
     inline_contexts: list[str],
     candidate_decisions: list[CandidateDecision],
     workflow_confirmation: WorkflowConfirmation,
@@ -1098,6 +1100,7 @@ def _confirm_summary(
     hard_gates = [command.command for command in commands.commands if command.gate == "hard"]
     typer.echo(f"- hard gate 命令：{', '.join(hard_gates) if hard_gates else '暂未确认'}")
     typer.echo(f"- Workflows：{', '.join(workflow_confirmation.shown_workflows) or '无'}")
+    _show_supplement_impact_summary(scan_overrides, inline_contexts, workflow_confirmation)
     typer.echo("- 将写入：project inventory、command catalog、guides、sensors、workflow skills、review candidates、trace。")
     choice = typer.prompt("输入 confirm 写入，back 返回修改，cancel 取消", default="confirm").strip().lower()
     if choice == "back":
@@ -1110,6 +1113,50 @@ def _confirm_summary(
     if choice == "cancel":
         return "cancel"
     return "confirm"
+
+
+def _show_supplement_impact_summary(
+    scan_overrides: GuidedScanOverrides,
+    inline_contexts: list[str],
+    workflow_confirmation: WorkflowConfirmation,
+) -> None:
+    supplement_lines: list[str] = []
+    impact_lines: list[str] = []
+
+    if scan_overrides.notes:
+        supplement_lines.extend(f"- 扫描补充：{note}" for note in scan_overrides.notes)
+        impact_lines.append("- 扫描补充会影响 Guides 与写入前成熟度预览，并进入 interaction-decisions / project-context。")
+    if scan_overrides.modules:
+        module_labels = ", ".join(f"`{item['path']}`" for item in scan_overrides.modules)
+        impact_lines.append(f"- 补充模块 {module_labels} 会进入 project inventory，并影响后续 Guide 的项目事实。")
+    if scan_overrides.commands:
+        command_labels = ", ".join(f"`{item.command}`" for item in scan_overrides.commands)
+        impact_lines.append(f"- 补充命令 {command_labels} 会进入 command catalog，并影响 Sensor 与 hard gate 摘要。")
+    if scan_overrides.risk_areas:
+        risk_labels = ", ".join(f"`{item['path']}`" for item in scan_overrides.risk_areas)
+        impact_lines.append(f"- 补充风险 {risk_labels} 会进入项目风险线索，并影响后续人工确认。")
+    if inline_contexts:
+        supplement_lines.extend(f"- 团队规则：{item}" for item in inline_contexts)
+        impact_lines.append("- 团队规则会影响团队上下文 Guide 与 human-input-needed。")
+    if workflow_confirmation.notes:
+        supplement_lines.extend(f"- Workflow 补充：{item}" for item in workflow_confirmation.notes)
+        impact_lines.append("- Workflow 补充会影响 Workflow 说明与后续人工确认记录。")
+
+    typer.echo("\n已吸收的用户补充")
+    if supplement_lines:
+        for line in supplement_lines[:8]:
+            typer.echo(line)
+        if len(supplement_lines) > 8:
+            typer.echo(f"- 还有 {len(supplement_lines) - 8} 条补充会写入交互决策。")
+    else:
+        typer.echo("- 暂无用户补充。")
+
+    typer.echo("\n补充影响")
+    if impact_lines:
+        for line in impact_lines:
+            typer.echo(line)
+    else:
+        typer.echo("- 当前将按扫描结果和内置 Harness 基线生成。")
 
 
 def _apply_scan_overrides(
