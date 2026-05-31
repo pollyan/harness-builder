@@ -162,6 +162,10 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
         if action == "candidates":
             candidate_decisions = _review_candidates(candidate_report, weapon_selection, commands)
             continue
+        if action == "workflow":
+            workflow_confirmation = _show_workflows()
+            _show_workflow_note_immediate_summary(workflow_confirmation)
+            continue
 
     decisions = accepted_interactive_decisions(
         str(repo),
@@ -1851,8 +1855,11 @@ def _confirm_summary(
     choice = typer.prompt("输入 confirm 写入，back 返回修改，cancel 取消", default="confirm").strip().lower()
     if choice == "back":
         typer.echo("返回修改")
-        stage = typer.prompt("返回哪一部分？scan=扫描修正，rules=团队规则，candidates=候选项", default="rules").strip().lower()
-        if stage in {"scan", "rules", "candidates"}:
+        stage = typer.prompt(
+            "返回哪一部分？scan=扫描修正，rules=团队规则，candidates=候选项，workflow=Workflow补充",
+            default="rules",
+        ).strip().lower()
+        if stage in {"scan", "rules", "candidates", "workflow"}:
             return stage
         typer.echo("未识别的返回目标，回到最终确认。")
         return "back"

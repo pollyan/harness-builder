@@ -1180,6 +1180,42 @@ def test_guided_init_final_summary_can_go_back_to_team_rules(tmp_path: Path, mon
     assert "初始规则需要修改" not in project_context
 
 
+def test_guided_init_final_summary_can_go_back_to_workflow_note(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n\n\n"
+            "\n\n\n"
+            "初始 Workflow 说明需要修改。\n"
+            "back\n"
+            "workflow\n"
+            "最终 Workflow 说明：bugfix 只用于缺陷修复。\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "返回修改" in result.output
+    assert "workflow=Workflow补充" in result.output
+    assert result.output.count("Workflow 补充理解") == 2
+    final_preview = result.output[result.output.rindex("写入前 Harness 设计预览") : result.output.rindex("\n最终确认\n")]
+    assert "最终 Workflow 说明：bugfix 只用于缺陷修复" in final_preview
+    assert "初始 Workflow 说明需要修改" not in final_preview
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["workflow_confirmation"]["notes"] == ["最终 Workflow 说明：bugfix 只用于缺陷修复。"]
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
+    assert "最终 Workflow 说明：bugfix 只用于缺陷修复" in project_context
+    assert "最终 Workflow 说明：bugfix 只用于缺陷修复" in human_input
+    assert "初始 Workflow 说明需要修改" not in project_context
+    assert "初始 Workflow 说明需要修改" not in human_input
+
+
 def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))

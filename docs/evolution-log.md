@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init Workflow 补充返回修改
+
+- North Star 模块：CLI Experience、Workflow Toolkit、资产生成与审核接管。
+- init North Star 旅程阶段：Workflow 设计、写入前 Harness 设计预览、最终确认返回修改。
+- Gap Analysis 摘要：当前 open todo 为空。上一轮已经让 Workflow 补充在输入后即时复述，并进入写入前 preview；本轮重新读取事实源后发现 final confirmation 的 `back` 只支持 scan / rules / candidates，用户看到 workflow note 错误时不能只返回修改，容易被迫取消整次 init 或接受错误人工说明。候选还包括 Workflow note 结构化 impact schema、Workflow note 生成 review-only routing candidate、push 前 full regression，同步排序后选择最小但完整的 back->workflow 纠错闭环。
+- 用户故事：作为 Harness Maintainer，当我在最终确认阶段发现 Workflow 补充写错或需要清空时，我可以输入 `back` 并选择 `workflow` 只返回 Workflow 补充步骤，重新输入后看到即时影响和设计预览刷新，并且最终 `.ai` 资产只保存最新 Workflow 补充，从而不用取消整次 init 或接受错误人工说明。
+- 当前代码 gap：`_confirm_summary()` 的返回菜单不包含 workflow，loop 也没有 workflow 分支；未知返回目标会回到最终确认，后续输入可能被误当成确认。
+- 关键决策 / 取舍：只新增 `workflow=Workflow补充` 返回目标，复用 `_show_workflows()` 和 `_show_workflow_note_immediate_summary()` 替换内存态 `WorkflowConfirmation`；不重新跑 candidate review、不修改 routing policy、不新增 schema。
+- Assumptions / risks：workflow note 在正式写入前只在内存态中，因此可以安全替换；如果未来 workflow note 影响 routing candidate，需另行设计结构化候选治理。
+- 边界情况 / 失败模式：返回 workflow 后直接回车可以清空旧 note；最终持久化以最后一次 `WorkflowConfirmation.notes` 为准；本轮不执行 Runtime、不创建 `.ai/task-runs`、不默认运行 benchmark。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer，但当前返回 `agent thread limit reached`，未能使用子代理；主线程完成调研与验证。
+- 价值切分说明：本轮和上一轮共同补齐 Workflow 补充的“输入 -> 即时理解 -> preview -> 可返回修改 -> 写入最新结果”闭环；结构化 impact schema 和 routing candidate 留给后续 Gap Analysis。
+- 可执行验收标准及验证方式：新增 integration 测试断言 `back` 菜单包含 `workflow=Workflow补充`、`Workflow 补充理解` 出现两次、最终 preview 展示新 note，且 `interaction-decisions.yaml`、project-context、human-input-needed 只包含新 note 不包含旧 note。
+- 完成内容：`interactive_init.py` 支持 `back -> workflow`；`docs/engineering/init-workflow.md` 固化最终确认返回 workflow 的规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：目标 integration 测试通过；commit 前 fast regression 见本轮提交前验证。
+- Self-Harness Gate：README 只说明摘要阶段可 back 返回修改，未细化每个返回目标，暂不更新；`docs/todos/` 暂不新增。下一轮候选 gap：Workflow note 结构化 impact schema、Workflow note review-only routing candidate、或 push 前 full regression 先决条件。
+
 ## 2026-06-01 Guided Init Workflow 补充影响与预览
 
 - North Star 模块：CLI Experience、Workflow Toolkit、资产生成与审核接管。
