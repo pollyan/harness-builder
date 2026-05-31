@@ -40,7 +40,12 @@ def write_initial_assets(
         context_paths=[str(path) for path in (context_paths or [])],
     )
     risk_areas = inventory.stack_extensions.get("risk_areas", [])
-    questionnaire = build_questionnaire(context_inputs, scan_metadata_payload, risk_areas=risk_areas)
+    questionnaire = build_questionnaire(
+        context_inputs,
+        scan_metadata_payload,
+        risk_areas=risk_areas,
+        interaction_decisions=decisions,
+    )
     raw_candidates = build_llm_enhancement_candidates(inventory, commands).model_dump(mode="json")
     enhancement_candidates = apply_candidate_decisions(raw_candidates, decisions)
     if trace:

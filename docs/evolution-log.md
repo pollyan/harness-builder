@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Scan Follow-up 补充状态标注
+
+- North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、资产生成与审核接管。
+- init North Star 旅程阶段：深度追问、用户 scan 补充吸收、human-input 待确认闭环。
+- Gap Analysis 摘要：当前 open todo 为空。本轮重新读取事实源后，scan follow-up、LLM 二次自检和结构化 scan supplement 都已存在，但 `build_questionnaire()` 只消费 scan metadata，不消费 `InteractionDecisions.scan_confirmation`；因此用户在同轮 guided `init` 中补充 `module` / `command` / `risk` 后，`.ai/questionnaire.yaml` 和 `.ai/human-input-needed.md` 仍会把相关追问表现为完全未处理。候选还包括 Workflow note review-only routing candidate 和 push 前 full regression；本轮选择先补齐 follow-up 与当前补充之间的待复核标注。
+- 用户故事：作为 Harness Maintainer，当扫描阶段出现深度追问且我在同一次 guided `init` 中用结构化 scan supplement 补充相关信息时，我可以在 questionnaire 和 human-input 中看到这些追问已被本轮补充部分回应、但仍需 Maintainer 复核，从而知道系统吸收了输入，同时不会误以为不确定性已经自动关闭。
+- 当前代码 gap：`write_initial_assets()` 调用 `build_questionnaire()` 时没有传入 interaction decisions；`scan_followup_confirmation.reason` 只能展示原始 follow-up 和可选 LLM self-check。
+- 关键决策 / 取舍：只在 reason 中追加“可能已部分回应”和补充摘要；保持 `scan_followup_confirmation` 存在，保留 `pending_harness_maintainer_review`，不新增 resolved schema，不删除追问，不把用户补充当成扫描 evidence。
+- Assumptions / risks：同轮 scan supplement 与 follow-up 的相关性只能保守启发式判断；因此本轮不关闭问题，未来如需机器化 resolved / unresolved 状态应另做 questionnaire schema 设计。
+- 边界情况 / 失败模式：无相关补充时不标注；risk 补充不会回应 test evidence follow-up；本轮不修改 LLM self-check、正式 routing policy、Runtime 或 benchmark。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查 scan follow-up 链路，但当前返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮把上一轮结构化 scan supplement 契约接到 human confirmation 产物，形成从追问、用户补充、待复核标注到处理入口的闭环。
+- 可执行验收标准及验证方式：unit 测试覆盖 matching / unrelated supplement；guided integration 覆盖 questionnaire、human-input 和 interaction-decisions 对齐；`Questionnaire` schema 校验产物。
+- 完成内容：`build_questionnaire()` 接收 `interaction_decisions`，根据 follow-up trigger / affects 保守匹配 scan supplement 并追加待复核标注；`write_initial_assets()` 传入 decisions；工程规则、spec 和 plan 已同步。
+- 验证结果：新增测试先按 TDD 失败；实现后 `tests/unit/test_human_confirmation.py tests/unit/test_interaction_decisions.py` 20 passed，目标 guided integration 3 passed，完整 `tests/integration/test_init_on_fixture_projects.py` 38 passed，`git diff --check` 通过，`scripts/test-fast.sh` 通过，387 passed。
+- Self-Harness Gate：README 暂不需要暴露该内部待复核细节；`docs/todos/` 暂不新增。下一轮候选 gap：Workflow note review-only routing candidate 安全设计、push 前 full regression / 远端同步，或 follow-up resolved schema 的长期契约设计。
+
 ## 2026-06-01 扫描补充结构化决策契约
 
 - North Star 模块：CLI Experience、Deep Scan Evidence、Maturity & Evolution、Experience & Self-Improve、资产生成与审核接管。

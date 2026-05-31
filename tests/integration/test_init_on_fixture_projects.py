@@ -931,6 +931,90 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
     assert "哪些 Java 目录" in human_input
 
 
+def test_guided_init_marks_scan_followup_partially_addressed_by_current_supplement(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+
+    def scan_with_followups(repo_path: Path):
+        followups = [
+            {
+                "schema_version": "1.0",
+                "interaction_id": "confirm:scan-followup:test-evidence",
+                "trigger": "test_evidence_missing",
+                "question": "真实测试入口是什么？",
+                "reason": "缺少测试 evidence。",
+                "evidence": ["test_evidence_not_found"],
+                "confidence": "low",
+                "affects": ["sensors"],
+            },
+            {
+                "schema_version": "1.0",
+                "interaction_id": "confirm:scan-followup:module-boundary",
+                "trigger": "module_boundary_unclear",
+                "question": "主要模块路径和职责是什么？",
+                "reason": "模块边界不清。",
+                "evidence": ["modules:empty"],
+                "confidence": "low",
+                "affects": ["guides", "workflow"],
+            },
+        ]
+        inventory = ProjectInventory(
+            repo_name=repo_path.name,
+            root_path=str(repo_path),
+            primary_stack="unknown",
+            stacks=[],
+            modules=[],
+            evidence=[{"path": "README.md", "reason": "project document"}],
+            stack_extensions={
+                "needs_human_confirmation": True,
+                "scan_metadata": {"followup_questions": followups},
+            },
+        )
+        commands = CommandCatalog(commands=[])
+        return inventory, commands
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", scan_with_followups)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "module=src/main/java|backend|core; command=unit_test|mvn test|test|hard|pom.xml|high; risk=src/main/java/com/example/AuthService.java|认证逻辑高风险\n"
+            "\n\n\n\n"
+            "\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    questionnaire = yaml.safe_load((repo / ".ai" / "questionnaire.yaml").read_text(encoding="utf-8"))
+    Questionnaire.model_validate(questionnaire)
+    test_question = next(
+        item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:test-evidence"
+    )
+    assert "本轮 scan 补充可能已部分回应该追问" in test_question["reason"]
+    assert "command=unit_test:mvn test" in test_question["reason"]
+    assert "review_status=pending_harness_maintainer_review" in test_question["reason"]
+    module_question = next(
+        item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:module-boundary"
+    )
+    assert "module=src/main/java" in module_question["reason"]
+    assert "risk=src/main/java/com/example/AuthService.java" in module_question["reason"]
+
+    human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
+    assert "本轮 scan 补充可能已部分回应该追问" in human_input
+    assert "command=unit_test:mvn test" in human_input
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["scan_confirmation"]["commands"][0]["id"] == "unit_test"
+    assert decisions["scan_confirmation"]["modules"] == [{"path": "src/main/java", "kind": "backend", "name": "core"}]
+    assert decisions["scan_confirmation"]["risk_areas"] == [
+        {"path": "src/main/java/com/example/AuthService.java", "reason": "认证逻辑高风险"}
+    ]
+    assert decisions["scan_confirmation"]["review_status"] == "pending_harness_maintainer_review"
+    assert decisions["scan_confirmation"]["fact_effect"] == "user_supplied_correction_review_required"
+
+
 def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

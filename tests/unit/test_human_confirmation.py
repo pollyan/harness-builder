@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from harness_builder_agent.schemas.command_catalog import CommandDefinition
 from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 from harness_builder_agent.tools.human_confirmation import build_questionnaire, read_context_inputs
+from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions
 
 
 def test_read_context_inputs_summarizes_files(tmp_path: Path):
@@ -134,6 +136,83 @@ def test_build_questionnaire_includes_scan_self_check_resolution():
     assert "LLM 二次自检" in question["reason"]
     assert "needs_targeted_scan" in question["reason"]
     assert "请补充核心 Java 模块路径" in question["reason"]
+    Questionnaire.model_validate(questionnaire)
+
+
+def test_build_questionnaire_marks_followup_partially_addressed_by_scan_supplement():
+    decisions = accepted_interactive_decisions(
+        "/repo",
+        scan_modules=[{"path": "src/main/java", "kind": "backend", "name": "core"}],
+        scan_commands=[
+            CommandDefinition(
+                id="unit_test",
+                command="mvn test",
+                type="test",
+                gate="hard",
+                source="pom.xml",
+                confidence="high",
+            )
+        ],
+        scan_risk_areas=[{"path": "src/main/java/com/example/AuthService.java", "reason": "认证逻辑高风险"}],
+    )
+
+    questionnaire = build_questionnaire(
+        context_inputs={"schema_version": "1.0", "contexts": []},
+        scan_metadata={
+            "warnings": [],
+            "followup_questions": [
+                {
+                    "interaction_id": "confirm:scan-followup:test-evidence",
+                    "trigger": "test_evidence_missing",
+                    "question": "真实测试入口是什么？",
+                    "reason": "缺少测试 evidence。",
+                    "evidence": ["test_evidence_not_found"],
+                    "confidence": "low",
+                    "affects": ["sensors"],
+                }
+            ],
+        },
+        interaction_decisions=decisions,
+    )
+
+    question = next(
+        item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:test-evidence"
+    )
+    assert "本轮 scan 补充可能已部分回应该追问" in question["reason"]
+    assert "command=unit_test:mvn test" in question["reason"]
+    assert "review_status=pending_harness_maintainer_review" in question["reason"]
+    Questionnaire.model_validate(questionnaire)
+
+
+def test_build_questionnaire_does_not_mark_unrelated_followup_as_addressed():
+    decisions = accepted_interactive_decisions(
+        "/repo",
+        scan_risk_areas=[{"path": "src/main/java/com/example/AuthService.java", "reason": "认证逻辑高风险"}],
+    )
+
+    questionnaire = build_questionnaire(
+        context_inputs={"schema_version": "1.0", "contexts": []},
+        scan_metadata={
+            "warnings": [],
+            "followup_questions": [
+                {
+                    "interaction_id": "confirm:scan-followup:test-evidence",
+                    "trigger": "test_evidence_missing",
+                    "question": "真实测试入口是什么？",
+                    "reason": "缺少测试 evidence。",
+                    "evidence": ["test_evidence_not_found"],
+                    "confidence": "low",
+                    "affects": ["sensors"],
+                }
+            ],
+        },
+        interaction_decisions=decisions,
+    )
+
+    question = next(
+        item for item in questionnaire["questions"] if item["interaction_id"] == "confirm:scan-followup:test-evidence"
+    )
+    assert "本轮 scan 补充可能已部分回应该追问" not in question["reason"]
     Questionnaire.model_validate(questionnaire)
 
 

@@ -35,6 +35,7 @@ def build_questionnaire(
     context_inputs: dict[str, Any],
     scan_metadata: dict[str, Any],
     risk_areas: list[dict[str, Any]] | None = None,
+    interaction_decisions: Any | None = None,
 ) -> dict[str, Any]:
     contexts = context_inputs.get("contexts", [])
     context_reason = (
@@ -111,6 +112,9 @@ def build_questionnaire(
             action = resolution.get("suggested_next_action") or "请人工确认该追问。"
             rationale = resolution.get("rationale") or "LLM 二次自检未提供理由。"
             reason = f"{reason} LLM 二次自检：{status}；建议：{action}；理由：{rationale}"
+        supplement_note = _scan_supplement_followup_note(followup, interaction_decisions)
+        if supplement_note:
+            reason = f"{reason} {supplement_note}"
         questions.append(
             {
                 "interaction_type": "scan_followup_confirmation",
@@ -164,6 +168,75 @@ def _self_check_resolutions_by_interaction_id(value: Any) -> dict[str, dict[str,
         if interaction_id:
             result[interaction_id] = item
     return result
+
+
+def _scan_supplement_followup_note(followup: dict[str, Any], interaction_decisions: Any | None) -> str:
+    scan = _scan_confirmation_payload(interaction_decisions)
+    if not scan or scan.get("review_status") != "pending_harness_maintainer_review":
+        return ""
+    snippets = _matching_scan_supplement_snippets(followup, scan)
+    if not snippets:
+        return ""
+    return (
+        "本轮 scan 补充可能已部分回应该追问："
+        f"{'；'.join(snippets[:4])}；"
+        "review_status=pending_harness_maintainer_review，仍需 Harness Maintainer 复核是否完全解决。"
+    )
+
+
+def _scan_confirmation_payload(interaction_decisions: Any | None) -> dict[str, Any]:
+    if interaction_decisions is None:
+        return {}
+    if isinstance(interaction_decisions, dict):
+        value = interaction_decisions.get("scan_confirmation", {})
+        return value if isinstance(value, dict) else {}
+    scan = getattr(interaction_decisions, "scan_confirmation", None)
+    if scan is None:
+        return {}
+    if hasattr(scan, "model_dump"):
+        return scan.model_dump(mode="json")
+    return scan if isinstance(scan, dict) else {}
+
+
+def _matching_scan_supplement_snippets(followup: dict[str, Any], scan: dict[str, Any]) -> list[str]:
+    trigger = str(followup.get("trigger") or "")
+    affects = {str(item).lower() for item in followup.get("affects", []) if isinstance(item, str)}
+    snippets: list[str] = []
+
+    primary_stack = str(scan.get("primary_stack_override") or "").strip()
+    if primary_stack and trigger in {"unknown_stack", "stack_claim_without_evidence"}:
+        snippets.append(f"stack={primary_stack}")
+
+    modules = _dict_items(scan.get("modules"))
+    if modules and (trigger in {"coverage_gap", "module_boundary_unclear"} or "guides" in affects):
+        snippets.extend(f"module={item.get('path', '')}" for item in modules[:2] if item.get("path"))
+
+    commands = _dict_items(scan.get("commands"))
+    matching_commands = [
+        item
+        for item in commands
+        if trigger == "test_evidence_missing" or "sensors" in affects
+    ]
+    snippets.extend(
+        f"command={item.get('id', '')}:{item.get('command', '')}"
+        for item in matching_commands[:2]
+        if item.get("id") and item.get("command")
+    )
+
+    risk_areas = _dict_items(scan.get("risk_areas"))
+    if risk_areas and (trigger in {"coverage_gap", "module_boundary_unclear"} or "workflow" in affects):
+        snippets.extend(f"risk={item.get('path', '')}" for item in risk_areas[:2] if item.get("path"))
+
+    notes = [str(item).strip() for item in scan.get("notes", []) if str(item).strip()]
+    if notes and snippets:
+        snippets.append(f"notes={len(notes)}条")
+    return list(dict.fromkeys(snippets))
+
+
+def _dict_items(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
 
 
 def _warning_codes_represented_by_followup(trigger: str) -> set[str]:
