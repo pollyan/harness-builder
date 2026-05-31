@@ -44,6 +44,8 @@ def init_command(
             output_dir = run_non_interactive_init(target_repo, context or [], trace)
         else:
             output_dir = run_guided_init(target_repo, context or [], trace)
+    except (typer.Exit, typer.Abort):
+        raise
     except Exception as exc:
         trace.event("init", "failed", str(exc), {"error_type": type(exc).__name__})
         trace.finish("failed", {"error_type": type(exc).__name__})

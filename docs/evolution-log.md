@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init 扫描失败退出边界硬化
+
+- 关联 todo：`docs/todos/maturity-driven-init-wizard.md`、`docs/todos/testing-coverage-and-acceptance-strategy.md`。
+- North Star 模块：CLI Experience、Progressive Collaboration、可解释失败边界、可观测 Harness 生成。
+- init North Star 旅程阶段：阶段化扫描与进度反馈、错误信息、可审计 trace、正式资产写入边界。
+- Gap Analysis 摘要：本轮重新读取事实源后发现工作区已有 guided scan failure 的退出边界改动。候选对比中，用户自然语言补充影响成熟度/推荐和路径型 claim validation 更接近下一阶段深度体验，但当前 dirty diff 已形成独立工程信任故事：扫描失败应由 CLI 友好失败和 scan trace 表达，而不是泄露 traceback 或被外层 `init failed` 混淆。
+- 工程信任故事：作为 Harness Maintainer，当首次 guided `init` 的扫描阶段因为 LLM、网络或 schema 问题失败时，我可以看到清晰的中文失败说明和“未写入正式 Harness 资产”的边界，并且后续维护者可以从 trace 中确认失败只发生在 scan 阶段，从而更快定位问题而不误以为系统生成了不可信 Harness。
+- 当前代码 gap：已有测试只断言终端失败提示和正式资产未写入，没有验证 `trace.yaml`、`events.jsonl` 和外层 `init failed` 污染；上一轮 scan progress spec/plan 也没有记录 `typer.Exit` 退出语义。
+- 关键决策 / 取舍：guided scan failure 在 `interactive_init.py` 中记录 `scan failed` details、输出中文失败说明、finish failed trace 后抛出 `typer.Exit(1)`；`cli.py` 透传 `typer.Exit` / `typer.Abort`，避免通用异常处理重复写入外层失败事件。失败仍显式暴露，不 fallback，不写正式 Harness 资产。
+- Assumptions / risks：失败 trace 目录属于过程审计产物，不代表正式 Harness 已生成；隐藏 traceback 不能隐藏错误摘要，因此错误类型和短消息同时进入 CLI、trace summary 和 events。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行审查 dirty diff 和下一轮 init gap。一个建议本轮收口扫描失败边界并补 trace 断言；另一个建议下一轮优先做自然语言补充影响成熟度/推荐。
+- 价值切分说明：本轮只硬化 guided scan failure 的退出与 trace 契约，不混入自然语言补充消费、targeted rescan、claim validation 或 benchmark 交互。
+- 验收标准及验证方式：integration 覆盖扫描失败输出无 traceback、`CliRunner` 不再暴露原始 `RuntimeError`、`trace.yaml status=failed`、summary 包含 `error_type` / `scan_error`、`events.jsonl` 只有 scan failed 事件、正式 Harness 资产未写入；工程文档和 spec/plan 同步。
+- 完成内容：补强 guided scan failure 测试；`interactive_init.py` 在 scan failure 后 finish trace 并 Typer exit；`cli.py` 透传 Typer 控制流异常；新增本轮 spec / plan，更新 init workflow 和演进记录。
+- 验证结果：targeted test `1 passed in 0.20s`；commit 前快速回归见本轮提交前验证。
+- Self-Harness Gate：长期失败边界已沉淀到 `docs/engineering/init-workflow.md`；本轮没有新增 `.ai` 资产契约。下一轮候选 gap：自然语言补充与 self-check resolution 如何影响成熟度预览、推荐解释和最终资产；路径型 claim validation；已有 Harness schema / contract 损坏时的维护入口修复引导。
+
 ## 2026-06-01 Scan Follow-up Self-check
 
 - 关联 todo：`docs/todos/guided-init-ai4se-real-repo-findings.md`。

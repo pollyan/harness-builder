@@ -615,7 +615,27 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
     assert "未写入正式 Harness 资产" in output
     assert "请检查 LLM 配置、网络或扫描错误后重试" in output
     assert "synthetic scan failure" in output
+    assert "Traceback" not in output
+    assert not isinstance(result.exception, RuntimeError)
     assert output.index("扫描仓库") < output.index("扫描阶段失败")
+    run_dirs = sorted((repo / ".ai" / "runs").iterdir())
+    assert len(run_dirs) == 1
+    trace = yaml.safe_load((run_dirs[0] / "trace.yaml").read_text(encoding="utf-8"))
+    assert trace["status"] == "failed"
+    assert trace["summary"]["error_type"] == "RuntimeError"
+    assert trace["summary"]["scan_error"] == "synthetic scan failure"
+    events = [
+        json.loads(line)
+        for line in (run_dirs[0] / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(
+        event["stage"] == "scan"
+        and event["event_type"] == "failed"
+        and event["details"]["error_type"] == "RuntimeError"
+        and event["details"]["error"] == "synthetic scan failure"
+        for event in events
+    )
+    assert not any(event["stage"] == "init" and event["event_type"] == "failed" for event in events)
     assert not (repo / ".ai" / "project-inventory.json").exists()
     assert not (repo / ".ai" / "harness-config.yaml").exists()
     assert not (repo / ".ai" / "guides").exists()

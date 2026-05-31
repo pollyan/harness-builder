@@ -86,9 +86,15 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     try:
         inventory, commands = _scan_repository_for_guided_init(repo)
     except Exception as exc:
-        trace.event("scan", "failed", "Repository scan failed before writing formal Harness assets.")
+        trace.event(
+            "scan",
+            "failed",
+            "Repository scan failed before writing formal Harness assets.",
+            {"error_type": type(exc).__name__, "error": str(exc)},
+        )
         _show_scan_progress_failed(exc)
-        raise
+        trace.finish("failed", {"error_type": type(exc).__name__, "scan_error": str(exc)})
+        raise typer.Exit(code=1) from exc
     trace.event(
         "scan",
         "completed",
