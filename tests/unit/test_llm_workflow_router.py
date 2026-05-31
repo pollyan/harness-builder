@@ -39,11 +39,16 @@ def _valid_payload() -> dict:
     }
 
 
+def _allowed_sources() -> set[str]:
+    return {".ai/harness-config.yaml", ".ai/maturity-evidence.yaml"}
+
+
 def test_parse_workflow_recommendation_accepts_valid_response():
     report = parse_workflow_recommendation_response(
         json.dumps(_valid_payload()),
         configured_workflows={"lightweight", "bugfix", "standard"},
         routing_rule_ids={"bugfix-intent", "low-risk-lightweight", "standard-escalation"},
+        allowed_evidence_sources=_allowed_sources(),
     )
 
     assert report.recommended_workflow == "bugfix"
@@ -57,6 +62,7 @@ def test_parse_workflow_recommendation_rejects_invalid_json():
             "not json",
             configured_workflows={"lightweight", "bugfix", "standard"},
             routing_rule_ids={"bugfix-intent"},
+            allowed_evidence_sources=_allowed_sources(),
         )
 
 
@@ -69,6 +75,7 @@ def test_parse_workflow_recommendation_rejects_missing_explicit_review_status():
             json.dumps(payload),
             configured_workflows={"lightweight", "bugfix", "standard"},
             routing_rule_ids={"bugfix-intent"},
+            allowed_evidence_sources=_allowed_sources(),
         )
 
 
@@ -81,6 +88,7 @@ def test_parse_workflow_recommendation_rejects_unknown_selected_workflow():
             json.dumps(payload),
             configured_workflows={"lightweight", "bugfix", "standard"},
             routing_rule_ids={"bugfix-intent"},
+            allowed_evidence_sources=_allowed_sources(),
         )
 
 
@@ -93,6 +101,7 @@ def test_parse_workflow_recommendation_rejects_unknown_routing_rule_id():
             json.dumps(payload),
             configured_workflows={"lightweight", "bugfix", "standard"},
             routing_rule_ids={"bugfix-intent"},
+            allowed_evidence_sources=_allowed_sources(),
         )
 
 
@@ -105,6 +114,20 @@ def test_parse_workflow_recommendation_rejects_non_ai_evidence_source():
             json.dumps(payload),
             configured_workflows={"lightweight", "bugfix", "standard"},
             routing_rule_ids={"bugfix-intent"},
+            allowed_evidence_sources=_allowed_sources(),
+        )
+
+
+def test_parse_workflow_recommendation_rejects_unknown_evidence_source():
+    payload = _valid_payload()
+    payload["evidence_sources"] = [".ai/review/missing.yaml"]
+
+    with pytest.raises(ValueError, match="unknown evidence_sources"):
+        parse_workflow_recommendation_response(
+            json.dumps(payload),
+            configured_workflows={"lightweight", "bugfix", "standard"},
+            routing_rule_ids={"bugfix-intent"},
+            allowed_evidence_sources=_allowed_sources(),
         )
 
 

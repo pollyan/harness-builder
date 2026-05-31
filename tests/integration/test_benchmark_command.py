@@ -722,6 +722,23 @@ def test_benchmark_fails_maturity_review_with_outside_ai_evidence(tmp_path: Path
     assert "evidence_source_outside_ai" in review["errors"]
 
 
+def test_benchmark_fails_maturity_review_with_unknown_evidence_source(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_maturity_review(ai)
+    path = ai / "review" / "maturity-review.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidate_reviews"][0]["evidence_sources"] = [".ai/review/missing.yaml"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    review = next(check for check in checks if check["id"] == "content:maturity-review-artifact")
+    assert review["passed"] is False
+    assert "unknown_evidence_source" in review["errors"]
+
+
 def test_benchmark_fails_maturity_review_when_markdown_sections_are_missing(tmp_path: Path, monkeypatch):
     repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
     ai = repo / ".ai"
@@ -885,6 +902,23 @@ def test_benchmark_fails_asset_candidate_with_outside_ai_evidence(tmp_path: Path
     assert "evidence_source_outside_ai" in asset_candidates["errors"]
 
 
+def test_benchmark_fails_asset_candidate_with_unknown_evidence_source(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_asset_candidates(ai)
+    path = ai / "review" / "asset-candidates.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidates"][0]["evidence_sources"] = [".ai/review/missing.yaml"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
+    assert asset_candidates["passed"] is False
+    assert "unknown_evidence_source" in asset_candidates["errors"]
+
+
 def test_benchmark_fails_asset_candidate_when_markdown_sections_are_missing(tmp_path: Path, monkeypatch):
     repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
     ai = repo / ".ai"
@@ -947,6 +981,23 @@ def test_benchmark_fails_when_workflow_recommendation_references_unknown_rule(tm
     assert "unknown_matched_rule_ids" in recommendation["errors"]
 
 
+def test_benchmark_fails_workflow_recommendation_with_unknown_evidence_source(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_workflow_recommendation(ai)
+    path = ai / "review" / "workflow-routing-recommendation.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["evidence_sources"] = [".ai/review/missing.yaml"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    recommendation = next(check for check in checks if check["id"] == "content:workflow-recommendation-review")
+    assert recommendation["passed"] is False
+    assert "unknown_evidence_source" in recommendation["errors"]
+
+
 def test_benchmark_fails_when_workflow_recommendation_markdown_sections_are_missing(tmp_path: Path, monkeypatch):
     repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
     ai = repo / ".ai"
@@ -990,6 +1041,40 @@ def test_benchmark_fails_experience_summary_with_outside_ai_evidence(tmp_path: P
     summary = next(check for check in checks if check["id"] == "content:experience-summary-artifact")
     assert summary["passed"] is False
     assert "evidence_source_outside_ai" in summary["errors"]
+
+
+def test_benchmark_fails_experience_summary_with_unknown_evidence_source(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_experience_summary(ai)
+    path = ai / "experience" / "experience-summary.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["findings"][0]["evidence_sources"] = [".ai/experience/missing.md"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    summary = next(check for check in checks if check["id"] == "content:experience-summary-artifact")
+    assert summary["passed"] is False
+    assert "unknown_evidence_source" in summary["errors"]
+
+
+def test_benchmark_fails_experience_summary_with_absent_optional_source(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_experience_summary(ai)
+    path = ai / "experience" / "experience-summary.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["findings"][0]["evidence_sources"] = [".ai/review/asset-candidates.yaml"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    summary = next(check for check in checks if check["id"] == "content:experience-summary-artifact")
+    assert summary["passed"] is False
+    assert "unknown_evidence_source" in summary["errors"]
 
 
 def test_benchmark_fails_experience_summary_when_markdown_sections_are_missing(tmp_path: Path, monkeypatch):

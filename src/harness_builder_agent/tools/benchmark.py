@@ -25,6 +25,12 @@ from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
+from harness_builder_agent.tools.evidence_sources import (
+    CORE_EVIDENCE_SOURCES,
+    EXPERIENCE_SUMMARY_SOURCE_INPUTS,
+    maturity_evidence_source_allowlist,
+    unknown_evidence_sources,
+)
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.scan_repo import scan_repository
@@ -463,6 +469,55 @@ def _maturity_routing_evidence_check(ai: Path) -> dict[str, Any]:
     }
 
 
+def _base_benchmark_evidence_sources(ai: Path) -> tuple[set[str], list[str]]:
+    allowed = set(CORE_EVIDENCE_SOURCES)
+    errors: list[str] = []
+
+    evidence_path = ai / "maturity-evidence.yaml"
+    if evidence_path.exists():
+        try:
+            evidence = MaturityEvidencePack.model_validate(yaml.safe_load(evidence_path.read_text(encoding="utf-8")))
+            allowed.update(maturity_evidence_source_allowlist(evidence))
+        except Exception:  # pragma: no cover - schema checks expose the detailed validation error
+            errors.append("invalid_evidence_allowlist_source:maturity-evidence")
+
+    index_path = ai / "experience" / "experience-index.yaml"
+    if index_path.exists():
+        try:
+            index = ExperienceIndex.model_validate(yaml.safe_load(index_path.read_text(encoding="utf-8")))
+            allowed.update(source.path for source in index.sources)
+        except Exception:  # pragma: no cover
+            errors.append("invalid_evidence_allowlist_source:experience-index")
+
+    return allowed, errors
+
+
+def _extend_maturity_review_evidence_sources(ai: Path, allowed: set[str], errors: list[str]) -> None:
+    path = ai / "review" / "maturity-review.yaml"
+    if not path.exists():
+        return
+    allowed.add(".ai/review/maturity-review.yaml")
+    try:
+        report = MaturityReviewReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    except Exception:  # pragma: no cover
+        errors.append("invalid_evidence_allowlist_source:maturity-review")
+        return
+    allowed.update(source for review in report.candidate_reviews for source in review.evidence_sources)
+
+
+def _extend_experience_summary_evidence_sources(ai: Path, allowed: set[str], errors: list[str]) -> None:
+    path = ai / "experience" / "experience-summary.yaml"
+    if not path.exists():
+        return
+    allowed.add(".ai/experience/experience-summary.yaml")
+    try:
+        report = ExperienceSummaryReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    except Exception:  # pragma: no cover
+        errors.append("invalid_evidence_allowlist_source:experience-summary")
+        return
+    allowed.update(source for finding in report.findings for source in finding.evidence_sources)
+
+
 def _workflow_recommendation_review_check(ai: Path) -> dict[str, Any]:
     yaml_path = ai / "review" / "workflow-routing-recommendation.yaml"
     markdown_path = ai / "review" / "workflow-routing-recommendation.md"
@@ -489,6 +544,10 @@ def _workflow_recommendation_review_check(ai: Path) -> dict[str, Any]:
         errors.append("recommendation_not_review_only")
     if any(not source.startswith(".ai/") for source in report.evidence_sources):
         errors.append("evidence_source_outside_ai")
+    allowed_evidence_sources, allowlist_errors = _base_benchmark_evidence_sources(ai)
+    errors.extend(allowlist_errors)
+    if unknown_evidence_sources(report.evidence_sources, allowed_evidence_sources):
+        errors.append("unknown_evidence_source")
 
     markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
     required_sections = [
@@ -534,11 +593,16 @@ def _maturity_review_artifact_check(ai: Path) -> dict[str, Any]:
         errors.append("maturity_review_not_review_only")
 
     known_candidate_ids = {candidate.id for candidate in improvements.candidates}
+    allowed_evidence_sources, allowlist_errors = _base_benchmark_evidence_sources(ai)
+    errors.extend(allowlist_errors)
+    allowed_evidence_sources.update(source for candidate in improvements.candidates for source in candidate.evidence_sources)
     for item in report.candidate_reviews:
         if item.candidate_id not in known_candidate_ids:
             errors.append("unknown_candidate_id")
         if any(not source.startswith(".ai/") for source in item.evidence_sources):
             errors.append("evidence_source_outside_ai")
+        if unknown_evidence_sources(item.evidence_sources, allowed_evidence_sources):
+            errors.append("unknown_evidence_source")
 
     markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
     required_sections = [
@@ -586,6 +650,11 @@ def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
         return {"id": "content:asset-candidate-review", "passed": False, "present": True, "errors": [str(exc)]}
 
     known_candidate_ids = {candidate.id for candidate in improvements.candidates}
+    allowed_evidence_sources, allowlist_errors = _base_benchmark_evidence_sources(ai)
+    errors.extend(allowlist_errors)
+    allowed_evidence_sources.update(source for improvement in improvements.candidates for source in improvement.evidence_sources)
+    _extend_maturity_review_evidence_sources(ai, allowed_evidence_sources, errors)
+    _extend_experience_summary_evidence_sources(ai, allowed_evidence_sources, errors)
     for candidate in report.candidates:
         if (
             candidate.source_candidate_id
@@ -597,6 +666,8 @@ def _asset_candidate_review_check(ai: Path) -> dict[str, Any]:
             errors.append("suggested_path_outside_ai")
         if any(not source.startswith(".ai/") for source in candidate.evidence_sources):
             errors.append("evidence_source_outside_ai")
+        if unknown_evidence_sources(candidate.evidence_sources, allowed_evidence_sources):
+            errors.append("unknown_evidence_source")
 
     required_sections = ["### Rationale", "### Draft Content", "### Evidence Sources", "### Acceptance Checks"]
     candidate_kinds = {candidate.kind for candidate in report.candidates}
@@ -750,6 +821,16 @@ def _experience_summary_artifact_check(ai: Path) -> dict[str, Any]:
         errors.append("summary_not_review_only")
     if any(not source.startswith(".ai/") for finding in report.findings for source in finding.evidence_sources):
         errors.append("evidence_source_outside_ai")
+    allowed_evidence_sources, allowlist_errors = _base_benchmark_evidence_sources(ai)
+    errors.extend(allowlist_errors)
+    allowed_evidence_sources.update(
+        source for source in EXPERIENCE_SUMMARY_SOURCE_INPUTS if (ai.parent / source).exists()
+    )
+    if unknown_evidence_sources(
+        (source for finding in report.findings for source in finding.evidence_sources),
+        allowed_evidence_sources,
+    ):
+        errors.append("unknown_evidence_source")
 
     markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
     required_sections = ["# Experience Summary", "## Summary", "## Findings", "## Warnings"]

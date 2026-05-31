@@ -114,6 +114,10 @@ def _experience_summary() -> ExperienceSummaryReport:
     )
 
 
+def _allowed_sources() -> set[str]:
+    return {".ai/maturity-evidence.yaml", ".ai/review/maturity-review.yaml"}
+
+
 def test_generate_asset_candidates_with_llm_returns_schema_valid_candidates():
     report = generate_asset_candidates_with_llm(
         _score(),
@@ -165,6 +169,7 @@ def test_generate_asset_candidates_rejects_unknown_source_candidate_id():
                 }
             ),
             {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
         )
 
 
@@ -188,6 +193,7 @@ def test_generate_asset_candidates_rejects_non_ai_path():
                 }
             ),
             {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
         )
 
 
@@ -230,10 +236,63 @@ def test_generate_asset_candidates_accepts_workflow_policy_candidate():
             }
         ),
         {"candidate-1"},
+        allowed_evidence_sources=_allowed_sources(),
     )
 
     assert report.candidates[0].kind == "workflow_policy"
     assert report.candidates[0].suggested_path == ".ai/harness-config.yaml"
+
+
+def test_generate_asset_candidates_rejects_unknown_evidence_source():
+    with pytest.raises(ValueError, match="unknown evidence_sources"):
+        parse_asset_candidate_response(
+            json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "id": "bad-evidence",
+                            "kind": "guide",
+                            "source_candidate_id": "candidate-1",
+                            "source_review_decision": "support",
+                            "suggested_path": ".ai/guides/project-context.md",
+                            "title": "Bad evidence",
+                            "rationale": "Unknown evidence.",
+                            "draft_content": "content",
+                            "evidence_sources": [".ai/review/missing.yaml"],
+                            "review_status": "pending_harness_maintainer_review",
+                        }
+                    ]
+                }
+            ),
+            {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
+        )
+
+
+def test_generate_asset_candidates_rejects_non_ai_evidence_source():
+    with pytest.raises(ValueError, match="evidence_sources must be under .ai/"):
+        parse_asset_candidate_response(
+            json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "id": "bad-evidence",
+                            "kind": "guide",
+                            "source_candidate_id": "candidate-1",
+                            "source_review_decision": "support",
+                            "suggested_path": ".ai/guides/project-context.md",
+                            "title": "Bad evidence",
+                            "rationale": "Bad evidence.",
+                            "draft_content": "content",
+                            "evidence_sources": ["README.md"],
+                            "review_status": "pending_harness_maintainer_review",
+                        }
+                    ]
+                }
+            ),
+            {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
+        )
 
 
 def test_build_asset_candidate_messages_includes_experience_summary_when_present():

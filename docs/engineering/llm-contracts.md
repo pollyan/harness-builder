@@ -141,6 +141,7 @@ LLM schema 应表达稳定业务契约。
 - 对 asset candidate 必须保留 kind、source_candidate_id、suggested_path、draft_content、review_status、acceptance_checks 和 evidence_sources；`suggested_path` 必须限制在 `.ai/` 下。
 - 对 experience summary 必须保留 kind、title、summary、review_status、confidence、suggested_follow_up 和 evidence_sources；`evidence_sources` 必须限制在提供给 LLM 的 `.ai/` 证据路径内。
 - 对 workflow recommendation 必须保留 task_id、task_brief、recommended_workflow、matched_rule_ids、risk_level、confidence、rationale、required_guides、required_sensors、human_confirmation_required、review_status 和 evidence_sources；`recommended_workflow` 和 `matched_rule_ids` 必须和当前 `harness-config.yaml` 对齐。
+- 对 workflow recommendation、maturity review、asset candidate 和 experience summary，`evidence_sources` 不只检查 `.ai/` 前缀，还必须属于 Builder 提供给该 LLM 阶段的 evidence allowlist；未知 `.ai/` 路径必须显式失败，不能作为可追溯证据接受。
 - 对注入到下游 prompt 的 experience summary，必须在 prompt 中明确它是 review-only semantic context，不是正式规则、不是已应用变更。
 
 ## 错误处理
@@ -171,7 +172,7 @@ LLM 相关测试至少覆盖：
 - LLM 声称的 stack 与 evidence 冲突时会被调和。
 - 没有 DeepSeek key 的真实 acceptance 会失败。
 - mock LLM 测试不应该掩盖真实 LLM acceptance 的要求。
-- maturity review mock 测试必须覆盖合法 JSON、非法 JSON、schema 错误和未知 candidate_id。
-- asset candidate mock 测试必须覆盖合法 JSON、未知 source_candidate_id、非法 suggested_path 和 schema 错误。
+- maturity review mock 测试必须覆盖合法 JSON、非法 JSON、schema 错误、未知 candidate_id、非 `.ai/` evidence source 和未知 evidence source。
+- asset candidate mock 测试必须覆盖合法 JSON、未知 source_candidate_id、非法 suggested_path、非 `.ai/` evidence source、未知 evidence source 和 schema 错误。
 - experience summary mock 测试必须覆盖合法 JSON、非法 JSON、schema 错误、非 `.ai/` evidence path 和未知 evidence source。
-- workflow recommendation mock 测试必须覆盖合法 JSON、非法 JSON、未知 recommended_workflow、未知 matched_rule_ids、非 `.ai/` evidence source 和 review-only CLI 产物。
+- workflow recommendation mock 测试必须覆盖合法 JSON、非法 JSON、未知 recommended_workflow、未知 matched_rule_ids、非 `.ai/` evidence source、未知 evidence source 和 review-only CLI 产物。

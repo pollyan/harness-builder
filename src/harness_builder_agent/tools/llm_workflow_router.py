@@ -10,6 +10,7 @@ from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.deepseek_client import call_deepseek
+from harness_builder_agent.tools.evidence_sources import maturity_evidence_source_allowlist, validate_evidence_sources
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
 from harness_builder_agent.prompts.registry import LLM_WORKFLOW_ROUTER_V1, build_machine_prompt_messages
 
@@ -53,6 +54,7 @@ def recommend_workflow_with_llm(
         content,
         configured_workflows=set(config.workflows),
         routing_rule_ids={rule.id for rule in config.workflow_routing.rules},
+        allowed_evidence_sources=maturity_evidence_source_allowlist(evidence_pack),
     )
 
 
@@ -78,6 +80,7 @@ def parse_workflow_recommendation_response(
     *,
     configured_workflows: set[str],
     routing_rule_ids: set[str],
+    allowed_evidence_sources: set[str],
 ) -> WorkflowRecommendationReport:
     raw = _extract_json_text(content)
     try:
@@ -95,12 +98,7 @@ def parse_workflow_recommendation_response(
     unknown_rules = sorted(set(report.matched_rule_ids) - routing_rule_ids)
     if unknown_rules:
         raise ValueError(f"DeepSeek workflow recommendation referenced unknown matched_rule_ids: {', '.join(unknown_rules)}")
-    bad_evidence_sources = [source for source in report.evidence_sources if not source.startswith(".ai/")]
-    if bad_evidence_sources:
-        raise ValueError(
-            "DeepSeek workflow recommendation evidence_sources must be under .ai/: "
-            + ", ".join(sorted(bad_evidence_sources))
-        )
+    validate_evidence_sources("DeepSeek workflow recommendation", report.evidence_sources, allowed_evidence_sources)
     return report
 
 

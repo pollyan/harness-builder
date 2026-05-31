@@ -13,6 +13,7 @@ from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.deepseek_client import call_deepseek
+from harness_builder_agent.tools.evidence_sources import review_evidence_source_allowlist, validate_evidence_sources
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
 from harness_builder_agent.prompts.registry import LLM_ASSET_CANDIDATE_V2, build_machine_prompt_messages
 
@@ -39,7 +40,16 @@ def generate_asset_candidates_with_llm(
     if not content.strip():
         raise ValueError("DeepSeek asset candidate response is empty")
     candidate_ids = {candidate.id for candidate in improvement_candidates.candidates}
-    return parse_asset_candidate_response(content, candidate_ids)
+    return parse_asset_candidate_response(
+        content,
+        candidate_ids,
+        allowed_evidence_sources=review_evidence_source_allowlist(
+            evidence_pack,
+            improvement_candidates,
+            maturity_review=maturity_review,
+            experience_summary=experience_summary,
+        ),
+    )
 
 
 def build_asset_candidate_messages(
@@ -60,7 +70,12 @@ def build_asset_candidate_messages(
     return build_machine_prompt_messages(LLM_ASSET_CANDIDATE_V2.key, payload)
 
 
-def parse_asset_candidate_response(content: str, candidate_ids: set[str]) -> AssetCandidateReport:
+def parse_asset_candidate_response(
+    content: str,
+    candidate_ids: set[str],
+    *,
+    allowed_evidence_sources: set[str],
+) -> AssetCandidateReport:
     raw = _extract_json_text(content)
     try:
         payload = json.loads(raw)
@@ -86,6 +101,11 @@ def parse_asset_candidate_response(content: str, candidate_ids: set[str]) -> Ass
     bad_paths = [candidate.suggested_path for candidate in report.candidates if not candidate.suggested_path.startswith(".ai/")]
     if bad_paths:
         raise ValueError(f"DeepSeek asset candidate suggested_path must be under .ai/: {', '.join(sorted(bad_paths))}")
+    validate_evidence_sources(
+        "DeepSeek asset candidate",
+        (source for candidate in report.candidates for source in candidate.evidence_sources),
+        allowed_evidence_sources,
+    )
     return report
 
 

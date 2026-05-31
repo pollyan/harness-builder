@@ -12,6 +12,7 @@ from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.tools.deepseek_client import call_deepseek
+from harness_builder_agent.tools.evidence_sources import review_evidence_source_allowlist, validate_evidence_sources
 from harness_builder_agent.tools.llm_config import DeepSeekConfig
 from harness_builder_agent.prompts.registry import LLM_MATURITY_REVIEW_V2, build_machine_prompt_messages
 
@@ -48,7 +49,15 @@ def review_maturity_with_llm(
     if not content.strip():
         raise ValueError("DeepSeek maturity review response is empty")
     candidate_ids = {candidate.id for candidate in candidates.candidates}
-    return parse_maturity_review_response(content, candidate_ids)
+    return parse_maturity_review_response(
+        content,
+        candidate_ids,
+        allowed_evidence_sources=review_evidence_source_allowlist(
+            evidence_pack,
+            candidates,
+            experience_summary=experience_summary,
+        ),
+    )
 
 
 def build_maturity_review_messages(
@@ -67,7 +76,12 @@ def build_maturity_review_messages(
     return build_machine_prompt_messages(LLM_MATURITY_REVIEW_V2.key, payload)
 
 
-def parse_maturity_review_response(content: str, candidate_ids: set[str]) -> MaturityReviewReport:
+def parse_maturity_review_response(
+    content: str,
+    candidate_ids: set[str],
+    *,
+    allowed_evidence_sources: set[str],
+) -> MaturityReviewReport:
     raw = _extract_json_text(content)
     try:
         payload = json.loads(raw)
@@ -83,6 +97,11 @@ def parse_maturity_review_response(content: str, candidate_ids: set[str]) -> Mat
     unknown = sorted({item.candidate_id for item in report.candidate_reviews} - candidate_ids)
     if unknown:
         raise ValueError(f"DeepSeek maturity review response referenced unknown candidate_id: {', '.join(unknown)}")
+    validate_evidence_sources(
+        "DeepSeek maturity review",
+        (source for item in report.candidate_reviews for source in item.evidence_sources),
+        allowed_evidence_sources,
+    )
     return report
 
 

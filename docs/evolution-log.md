@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 LLM Evidence Source Whitelist Hardening
+
+- North Star 模块：Benchmark / Review Intelligence、Experience & Self-Improve、Prompt Contract、Maturity & Evolution。
+- Gap Analysis 摘要：North Star 要求自改进产物可审计、可追溯；当前 workflow recommendation、maturity review、asset candidates 和 benchmark 已拒绝 `.ai/` 外路径，但仍允许未知 `.ai/` 路径伪装成 evidence source。experience summary parser 已有类似白名单校验，说明该约束应提升为跨 LLM review-only 产物的统一契约。
+- 工程信任故事：作为 Harness Maintainer，当我审阅 LLM 生成的 recommendation / review / candidate / experience summary 时，我可以相信每个 `evidence_sources` 都来自 Builder 提供或上游结构化产物中的证据，从而避免无法追溯的智能建议进入自改进闭环。
+- 当前代码 gap：`llm_workflow_router.py` 只校验 `.ai/` 前缀；`llm_maturity_reviewer.py` 和 `llm_asset_candidate_generator.py` 未校验 evidence source；benchmark 对可选 review artifact 也只检查前缀，没有验证来源是否在 allowlist 中。
+- 决策：新增共享 `tools/evidence_sources.py`，由 LLM 编排函数基于 `MaturityEvidencePack`、`ImprovementCandidateReport`、`MaturityReviewReport` 和 `ExperienceSummaryReport` 构建 allowlist；parser 必须显式接收 allowlist。Benchmark 从落盘 schema artifact 构建 allowlist，不使用任意 `.ai/**` glob。
+- Assumptions / risks：核心成熟度输入、experience index source 和上游候选 evidence source 是可引用证据；空 `evidence_sources` 暂不 hard fail，本轮只拒绝明确伪造或未知的路径。真实 LLM 可能因引用未提供路径而更早失败，这是期望的 no silent fallback 行为。
+- 边界与失败模式：非 `.ai/` evidence source 继续以 `evidence_source_outside_ai` 失败；未知 `.ai/` evidence source 以 `unknown_evidence_source` 失败；allowlist 依赖的上游 schema 无效时 benchmark 记录 `invalid_evidence_allowlist_source:*`，不静默放行。
+- Sub agent 使用：使用两个只读 explorer 子代理并行审计 LLM parser 和 benchmark 的 evidence source 缺口；主线程整合后选择本轮 hardening milestone，并负责测试、实现、文档和验证。
+- 价值切分：本轮只做 evidence source 可追溯性 hardening；暂缓 recommendation history、guided apply diff/summary、candidate UX 和 acceptance 测试耗时优化。
+- 可执行验收标准及验证方式：unit 覆盖 workflow recommendation、maturity review、asset candidate parser 拒绝未知 `.ai/` evidence source；benchmark integration 覆盖四类落盘 review-only artifact 引用未知 source 时失败；工程文档和 todo/archive 同步。
+- 完成内容：新增 evidence source allowlist helper；接入三个 LLM parser 和 benchmark 四类可选 review artifact；归档 todo，更新 LLM contract、sensor/gate rules、spec/plan 和演进记录。
+- 验证结果：targeted regression `75 passed`；fast regression 见本轮提交前验证。
+- Self-Harness Gate：长期规则已沉淀到 `docs/engineering/llm-contracts.md` 和 `docs/engineering/sensor-and-gate-rules.md`；todo 已归档；未新增正式 `.ai` 产物契约。下一轮候选 gap：existing-Harness guided apply 前 diff/summary、workflow recommendation history、或把 full/acceptance 测试拆成更细的目标模式验证脚本。
+
 ## 2026-05-31 Goal Mode Retrospective Hardening
 
 - North Star 模块：CLI Experience、Prompt Contract、Benchmark / Review Intelligence、Experience & Self-Improve。

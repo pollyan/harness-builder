@@ -112,6 +112,15 @@ def _experience_summary() -> ExperienceSummaryReport:
     )
 
 
+def _allowed_sources() -> set[str]:
+    return {
+        ".ai/maturity-evidence.yaml",
+        ".ai/project-inventory.json",
+        ".ai/command-catalog.yaml",
+        ".ai/experience/pending-improvements.md",
+    }
+
+
 def test_review_maturity_with_llm_returns_schema_valid_review():
     report = review_maturity_with_llm(
         _score(),
@@ -173,7 +182,7 @@ def test_review_maturity_with_llm_rejects_unknown_candidate_id():
 
 def test_parse_maturity_review_response_rejects_invalid_json():
     with pytest.raises(ValueError, match="must be valid JSON"):
-        parse_maturity_review_response("not json", {"candidate-1"})
+        parse_maturity_review_response("not json", {"candidate-1"}, allowed_evidence_sources=_allowed_sources())
 
 
 def test_parse_maturity_review_response_rejects_schema_invalid_review():
@@ -200,6 +209,7 @@ def test_parse_maturity_review_response_rejects_schema_invalid_review():
                 }
             ),
             {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
         )
 
 
@@ -217,6 +227,63 @@ def test_parse_maturity_review_response_rejects_missing_explicit_review_status()
                 }
             ),
             {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
+        )
+
+
+def test_parse_maturity_review_response_rejects_non_ai_evidence_source():
+    with pytest.raises(ValueError, match="evidence_sources must be under .ai/"):
+        parse_maturity_review_response(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "summary": "Review summary.",
+                    "reviewer_model": None,
+                    "review_status": "pending_harness_maintainer_review",
+                    "candidate_reviews": [
+                        {
+                            "candidate_id": "candidate-1",
+                            "decision": "support",
+                            "rationale": "Bad evidence path.",
+                            "risks": [],
+                            "suggested_acceptance_checks": [],
+                            "evidence_sources": ["README.md"],
+                        }
+                    ],
+                    "missing_candidates": [],
+                    "global_risks": [],
+                }
+            ),
+            {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
+        )
+
+
+def test_parse_maturity_review_response_rejects_unknown_evidence_source():
+    with pytest.raises(ValueError, match="unknown evidence_sources"):
+        parse_maturity_review_response(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "summary": "Review summary.",
+                    "reviewer_model": None,
+                    "review_status": "pending_harness_maintainer_review",
+                    "candidate_reviews": [
+                        {
+                            "candidate_id": "candidate-1",
+                            "decision": "support",
+                            "rationale": "Unknown evidence path.",
+                            "risks": [],
+                            "suggested_acceptance_checks": [],
+                            "evidence_sources": [".ai/review/missing.yaml"],
+                        }
+                    ],
+                    "missing_candidates": [],
+                    "global_risks": [],
+                }
+            ),
+            {"candidate-1"},
+            allowed_evidence_sources=_allowed_sources(),
         )
 
 

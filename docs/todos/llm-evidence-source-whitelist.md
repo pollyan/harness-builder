@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态：open
+- 状态：implemented
 - 优先级：high
 - 发现日期：2026-05-31
 - 相关模块：`recommend-workflow`、`review-maturity`、`generate-asset-candidates`、`benchmark`
@@ -27,3 +27,9 @@
 - integration / benchmark 覆盖落盘 review artifact 引用未知 source 时失败。
 - prompt 仍要求引用 provided evidence paths，不扩大为任意 `.ai/` 路径。
 - 不引入 silent fallback。
+
+## 完成说明
+
+- 新增 `tools/evidence_sources.py` 统一维护 evidence source allowlist 和校验逻辑。
+- workflow recommendation、maturity review、asset candidate parser 均要求显式传入 allowlist。
+- benchmark 对 workflow recommendation、maturity review、asset candidates 和 experience summary 的未知 `.ai/` evidence source 执行 hard fail。
