@@ -6,6 +6,7 @@
 - 优先级：high
 - 发现日期：2026-05-31
 - 已完成切片：首次 `init` 生成 `.ai/init-summary.md`，并在 CLI 完成输出中展示当前成熟度、主要阻断项、建议下一步和推荐入口文件。
+- 已完成切片：默认 guided `init` 检测已有 `.ai` Harness 时先展示状态摘要，并支持 `exit` 只读退出，不覆盖正式资产。
 - 相关命令：`harness-builder-agent init`、`assess`、`improve`、`benchmark`、`recommend-workflow`、`self-improve`
 - 相关工程规则：`docs/engineering/init-workflow.md`、`docs/engineering/testing-strategy.md`、`docs/engineering/architecture.md`
 - 相关产品方向：`docs/strategy/Harness Builder — 面向遗留代码库治理的 AI Coding Harness 生成器.md`
@@ -24,6 +25,7 @@
 
 - `init` 能扫描仓库并生成 `.ai` Harness 资产。
 - `init` 完成后能生成 `.ai/init-summary.md`，用成熟度框架给出当前等级、阻断项、下一步建议和入口文件。
+- 默认 guided `init` 发现已有 `.ai` Harness 时能展示当前状态，并允许退出不覆盖正式资产。
 - `assess` 能生成成熟度评分和成熟度报告。
 - `improve` 能基于成熟度缺口生成改进候选。
 - `benchmark` 能验证 Harness 资产 schema、引用、内容和质量分。
@@ -34,7 +36,7 @@
 
 - 用户需要知道先执行哪个命令、后执行哪个命令。
 - 首次 `init` 已有完成摘要，但还没有把 `benchmark` 健康度、候选治理和已有 `.ai` 维护入口组织成完整成熟度主线。
-- 再次执行 `init` 时还没有成为已有 Harness 的状态感知维护入口。
+- 再次执行 `init` 已有只读状态入口，但还没有把复评、重新扫描、查看建议、处理候选和运行 benchmark 等动作接入完整维护菜单。
 - 底层专家命令的能力和普通用户向导旅程之间缺少清晰的信息架构。
 
 ## 产品判断

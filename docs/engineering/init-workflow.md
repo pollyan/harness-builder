@@ -27,6 +27,8 @@
 
 `init` 默认是人机引导式向导。非 TTY 环境如果没有显式传入 `--non-interactive`，必须失败并提示用户选择自动化模式，不能静默生成一份未确认的 Harness。
 
+默认 guided `init` 如果检测到目标仓库已经存在 `.ai/project-inventory.json` 和 `.ai/harness-config.yaml`，必须先作为状态感知维护入口展示现有 Harness 摘要。第一版至少支持 `exit` 只读退出，不扫描、不覆盖正式 Harness 资产；显式选择 `reinit` 后才继续进入重新扫描和生成流程。`--non-interactive` 仍保留自动化重新生成语义。
+
 ## 主流程
 
 ```mermaid

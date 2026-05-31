@@ -44,7 +44,7 @@ def render_init_completion_message(ai: Path) -> str:
     blockers = _numbered_lines(score.blocking_reasons[:3])
     next_steps = _numbered_lines(score.recommended_next_steps[:3])
     return (
-        f"Generated harness assets in {ai}\n\n"
+        f"Harness assets are available in {ai}\n\n"
         f"当前成熟度：{score.overall_level}"
         f"{f' -> {score.target_next_level}' if score.target_next_level else ''}\n\n"
         "主要阻断项：\n"

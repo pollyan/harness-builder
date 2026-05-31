@@ -20,7 +20,7 @@ ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 def _copy_fixture(tmp_path: Path, name: str) -> Path:
     target = tmp_path / name
-    shutil.copytree(FIXTURES / name, target)
+    shutil.copytree(FIXTURES / name, target, ignore=shutil.ignore_patterns(".ai"))
     return target
 
 
@@ -207,6 +207,12 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert ".ai/skills/standard/SKILL.md" in artifact_paths
     decision_log = (latest / "decision-log.md").read_text(encoding="utf-8")
     assert "Interaction Decisions" in decision_log
+
+
+def _latest_init_trace(repo: Path) -> dict:
+    runs = sorted((repo / ".ai" / "runs").iterdir())
+    assert runs
+    return yaml.safe_load((runs[-1] / "trace.yaml").read_text(encoding="utf-8"))
 
 
 def test_init_generates_ai_assets_for_java_fixture(tmp_path: Path, monkeypatch):
@@ -449,3 +455,35 @@ def test_guided_init_final_summary_can_go_back_to_team_rules(tmp_path: Path, mon
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
     assert "最终团队规则" in project_context
     assert "初始规则需要修改" not in project_context
+
+
+def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    inventory_before = (repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8")
+    config_before = (repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8")
+    summary_before = (repo / ".ai" / "init-summary.md").read_text(encoding="utf-8")
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness exit must not scan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="exit\n")
+
+    assert result.exit_code == 0, result.output
+    assert "已存在 Harness" in result.output
+    assert "当前成熟度" in result.output
+    assert "exit" in result.output
+    assert (repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8") == inventory_before
+    assert (repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8") == config_before
+    assert (repo / ".ai" / "init-summary.md").read_text(encoding="utf-8") == summary_before
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert trace["summary"]["existing_harness_action"] == "exit"

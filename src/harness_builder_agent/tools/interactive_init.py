@@ -4,9 +4,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import typer
+import yaml
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
+from harness_builder_agent.schemas.experience_index import ExperienceIndex
+from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.interaction_decision import CandidateDecision, WorkflowConfirmation
+from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.tools.generation_trace import GenerationTrace
@@ -51,6 +55,9 @@ def run_non_interactive_init(repo: Path, context_paths: list[Path], trace: Gener
 def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrace) -> Path:
     typer.echo("Harness Builder 将为这个仓库生成一套可审查、可继续修改的 `.ai` 资产。")
     typer.echo(f"目标仓库：{repo}")
+    existing = _handle_existing_harness_entry(repo, trace)
+    if existing is not None:
+        return existing
     if not typer.confirm("继续生成 Harness?", default=True):
         trace.finish("failed", {"cancelled": True})
         raise typer.Abort()
@@ -151,6 +158,100 @@ def _show_scan_findings(inventory: ProjectInventory, commands: CommandCatalog) -
             typer.echo(f"- `{command.command}`：{gate}，来源 `{command.source}`，置信度 {command.confidence}")
     else:
         typer.echo("- 暂未发现稳定验证命令，后续会作为待补齐 Sensor。")
+
+
+def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path | None:
+    ai = repo / ".ai"
+    if not (ai / "project-inventory.json").exists() or not (ai / "harness-config.yaml").exists():
+        return None
+
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+    HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
+    score = None
+    if (ai / "maturity-score.yaml").exists():
+        score = MaturityReport.model_validate(yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8")))
+    benchmark = _read_benchmark_status(ai)
+    experience = _read_experience_status(ai)
+
+    typer.echo("\n我发现这个仓库已存在 Harness。")
+    typer.echo(f"- 仓库：`{inventory.repo_name}`")
+    typer.echo(f"- 技术栈：{_stack_label(inventory.primary_stack)}")
+    if score:
+        typer.echo(f"- 当前成熟度：{score.overall_level}，下一目标：{score.target_next_level or score.overall_level}")
+        if score.blocking_reasons:
+            typer.echo(f"- 主要阻断项：{score.blocking_reasons[0]}")
+    else:
+        typer.echo("- 当前成熟度：未发现 `.ai/maturity-score.yaml`，建议先运行 assess。")
+    typer.echo(f"- 最近 benchmark：{benchmark}")
+    typer.echo(f"- 待处理 Experience / 候选信号：{experience}")
+    typer.echo("\n可选动作")
+    typer.echo("- exit：退出，不覆盖现有 Harness。")
+    typer.echo("- reinit：继续重新扫描并进入当前生成向导。")
+
+    action = typer.prompt("你的选择", default="exit").strip().lower()
+    if action in {"exit", "quit", "q"}:
+        trace.event(
+            "existing-harness",
+            "completed",
+            "Existing Harness detected; user exited without rewriting formal assets.",
+            {"primary_stack": inventory.primary_stack, "action": "exit"},
+        )
+        trace.finish(
+            "completed",
+            {
+                "primary_stack": inventory.primary_stack,
+                "existing_harness_action": "exit",
+            },
+        )
+        return ai
+    if action in {"reinit", "重新生成", "regenerate"}:
+        trace.event(
+            "existing-harness",
+            "completed",
+            "Existing Harness detected; user chose to continue guided regeneration.",
+            {"primary_stack": inventory.primary_stack, "action": "reinit"},
+        )
+        return None
+    typer.echo("未识别的选择，默认退出且不覆盖现有 Harness。")
+    trace.event(
+        "existing-harness",
+        "warning",
+        "Unknown existing Harness action; defaulted to exit.",
+        {"primary_stack": inventory.primary_stack, "action": action},
+    )
+    trace.finish(
+        "completed",
+        {
+            "primary_stack": inventory.primary_stack,
+            "existing_harness_action": "exit",
+        },
+    )
+    return ai
+
+
+def _read_benchmark_status(ai: Path) -> str:
+    path = ai / "benchmark-report.yaml"
+    if not path.exists():
+        return "未发现 benchmark-report.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    status = payload.get("status", "unknown")
+    quality = payload.get("quality_status", "unknown")
+    return f"{status}，quality={quality}"
+
+
+def _read_experience_status(ai: Path) -> str:
+    path = ai / "experience" / "experience-index.yaml"
+    if not path.exists():
+        return "未发现 experience-index.yaml"
+    index = ExperienceIndex.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    total = (
+        index.pending_improvement_count
+        + index.asset_candidate_count
+        + index.candidate_governance_decision_count
+        + index.maturity_review_count
+        + index.workflow_recommendation_count
+    )
+    return str(total)
 
 
 def _collect_scan_supplement(inventory: ProjectInventory) -> GuidedScanOverrides:

@@ -1,5 +1,13 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Existing Harness Init Entry
+
+- North Star 模块：CLI Experience、Maturity & Evolution、资产生成与审核接管。
+- 当前 gap：再次执行默认 guided `init` 时，系统还会直接进入生成流程，容易覆盖已有 `.ai` Harness，未体现“已有 Harness 的状态感知维护入口”定位。
+- 决策：guided `init` 检测到 `.ai/project-inventory.json` 和 `.ai/harness-config.yaml` 后先展示现有 Harness 状态；第一版动作支持 `exit` 只读退出和 `reinit` 显式继续生成。
+- 决策：`--non-interactive` 保持自动化重新生成语义，不在本轮引入 `--force` 或完整维护菜单。
+- 验收方式：integration 覆盖已有 Harness 下 `exit` 不调用扫描、不改写正式资产，并记录 trace summary。
+
 ## 2026-05-31 Maturity Driven Init Summary
 
 - North Star 模块：Maturity & Evolution、CLI Experience、Benchmark / Review Intelligence。
