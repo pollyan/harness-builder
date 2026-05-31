@@ -25,4 +25,6 @@
 4. 如果全景规划与当前已确认的代码边界冲突，先记录差异并在新 spec 中明确取舍。
 5. 短期围绕 `init` 主体验演进时，应以 `init-north-star.md` 约束 milestone 选择，优先选择用户可感知的纵向体验切片。
 6. 每轮目标模式选择新 milestone 前，应先检查 `docs/todos/` 中未完成的工作项；有符合当前北极星和用户最新优先级的 todo 时，优先消化 todo，再考虑从新 gap analysis 中新增话题。
-7. 目标模式可以为一个完整 todo 或工作包创建多个本地 commit，但不应每个 commit 都 push；只有当该 todo / 工作包已经形成独立可验收价值时，才统一执行 push 前全量验证并同步到 GitHub。
+7. milestone 粒度应按完整用户价值切分：同一用户故事下、共享数据流且可以一次验收的相邻小问题应合并推进，避免每个字段、文案或 warning 都单独触发完整 Superpowers 流程。
+8. 合并后的 milestone 仍必须边界清晰、可测试、可审计；跨独立用户旅程、高风险 schema 迁移或不相关模块的大改造应继续拆分。
+9. 目标模式可以为一个完整 todo 或工作包创建多个本地 commit，但不应每个 commit 都 push；只有当该 todo / 工作包已经形成独立可验收价值时，才统一执行 push 前全量验证并同步到 GitHub。
