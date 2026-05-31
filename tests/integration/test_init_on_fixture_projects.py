@@ -377,6 +377,19 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "将生成的 Guides" in result.output
     assert "将生成的 Sensors" in result.output
     assert "Workflow routing" in result.output
+    preview = result.output[result.output.index("写入前 Harness 设计预览") : result.output.index("最终确认")]
+    guides_preview = preview[preview.index("将生成的 Guides") : preview.index("将生成的 Sensors")]
+    sensors_preview = preview[preview.index("将生成的 Sensors") : preview.index("Workflow routing")]
+    assert "关联成熟度" in guides_preview
+    assert "解决阻断" in guides_preview
+    assert "下一阶段贡献" in guides_preview
+    assert "Guides 上下文" in guides_preview
+    assert "Risk Control 风险控制" in guides_preview
+    assert "关联成熟度" in sensors_preview
+    assert "解决阻断" in sensors_preview
+    assert "下一阶段贡献" in sensors_preview
+    assert "Sensors 验证" in sensors_preview
+    assert "Verification 验证成熟度" in sensors_preview
     assert "standard-escalation" in result.output
     assert "高风险" in result.output
     assert "最终确认" in result.output

@@ -115,6 +115,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - CLI 必须区分“当前状态”和“确认写入后预计建立的基线”，不能把 planned baseline 伪装成已存在成熟度。
 - 预览必须展示下一目标、主要阻断项、推荐补齐动作、将生成的 Guides、将生成的 Sensors 和 Workflow routing。
 - Workflow routing 预览必须覆盖 `bugfix-intent`、`low-risk-lightweight` 和 `standard-escalation`，说明高风险、跨模块、安全、数据或影响不清任务会升级到 `standard`。
+- Guide / Sensor 推荐项必须逐项说明关联成熟度、解决阻断和下一阶段贡献，帮助用户理解推荐不是模板拼装，而是围绕当前成熟度缺口建立基线。
+- 推荐项成熟度关联可以来自内存中的 `MaturityReport` 和内置 weapon tags；该说明是写入前 preview 叙事，不改变 `maturity-score.yaml`、`weapon-library-selection.yaml` 或正式资产 schema。
 - 面向用户的预览不能直接展开 `overall_level`、`dimension_scores`、`primary_stack` 等内部字段名；机器消费字段只落在 JSON / YAML 产物中。
 - 用户在最终确认阶段返回修改 scan 后，下一次预览必须基于更新后的 inventory / commands 重新计算。
 

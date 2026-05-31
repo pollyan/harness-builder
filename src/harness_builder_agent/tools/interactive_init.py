@@ -17,7 +17,7 @@ from harness_builder_agent.schemas.interaction_decision import CandidateDecision
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
-from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
 from harness_builder_agent.tools.assess_maturity import assess_maturity
@@ -1184,13 +1184,13 @@ def _show_prewrite_maturity_preview(
     typer.echo("\n写入前 Harness 设计预览")
     typer.echo("将生成的 Guides")
     for weapon in weapon_selection.guide_weapons[:3]:
-        typer.echo(f"- {weapon.title}：{weapon.recommended_action}")
+        _show_weapon_preview_item(weapon, planned)
     if not weapon_selection.guide_weapons:
         typer.echo("- 暂未匹配到专门 Guide，保留通用项目上下文和人工确认点。")
 
     typer.echo("将生成的 Sensors")
     for weapon in weapon_selection.sensor_weapons[:3]:
-        typer.echo(f"- {weapon.title}：{weapon.recommended_action}，建议 gate={weapon.gate}")
+        _show_weapon_preview_item(weapon, planned, include_gate=True)
     if not weapon_selection.sensor_weapons:
         typer.echo("- 暂未匹配到专门 Sensor，后续需要补齐验证命令和失败处理策略。")
 
@@ -1203,6 +1203,67 @@ def _show_prewrite_maturity_preview(
     for rule in config.workflow_routing.rules:
         note = routing_notes.get(rule.id, rule.rationale)
         typer.echo(f"- `{rule.id}` -> {rule.selected_workflow}：{note}")
+
+
+def _show_weapon_preview_item(weapon: WeaponLibraryEntry, planned: MaturityReport, *, include_gate: bool = False) -> None:
+    suffix = f"，建议 gate={weapon.gate}" if include_gate else ""
+    dimension_keys = _weapon_maturity_dimension_keys(weapon)
+    typer.echo(f"- {weapon.title}：{weapon.recommended_action}{suffix}")
+    typer.echo(f"  关联成熟度：{_maturity_dimension_labels(dimension_keys)}")
+    typer.echo(f"  解决阻断：{_weapon_blocker_summary(dimension_keys, planned)}")
+    typer.echo(f"  下一阶段贡献：{_weapon_next_lift_summary(dimension_keys, planned)}")
+
+
+def _weapon_maturity_dimension_keys(weapon: WeaponLibraryEntry) -> list[str]:
+    keys: list[str] = ["guides"] if weapon.kind == "guide" else ["sensors"]
+    tags = set(weapon.tags)
+    if weapon.kind == "guide" and tags.intersection({"risk", "auth", "sql", "config", "review", "publicapi", "infrastructure"}):
+        keys.append("risk_control")
+    if weapon.kind == "sensor" and (
+        weapon.gate == "hard" or tags.intersection({"hard-gate", "test", "gap", "verification"})
+    ):
+        keys.append("verification_sophistication")
+    return list(dict.fromkeys(keys))
+
+
+def _maturity_dimension_labels(dimension_keys: list[str]) -> str:
+    labels = {
+        "guides": "Guides 上下文",
+        "sensors": "Sensors 验证",
+        "risk_control": "Risk Control 风险控制",
+        "verification_sophistication": "Verification 验证成熟度",
+    }
+    return "、".join(labels.get(key, key) for key in dimension_keys)
+
+
+def _weapon_blocker_summary(dimension_keys: list[str], planned: MaturityReport) -> str:
+    blockers: list[str] = []
+    for key in dimension_keys:
+        dimension = planned.dimensions.get(key)
+        if not dimension:
+            continue
+        blockers.extend(blocker.id for blocker in dimension.blockers[:2])
+    if blockers:
+        return "、".join(dict.fromkeys(blockers))
+    return "当前维度暂无直接阻断；该项用于保持基线并支撑后续 benchmark / Runtime 验证。"
+
+
+def _weapon_next_lift_summary(dimension_keys: list[str], planned: MaturityReport) -> str:
+    phrases = {
+        "guides": "绑定 Guides 到任务风险上下文",
+        "sensors": "建立可执行 Sensor 基线",
+        "risk_control": "确认风险区域并连接 Workflow 升级策略",
+        "verification_sophistication": "将验证命令映射到任务类型、风险等级和 gate 强度",
+    }
+    selected = [phrases[key] for key in dimension_keys if key in phrases]
+    if selected:
+        return "；".join(selected)
+    requirements: list[str] = []
+    for key in dimension_keys:
+        dimension = planned.dimensions.get(key)
+        if dimension:
+            requirements.extend(dimension.next_level_requirements[:1])
+    return "；".join(requirements) or "为下一阶段成熟度评估保留可审计依据。"
 
 
 def _has_existing_partial_harness(repo: Path) -> bool:

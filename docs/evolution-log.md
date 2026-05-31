@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-05-31 Guided Init 推荐项成熟度关联
+
+- North Star 模块：Maturity & Evolution、CLI Experience、Guides / Sensors、Progressive Collaboration。
+- init North Star 旅程阶段：成熟度驱动的 Harness 设计预览、最终确认前审查。
+- Gap Analysis 摘要：写入前 preview 已展示 L0 起步、写入后预计基线、整体阻断项、推荐动作、Guides / Sensors / Workflow routing，但每个 Guide / Sensor 推荐项只显示 action，未说明它关联哪个成熟度维度、解决哪个阻断项、对下一阶段能力有什么贡献。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 写入 `.ai/` 前审查 Harness 设计预览时，我可以看到每个即将生成的 Guide / Sensor 推荐对应的成熟度维度、正在缓解的阻断项和下一阶段贡献，从而判断这套 Harness 是围绕当前仓库的成熟度缺口生成，而不是固定模板拼装。
+- 当前代码 gap：`build_maturity_report()` 已有 dimensions、blockers 和 next level requirements；weapon library 已有 kind、tags、gate 和 recommended action；但 `_show_prewrite_maturity_preview()` 没把两者关联后呈现给用户。
+- 关键决策 / 取舍：本轮只改 guided CLI preview 渲染层，不改 `WeaponLibraryEntry`、`MaturityReport`、`weapon-library-selection.yaml` 或正式资产 schema；成熟度关联使用内置 weapon tags 和 planned maturity 维度做保守推导。
+- Assumptions / risks：这是写入前预计基线叙事，不表示当前仓库已经达到相关成熟度；对无 blocker 的维度展示保持基线和后续 benchmark / Runtime 验证的说明。
+- Sub agent 使用情况：使用两个只读 explorer 子代理并行审查 preview gap 和测试策略；结论支持本轮做 CLI 逐项 maturity linkage，并建议补一个小 unit 固定映射规则。
+- 价值切分说明：本轮保护的是用户在最终确认前的审查动作，让用户能判断每个 Guide / Sensor 与 L0-L4 缺口的关系，而不是只看到资产清单。
+- 验收标准及验证方式：integration 覆盖 preview 区的 Guides 和 Sensors 都出现 `关联成熟度`、`解决阻断`、`下一阶段贡献`；unit 覆盖 Guide 映射到 guides / risk_control 阻断，Sensor 映射到 sensors / verification_sophistication 阻断。
+- 完成内容：`interactive_init.py` 新增 weapon preview maturity linkage helper；init workflow、spec/plan 和演进记录同步。
+- 验证结果：targeted integration / unit 已通过；fast/full/push 结果见本轮提交记录。
+- Self-Harness Gate：下一轮候选 gap 首选“真正的 scan 内部阶段 callback”，其次是“生成资产 Markdown 中保留推荐项成熟度来源”。
+
 ## 2026-05-31 Guided Init 扫描关注点分组
 
 - North Star 模块：CLI Experience、Progressive Collaboration、深度扫描、成熟度叙事输入。
