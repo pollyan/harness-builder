@@ -14,6 +14,7 @@ from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.improvement_candidate import ImprovementCandidateReport
 from harness_builder_agent.schemas.maturity_evidence import MaturityEvidencePack
 from harness_builder_agent.schemas.maturity_report import MaturityReport
+from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.scan import LLMScanProposal, ScanMetadata
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
@@ -286,6 +287,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _workflow_routing_policy_check(ai),
         _maturity_routing_evidence_check(ai),
         _workflow_recommendation_review_check(ai),
+        _maturity_review_artifact_check(ai),
         _asset_candidate_review_check(ai),
         _guide_quality_check(ai),
         _stack_specific_guide_check(ai, inventory),
@@ -458,6 +460,45 @@ def _workflow_recommendation_review_check(ai: Path) -> dict[str, Any]:
         "recommended_workflow": report.recommended_workflow,
         "matched_rule_count": len(report.matched_rule_ids),
         "errors": errors,
+    }
+
+
+def _maturity_review_artifact_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "review" / "maturity-review.yaml"
+    markdown_path = ai / "review" / "maturity-review.md"
+    if not yaml_path.exists() and not markdown_path.exists():
+        return {"id": "content:maturity-review-artifact", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or not markdown_path.exists():
+        errors.append("incomplete_maturity_review_artifact_pair")
+
+    try:
+        report = MaturityReviewReport.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+        improvements = ImprovementCandidateReport.model_validate(
+            yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+        )
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:maturity-review-artifact", "passed": False, "present": True, "errors": [str(exc)]}
+
+    known_candidate_ids = {candidate.id for candidate in improvements.candidates}
+    for item in report.candidate_reviews:
+        if item.candidate_id not in known_candidate_ids:
+            errors.append("unknown_candidate_id")
+        if any(not source.startswith(".ai/") for source in item.evidence_sources):
+            errors.append("evidence_source_outside_ai")
+
+    markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+    required_sections = ["# Maturity Review", "## Summary", "## Candidate Reviews", "## Missing Candidates", "## Global Risks"]
+    if any(section not in markdown for section in required_sections):
+        errors.append("missing_markdown_sections")
+
+    return {
+        "id": "content:maturity-review-artifact",
+        "passed": not errors,
+        "present": True,
+        "candidate_review_count": len(report.candidate_reviews),
+        "errors": sorted(set(errors)),
     }
 
 

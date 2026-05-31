@@ -148,6 +148,45 @@ def _write_valid_asset_candidates(ai: Path) -> None:
         )
 
 
+def _write_valid_maturity_review(ai: Path) -> None:
+    review = ai / "review"
+    review.mkdir(parents=True, exist_ok=True)
+    improvements = yaml.safe_load((ai / "improvement-candidates.yaml").read_text(encoding="utf-8"))
+    source_id = improvements["candidates"][0]["id"]
+    (review / "maturity-review.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "summary": "Candidates are aligned with maturity evidence.",
+                "reviewer_model": "deepseek-test",
+                "candidate_reviews": [
+                    {
+                        "candidate_id": source_id,
+                        "decision": "support",
+                        "rationale": "Candidate is grounded in maturity evidence.",
+                        "risks": [],
+                        "suggested_acceptance_checks": ["Run benchmark."],
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                    }
+                ],
+                "missing_candidates": [],
+                "global_risks": [],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (review / "maturity-review.md").write_text(
+        "# Maturity Review\n\n"
+        "## Summary\n\nCandidates are aligned.\n\n"
+        "## Candidate Reviews\n\n- candidate: support\n\n"
+        "## Missing Candidates\n\n- None.\n\n"
+        "## Global Risks\n\n- None.\n",
+        encoding="utf-8",
+    )
+
+
 def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: str = "mini-spring-boot", profile: str = "java-spring") -> Path:
     repo = tmp_path / fixture_name
     shutil.copytree(FIXTURES / fixture_name, repo)
@@ -184,6 +223,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:workflow-routing-policy" in check_ids
     assert "content:maturity-routing-evidence" in check_ids
     assert "content:workflow-recommendation-review" in check_ids
+    assert "content:maturity-review-artifact" in check_ids
     assert "content:asset-candidate-review" in check_ids
     assert "content:guides-quality" in check_ids
     assert "content:stack-specific-guides" in check_ids
@@ -383,6 +423,80 @@ def test_benchmark_records_absent_asset_candidates_as_optional(tmp_path: Path, m
     asset_candidates = next(check for check in checks if check["id"] == "content:asset-candidate-review")
     assert asset_candidates["passed"] is True
     assert asset_candidates["present"] is False
+
+
+def test_benchmark_records_absent_maturity_review_as_optional(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    review = next(check for check in checks if check["id"] == "content:maturity-review-artifact")
+    assert review["passed"] is True
+    assert review["present"] is False
+
+
+def test_benchmark_accepts_valid_maturity_review_artifacts(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_maturity_review(ai)
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    review = next(check for check in checks if check["id"] == "content:maturity-review-artifact")
+    assert review["passed"] is True
+    assert review["present"] is True
+    assert review["candidate_review_count"] == 1
+
+
+def test_benchmark_fails_maturity_review_with_unknown_candidate(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_maturity_review(ai)
+    path = ai / "review" / "maturity-review.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidate_reviews"][0]["candidate_id"] = "missing-candidate"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    review = next(check for check in checks if check["id"] == "content:maturity-review-artifact")
+    assert review["passed"] is False
+    assert "unknown_candidate_id" in review["errors"]
+
+
+def test_benchmark_fails_maturity_review_with_outside_ai_evidence(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_maturity_review(ai)
+    path = ai / "review" / "maturity-review.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["candidate_reviews"][0]["evidence_sources"] = ["README.md"]
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    review = next(check for check in checks if check["id"] == "content:maturity-review-artifact")
+    assert review["passed"] is False
+    assert "evidence_source_outside_ai" in review["errors"]
+
+
+def test_benchmark_fails_maturity_review_when_markdown_sections_are_missing(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_maturity_review(ai)
+    (ai / "review" / "maturity-review.md").write_text("# Maturity Review\n", encoding="utf-8")
+    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
+
+    checks = _content_checks(ai, inventory)
+
+    review = next(check for check in checks if check["id"] == "content:maturity-review-artifact")
+    assert review["passed"] is False
+    assert "missing_markdown_sections" in review["errors"]
 
 
 def test_benchmark_accepts_valid_asset_candidate_review_artifacts(tmp_path: Path, monkeypatch):
