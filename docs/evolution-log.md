@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Final Confirm Chinese Aliases
+
+- North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、写入前确认边界。
+- init North Star 旅程阶段：最终确认、返回修改、中文低负担 CLI。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括最终确认与返回目标支持中文别名、返回 scan 后自动重新进入候选审查、full regression / push 工作包。上一轮已修复未知输入不能静默确认，但中文界面仍要求输入英文 `confirm` / `back` / `cancel` 和 `scan` / `rules` / `candidates` / `workflow`，导致中文 Maintainer 在最关键的写入前确认阶段需要记英文控制词。
+- 用户故事：作为 Harness Maintainer，当我在中文 guided `init` 的最终确认阶段准备写入或返回修改时，我可以直接输入 `确认`、`返回`、`取消`，并在返回修改时输入 `扫描`、`团队规则`、`候选` 或 `工作流` 选择目标，从而不必在中文界面记住英文控制词，同时仍保留英文命令和未知输入保护。
+- 当前代码 gap：`_confirm_summary()` 只接受英文控制词；中文 `确认` / `返回` 会进入未知输入提示，安全但增加交互摩擦；返回目标也只接受英文 stage id。
+- 关键决策 / 取舍：新增最终确认动作和返回目标的轻量别名归一化；保留英文命令和机器产物中的英文枚举；未知非空输入仍明确提示并继续等待，不恢复 silent confirm；不修改 scan supplement、candidate review、writer、schema、LLM、benchmark 或 Runtime 分工。
+- Assumptions / risks：中文 guided CLI 应支持常见中文控制词，但别名只在最终确认和返回目标这两个明确控制 prompt 生效，不影响 scan / team / workflow 自由文本输入，降低误识别风险。
+- 边界情况 / 失败模式及回应：空回车和 `confirm` / `确认` 写入；`back` / `返回` 进入返回目标；`cancel` / `取消` 取消；返回目标支持中英文 stage；未知返回目标仍回到最终确认，不写资产。
+- Sub agent 使用情况：尝试启动只读 explorer 审查中文别名缺口，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理“中文最终确认与返回修改可操作”这一独立交互价值，不混入自动候选重审或更大范围的 prompt / 文案重构。
+- 可执行验收标准及验证方式：新增 integration RED 先证明中文 `确认`、`返回 -> 团队规则 -> 确认` 不能完成写入；实现后断言中文确认可写入、中文返回可替换团队规则、prompt 展示中英文别名、旧未知输入保护不回归。
+- 完成内容：`interactive_init.py` 增加最终确认与返回目标别名归一化 helper；启动说明、最终确认 prompt 和未知输入提示同步中英文控制词；README 与 init workflow 沉淀稳定规则；新增本轮 spec / plan 和 integration tests。
+- 验证结果：RED targeted integration 先 2 failed；实现后新增 targeted 2 passed；`tests/integration/test_init_on_fixture_projects.py` 53 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 492 passed。`scripts/test-full.sh` 中 fast 部分 492 passed，但 acceptance 因缺 `DEEPSEEK_API_KEY`、`.benchmarks/RuoYi-Vue` 和 `.benchmarks/eShopOnWeb` 失败，按规则本轮不能 push。
+- Self-Harness Gate：README、init workflow、spec / plan 和演进记录已同步；无需新增 open todo；未改变 schema、LLM、benchmark、writer 或 Runtime。下一轮候选 gap 仍是是否自动重新审查 candidates，或从 init North Star 继续选择首次 init 用户可见 gap；远端同步需要先补齐 acceptance 外部前置。
+
 ## 2026-06-01 Guided Final Confirm Invalid Input
 
 - North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、写入前确认边界。

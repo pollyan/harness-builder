@@ -286,7 +286,7 @@ def _show_guided_init_startup_boundary() -> None:
     )
     typer.echo("- 本次会话会记录 generation trace，用于审计取消、失败和完成结果。")
     typer.echo("- 不会执行 Runtime，不会创建 `.ai/task-runs`，不会默认运行 benchmark。")
-    typer.echo("- 在最终输入 `confirm` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程。")
+    typer.echo("- 在最终输入 `confirm`/`确认` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程。")
 
 
 def _show_candidate_review_reset_after_scan_back() -> None:
@@ -483,6 +483,51 @@ def _show_workflows() -> WorkflowConfirmation:
     )
 
 
+_FINAL_CONFIRM_ALIASES = {
+    "": "confirm",
+    "confirm": "confirm",
+    "确认": "confirm",
+    "写入": "confirm",
+    "yes": "confirm",
+    "y": "confirm",
+    "back": "back",
+    "返回": "back",
+    "返回修改": "back",
+    "修改": "back",
+    "cancel": "cancel",
+    "取消": "cancel",
+    "退出": "cancel",
+    "放弃": "cancel",
+    "no": "cancel",
+    "n": "cancel",
+}
+
+_FINAL_BACK_STAGE_ALIASES = {
+    "scan": "scan",
+    "扫描": "scan",
+    "扫描修正": "scan",
+    "rules": "rules",
+    "团队规则": "rules",
+    "规则": "rules",
+    "team": "rules",
+    "candidates": "candidates",
+    "candidate": "candidates",
+    "候选": "candidates",
+    "候选项": "candidates",
+    "workflow": "workflow",
+    "工作流": "workflow",
+    "workflow补充": "workflow",
+}
+
+
+def _normalize_final_confirmation_choice(value: str) -> str | None:
+    return _FINAL_CONFIRM_ALIASES.get(value.strip().lower())
+
+
+def _normalize_final_back_stage(value: str) -> str | None:
+    return _FINAL_BACK_STAGE_ALIASES.get(value.strip().lower())
+
+
 def _confirm_summary(
     inventory: ProjectInventory,
     commands: CommandCatalog,
@@ -507,23 +552,26 @@ def _confirm_summary(
     _show_supplement_impact_summary(scan_overrides, inline_contexts, workflow_confirmation)
     typer.echo("- 将写入：project inventory、command catalog、guides、sensors、workflow skills、review candidates、trace。")
     while True:
-        choice = typer.prompt("输入 confirm 写入，back 返回修改，cancel 取消", default="confirm").strip().lower()
-        if choice in {"", "confirm"}:
+        raw_choice = typer.prompt("输入 confirm/确认 写入，back/返回 修改，cancel/取消 取消", default="confirm")
+        choice = _normalize_final_confirmation_choice(raw_choice)
+        if choice == "confirm":
             return "confirm"
         if choice == "back":
             typer.echo("返回修改")
-            stage = typer.prompt(
-                "返回哪一部分？scan=扫描修正，rules=团队规则，candidates=候选项，workflow=Workflow补充",
-                default="rules",
-            ).strip().lower()
+            stage = _normalize_final_back_stage(
+                typer.prompt(
+                    "返回哪一部分？scan/扫描=扫描修正，rules/团队规则=团队规则，candidates/候选=候选项，workflow/工作流=Workflow补充",
+                    default="rules",
+                )
+            )
             if stage in {"scan", "rules", "candidates", "workflow"}:
                 return stage
             typer.echo("未识别的返回目标，回到最终确认。")
             return "back"
         if choice == "cancel":
             return "cancel"
-        typer.echo(f"未识别的最终确认输入：{choice}")
-        typer.echo("请输入 `confirm`、`back` 或 `cancel`；直接回车等同于 `confirm`。")
+        typer.echo(f"未识别的最终确认输入：{raw_choice.strip()}")
+        typer.echo("请输入 `confirm`/`确认`、`back`/`返回` 或 `cancel`/`取消`；直接回车等同于 `confirm`。")
 
 
 def _apply_scan_overrides(

@@ -436,7 +436,7 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "不会执行 Runtime" in result.output
     assert "不会创建 `.ai/task-runs`" in result.output
     assert "不会默认运行 benchmark" in result.output
-    assert "最终输入 `confirm` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程" in result.output
+    assert "最终输入 `confirm`/`确认` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程" in result.output
     assert scan_stage in result.output
     assert "正在收集仓库文件、构建配置、CI、测试和文档证据" in result.output
     assert "正在请求 LLM 做结构化扫描" in result.output
@@ -542,9 +542,58 @@ def test_guided_init_final_confirm_rejects_unknown_input_before_write(tmp_path: 
 
     assert result.exit_code == 0, result.output
     assert "未识别的最终确认输入" in result.output
-    assert "请输入 `confirm`、`back` 或 `cancel`" in result.output
+    assert "请输入 `confirm`/`确认`、`back`/`返回` 或 `cancel`/`取消`" in result.output
     assert result.output.index("未识别的最终确认输入") < result.output.index("== 初始化完成 ==")
     _assert_init_outputs(repo, "java-spring")
+
+
+def test_guided_init_final_confirm_accepts_chinese_confirm_alias(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="\n\n\n\n\n\n\n确认\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "输入 confirm/确认 写入，back/返回 修改，cancel/取消 取消" in result.output
+    _assert_init_outputs(repo, "java-spring")
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["final_confirmation"]["status"] == "confirmed"
+
+
+def test_guided_init_final_summary_accepts_chinese_return_alias_to_team_rules(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n\n"
+            "初始中文规则需要修改。\n"
+            "\n\n\n"
+            "\n"
+            "返回\n"
+            "团队规则\n"
+            "最终中文团队规则：配置变更必须说明影响环境。\n"
+            "确认\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "返回修改" in result.output
+    assert "团队规则返回修改" in result.output
+    assert "返回哪一部分？scan/扫描=扫描修正，rules/团队规则=团队规则，candidates/候选=候选项，workflow/工作流=Workflow补充" in result.output
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["context_confirmation"]["inline_contexts"] == ["最终中文团队规则：配置变更必须说明影响环境。"]
+    project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
+    assert "最终中文团队规则" in project_context
+    assert "初始中文规则需要修改" not in project_context
 
 
 def test_guided_init_explains_python_flask_react_multistack(tmp_path: Path, monkeypatch):
@@ -1835,7 +1884,7 @@ def test_guided_init_final_summary_can_go_back_to_workflow_note(tmp_path: Path, 
 
     assert result.exit_code == 0, result.output
     assert "返回修改" in result.output
-    assert "workflow=Workflow补充" in result.output
+    assert "workflow/工作流=Workflow补充" in result.output
     assert "Workflow 补充返回修改" in result.output
     workflow_revision = result.output[
         result.output.index("Workflow 补充返回修改") : result.output.index("\n推荐工作流", result.output.index("Workflow 补充返回修改"))

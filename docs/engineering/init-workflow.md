@@ -91,7 +91,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - LLM 声称的 stack 必须能被 evidence 支持，否则要降级或标记风险。
 - 命令候选必须包含来源、置信度和 gate 类型。
 - 对明显危险、缺乏证据或过重的命令，不能盲目标记为 hard gate。
-- 首次 guided `init` 在询问是否继续生成 Harness 之前，必须输出稳定的 `== 启动说明 ==` 区块，说明本次将扫描哪些 evidence、后续需要用户确认或补充哪些关键判断、最终确认写入后会生成哪些正式 Harness 资产，以及本次不会执行 Runtime、不会创建 `.ai/task-runs`、不会默认运行 benchmark、最终输入 `confirm` 前不会写入或覆盖正式 Harness 资产。generation trace 可以从会话开始记录取消、失败和完成过程，但必须在文案中与正式 Harness 资产写入边界区分。
+- 首次 guided `init` 在询问是否继续生成 Harness 之前，必须输出稳定的 `== 启动说明 ==` 区块，说明本次将扫描哪些 evidence、后续需要用户确认或补充哪些关键判断、最终确认写入后会生成哪些正式 Harness 资产，以及本次不会执行 Runtime、不会创建 `.ai/task-runs`、不会默认运行 benchmark、最终输入 `confirm` / `确认` 前不会写入或覆盖正式 Harness 资产。generation trace 可以从会话开始记录取消、失败和完成过程，但必须在文案中与正式 Harness 资产写入边界区分。
 - 首次 guided `init` 在收集用户 scan 补充前，必须把调和后的扫描结果翻译成面向用户的关注点分组，至少包含风险区域、不确定性、验证缺口和建议补充。
 - 风险区域来自 LLM / scan reconcile / 用户补充已确认前的 `risk_areas` 线索，只能作为关注点展示，不能伪装成已验证事实。
 - 不确定性必须覆盖 LLM 低置信度、scan warning、需要人工确认、模块边界不清或低置信度命令等用户需要优先确认的事项。
@@ -154,8 +154,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 写入前 Harness 设计预览必须展示 Workflow 补充约束；如果没有 Workflow 补充，也要说明当前按内置 bugfix / lightweight / standard routing 预览。
 - 最终确认阶段返回 Workflow 补充且上一版 Workflow 补充非空时，CLI 必须说明新输入会替换上一版 Workflow 补充，直接回车会清空上一版 Workflow 补充；如果用户直接回车清空旧补充，CLI 必须输出可见确认，说明后续预览和正式资产将不再保留这些 Workflow 补充。
 - 最终确认摘要不能只显示补充数量，必须展示具体补充内容的可读摘要，让用户在写入前确认系统理解了输入。
-- 最终确认阶段输入 `back` 时，必须允许返回 scan、rules、candidates 或 workflow 补充；返回 rules / workflow 后重新输入的补充必须替换旧内存态，并触发对应即时复述和写入前 preview，最终只把最新补充写入正式 `.ai` 资产。
-- 最终确认阶段只有空回车默认确认或显式输入 `confirm` 才能写入正式 `.ai` 资产；输入 `back` 返回修改，输入 `cancel` 取消。其他未知非空输入必须明确提示有效选项并继续等待，不得静默当作 `confirm`。
+- 最终确认阶段输入 `back` / `返回` 时，必须允许返回 scan / 扫描、rules / 团队规则、candidates / 候选或 workflow / 工作流补充；返回 rules / workflow 后重新输入的补充必须替换旧内存态，并触发对应即时复述和写入前 preview，最终只把最新补充写入正式 `.ai` 资产。
+- 最终确认阶段只有空回车默认确认或显式输入 `confirm` / `确认` 才能写入正式 `.ai` 资产；输入 `back` / `返回` 返回修改，输入 `cancel` / `取消` 取消。其他未知非空输入必须明确提示有效选项并继续等待，不得静默当作 `confirm`。
 
 ### 7. 资产写入
 
