@@ -7,6 +7,13 @@ import typer
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 
 
+def short_action_error_message(exc: Exception, limit: int = 240) -> str:
+    message = " ".join(str(exc).split())
+    if len(message) <= limit:
+        return message
+    return f"{message[:limit].rstrip()}..."
+
+
 def fail_existing_harness_action(
     trace,
     inventory: ProjectInventory | Any,
@@ -28,4 +35,6 @@ def fail_existing_harness_action(
         summary.update(details)
     trace.finish("failed", summary)
     typer.echo(f"{action} 失败：{error}")
+    if details and details.get("error_message"):
+        typer.echo(f"- 原因：{details['error_message']}")
     raise typer.Exit(code=1)

@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness LLM 维护动作失败 Trace
+
+- North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、LLM-first 错误边界、生成审计。
+- init North Star 旅程阶段：再次进入已有 Harness、智能维护动作、错误与边界。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 existing Harness LLM 维护动作失败应保留 action-specific trace、Existing Harness action runner 模块拆分、full regression / push gate 外部 DeepSeek 验收。当前空 task brief、review-candidate、review-human-input 等已有 action-specific failure，成功 `recommend-workflow` / `self-improve` 也有 action summary；但 `recommend_workflow()` 或 `run_self_improve()` 抛异常时会落到 `cli.py` 顶层 `init failed`，summary 只剩 `error_type`。本轮选择 LLM 维护动作失败 trace，因为它直接保护“再次进入已有 Harness -> 运行智能维护动作 -> 失败可审计定位”的用户旅程。
+- 用户故事：作为 Harness Maintainer，当我在已有 Harness 维护入口选择 `recommend-workflow` 或 `self-improve`，但底层 LLM、schema 或 review-only 生成过程失败时，我可以看到这是对应维护动作失败，并在 trace summary 中看到 `existing_harness_action`、错误类型、短错误摘要和关键输入边界，从而能定位智能维护动作的外部或契约问题，而不会被泛化成普通 `init` 崩溃。
+- 当前代码 gap：`existing_harness_action_runner.py` 对 `recommend_workflow()`、recommendation report 读取、`run_self_improve()` 和 self-improve package manifest 读取没有 action-level try/except；异常会被 `cli.py` 外层记录为泛化 `init failed`。
+- 关键决策 / 取舍：复用 `fail_existing_harness_action()` 作为统一 action-specific failure 出口；给 `existing_harness_action_failures.py` 增加短错误 helper；只包裹 `recommend-workflow` 和 `self-improve` 的 LLM/review-only 生成与 manifest 读取区域，不做全 runner 重构。
+- Assumptions / risks：这两个动作失败前理论上可能写出部分 review-only 文件，本轮不做 rollback；测试通过正式资产 snapshot 和无 `.ai/task-runs` 验证边界，不声称清理所有 review-only 中间产物。
+- 边界情况 / 失败模式及回应：有效 task brief 后 recommend-workflow 失败保留 `task_id`；self-improve 失败保留 action、error type 和短错误；两者均不重新扫描、不覆盖正式 Guides / Sensors / Workflow Skills / inventory / config、不创建 Runtime 产物、不额外写顶层 `init failed` event。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查 existing Harness LLM action failure，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理两个同类 LLM / review-only 维护动作的失败审计，不混入 assess / improve / benchmark 的 deterministic failure 处理，不做 action runner 模块拆分。
+- 可执行验收标准及验证方式：新增 integration RED 先证明 recommend-workflow / self-improve 底层异常没有 action-specific CLI 输出和 trace；实现后断言 CLI 输出动作级失败 code 与短错误、trace summary 保留 action / error / error type / error message、events 有 `existing-harness failed` 且无 `init failed`、正式资产 snapshot 不变。
+- 完成内容：`existing_harness_action_failures.py` 新增短错误 helper并在有 `error_message` 时输出原因；`existing_harness_action_runner.py` 包裹 `recommend-workflow` 与 `self-improve` 失败路径；新增 2 条 integration 测试；README 和 `docs/engineering/init-workflow.md` 同步稳定规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED targeted 2 failed；实现后新增 failure targeted 2 passed；recommend-workflow success / empty task failure / self-improve success targeted 3 passed；`tests/integration/test_init_on_fixture_projects.py` 66 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 505 passed。`scripts/test-full.sh` 的 fast 段 505 passed，但 acceptance 3 failed，原因是沙箱内无法解析 `api.deepseek.com`；已按规则申请非沙箱 full regression，因会向外部 DeepSeek 发送本地 fixture / benchmark 仓库 evidence 被策略拒绝，因此本轮不 push。
+- Self-Harness Gate：长期事实源已同步 README 和 init workflow；新增行为有 integration 覆盖，未改变 `.ai` schema、LLM prompt、Sensor、benchmark 或 Runtime 契约。当前 `docs/todos` 仍无 open todo；下一轮候选 gap 需重新从 Current State Gap Analysis 选择。push 仍依赖 full regression 外部前置；在当前策略下，除非用户在理解外发 evidence 风险后显式授权，否则不能完成 push 前 full gate。
+
 ## 2026-06-01 Init 扫描失败短错误与未写入审计
 
 - North Star 模块：Maturity-driven Init、CLI Experience、LLM-first 错误边界、生成审计。

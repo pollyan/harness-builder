@@ -3044,6 +3044,68 @@ def test_guided_init_existing_harness_recommend_workflow_empty_task_preserves_ac
     assert not (repo / ".ai" / "task-runs").exists()
 
 
+def test_guided_init_existing_harness_recommend_workflow_llm_failure_preserves_action_trace(
+    tmp_path: Path, monkeypatch
+):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.interactive_init.scan_repository",
+        lambda repo_path: _fake_scan(repo_path, "java-spring"),
+    )
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness recommend-workflow LLM failure must not rescan")
+
+    def fail_recommend_workflow(*_args, **_kwargs):
+        raise RuntimeError("workflow router failed\nraw model detail")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.existing_harness_action_runner.recommend_workflow",
+        fail_recommend_workflow,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="recommend-workflow\nFix checkout permission bug.\ntask-fail\n",
+    )
+    output = _strip_ansi(result.output)
+
+    assert result.exit_code == 1
+    assert "recommend-workflow 失败：workflow_recommendation_failed" in output
+    assert "workflow router failed raw model detail" in output
+    assert "workflow router failed\nraw model detail" not in output
+    assert "Traceback" not in output
+    _assert_formal_assets_unchanged(repo, formal_before)
+    assert not (repo / ".ai" / "task-runs").exists()
+
+    trace = _latest_init_trace(repo)
+    assert trace["status"] == "failed"
+    assert trace["summary"]["existing_harness_action"] == "recommend-workflow"
+    assert trace["summary"]["error"] == "workflow_recommendation_failed"
+    assert trace["summary"]["error_type"] == "RuntimeError"
+    assert trace["summary"]["error_message"] == "workflow router failed raw model detail"
+    assert trace["summary"]["task_id"] == "task-fail"
+    run_dirs = sorted((repo / ".ai" / "runs").iterdir())
+    events = [
+        json.loads(line)
+        for line in (run_dirs[-1] / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(
+        event["stage"] == "existing-harness"
+        and event["event_type"] == "failed"
+        and event["details"]["action"] == "recommend-workflow"
+        and event["details"]["error"] == "workflow_recommendation_failed"
+        for event in events
+    )
+    assert not any(event["stage"] == "init" and event["event_type"] == "failed" for event in events)
+
+
 def test_guided_init_existing_harness_can_record_candidate_governance_without_applying_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
@@ -3731,6 +3793,58 @@ def test_guided_init_existing_harness_can_self_improve_without_overwriting_forma
     benchmark_report = yaml.safe_load((repo / ".ai" / "benchmark-report.yaml").read_text(encoding="utf-8"))
     package_check = next(check for check in benchmark_report["checks"] if check["id"] == "content:self-improve-package")
     assert package_check["passed"] is True
+
+
+def test_guided_init_existing_harness_self_improve_failure_preserves_action_trace(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness self-improve failure must not rescan")
+
+    def fail_self_improve(_repo_path):
+        raise RuntimeError("self improve failed\nraw model detail")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.existing_harness_action_runner.run_self_improve",
+        fail_self_improve,
+    )
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="self-improve\n")
+    output = _strip_ansi(result.output)
+
+    assert result.exit_code == 1
+    assert "self-improve 失败：self_improve_failed" in output
+    assert "self improve failed raw model detail" in output
+    assert "self improve failed\nraw model detail" not in output
+    assert "Traceback" not in output
+    _assert_formal_assets_unchanged(repo, formal_before)
+    assert not (repo / ".ai" / "task-runs").exists()
+
+    trace = _latest_init_trace(repo)
+    assert trace["status"] == "failed"
+    assert trace["summary"]["existing_harness_action"] == "self-improve"
+    assert trace["summary"]["error"] == "self_improve_failed"
+    assert trace["summary"]["error_type"] == "RuntimeError"
+    assert trace["summary"]["error_message"] == "self improve failed raw model detail"
+    run_dirs = sorted((repo / ".ai" / "runs").iterdir())
+    events = [
+        json.loads(line)
+        for line in (run_dirs[-1] / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(
+        event["stage"] == "existing-harness"
+        and event["event_type"] == "failed"
+        and event["details"]["action"] == "self-improve"
+        and event["details"]["error"] == "self_improve_failed"
+        for event in events
+    )
+    assert not any(event["stage"] == "init" and event["event_type"] == "failed" for event in events)
 
 
 def test_guided_init_existing_harness_improve_refreshes_stale_experience_evidence(tmp_path: Path, monkeypatch):

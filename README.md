@@ -102,6 +102,8 @@ guided `init` 如果在扫描阶段因为 DeepSeek / LLM 配置、网络或 sche
 
 guided `review-human-input` 如果来自 human-input triage，会默认填入首个待处理 scan follow-up interaction id，Maintainer 仍可输入其他 id 覆盖；该默认值只是降低复制成本，不会自动关闭追问或修改正式 Harness 资产。
 
+已有 Harness 维护入口中的 LLM / review-only 动作如果失败，也会保留动作级审计边界：例如 `recommend-workflow` 或 `self-improve` 因 LLM、schema 或候选包生成失败而中断时，CLI 会输出对应动作失败和短错误原因，trace summary 会记录 `existing_harness_action`、错误类型和短错误摘要，不会回退成泛化 `init failed`，也不会创建 Runtime 产物。
+
 Harness Builder 不提供任务级 `run` 命令。真实 AI Coding 工具执行 Workflow Skill 时，应按 Skill 中的 runtime artifact contract 生成任务级可观测产物：
 
 ```text

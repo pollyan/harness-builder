@@ -13,7 +13,10 @@ from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecomm
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.benchmark import run_benchmark
 from harness_builder_agent.tools.experience_index import write_experience_index
-from harness_builder_agent.tools.existing_harness_action_failures import fail_existing_harness_action
+from harness_builder_agent.tools.existing_harness_action_failures import (
+    fail_existing_harness_action,
+    short_action_error_message,
+)
 from harness_builder_agent.tools.existing_harness_action_summaries import (
     benchmark_summary,
     self_improve_summary,
@@ -190,10 +193,26 @@ def run_existing_harness_action(
             "Existing Harness detected; user chose workflow recommendation.",
             {"primary_stack": inventory.primary_stack, "action": "recommend-workflow", "task_id": task_id},
         )
-        output_dir = recommend_workflow(repo, task_brief=task_brief, task_id=task_id)
-        recommendation = WorkflowRecommendationReport.model_validate(
-            yaml.safe_load((output_dir / "review" / "workflow-routing-recommendation.yaml").read_text(encoding="utf-8"))
-        )
+        try:
+            output_dir = recommend_workflow(repo, task_brief=task_brief, task_id=task_id)
+            recommendation = WorkflowRecommendationReport.model_validate(
+                yaml.safe_load(
+                    (output_dir / "review" / "workflow-routing-recommendation.yaml").read_text(encoding="utf-8")
+                )
+            )
+        except Exception as exc:
+            fail_existing_harness_action(
+                trace,
+                inventory,
+                "recommend-workflow",
+                "Existing Harness workflow recommendation failed.",
+                "workflow_recommendation_failed",
+                {
+                    "task_id": task_id,
+                    "error_type": type(exc).__name__,
+                    "error_message": short_action_error_message(exc),
+                },
+            )
         trace.artifact(output_dir / "review" / "workflow-routing-recommendation.yaml", "workflow_recommendation")
         trace.artifact(output_dir / "review" / "workflow-routing-recommendation.md", "review")
         trace.artifact(output_dir / "review" / "workflow-routing-recommendations" / "index.yaml", "workflow_recommendation_history")
@@ -242,10 +261,23 @@ def run_existing_harness_action(
             "Existing Harness detected; user chose self-improve package generation.",
             {"primary_stack": inventory.primary_stack, "action": "self-improve"},
         )
-        output_dir = run_self_improve(repo)
-        manifest = SelfImprovePackageManifest.model_validate(
-            yaml.safe_load((output_dir / "review" / "self-improve-package.yaml").read_text(encoding="utf-8"))
-        )
+        try:
+            output_dir = run_self_improve(repo)
+            manifest = SelfImprovePackageManifest.model_validate(
+                yaml.safe_load((output_dir / "review" / "self-improve-package.yaml").read_text(encoding="utf-8"))
+            )
+        except Exception as exc:
+            fail_existing_harness_action(
+                trace,
+                inventory,
+                "self-improve",
+                "Existing Harness self-improve package generation failed.",
+                "self_improve_failed",
+                {
+                    "error_type": type(exc).__name__,
+                    "error_message": short_action_error_message(exc),
+                },
+            )
         trace.artifact(output_dir / "maturity-score.yaml", "maturity_score")
         trace.artifact(output_dir / "maturity-evidence.yaml", "maturity_evidence")
         trace.artifact(output_dir / "improvement-candidates.yaml", "improvement_candidates")
