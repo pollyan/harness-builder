@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Scan Presentation Renderer 抽取
+
+- North Star 模块：Init CLI Experience、渐进式交互、成熟度叙事、工程架构可维护性。
+- init North Star 旅程阶段：扫描发现、扫描关注点分组、扫描后的成熟度初评、用户补充前的理解对齐。
+- Gap Analysis 摘要：当前没有 open todo；本轮候选包括 scan presentation renderer 抽取、scan supplement parser 进一步增强友好示例、push 前 full regression / 远端同步。`interactive_init.py` 已拆出 existing Harness action runner / summaries / signals、prewrite preview 和 scan supplement parser，但首次 guided init 的扫描进度、扫描发现、LLM evidence expansion、深度追问、self-check、风险 / 不确定性 / 验证缺口和扫描后成熟度初评仍混在主向导状态机中。
+- 工程信任故事：作为 Harness Builder 维护者，当我继续打磨首次 guided `init` 的扫描理解、深度追问和成熟度初评体验时，我可以在独立 `guided_scan_presentation` 模块中修改和单测扫描呈现逻辑，而不触碰主向导状态机，从而降低后续改进用户扫描对齐体验时误伤补充收集、候选审查、确认写入或已有 Harness 维护入口的风险。
+- 当前代码 gap：`interactive_init.py` 约 1175 行，scan presentation helpers 与 scan execution、用户补充、候选审查和写入确认混在一起；这些 helper 只能通过大 integration 间接测试。
+- 关键决策 / 取舍：新增 `guided_scan_presentation.py` 承接 scan progress、scan findings、attention summary、evidence expansion、followup questions、self-check、maturity snapshot 和 stack label helper；`interactive_init.py` 用 import alias 保留原 `_show_*` / `_risk_*` / `_stack_*` 私有名称，兼容现有和隐藏测试。
+- Assumptions / risks：本轮是行为保持型重构；用户可见 transcript 不应变化。搬迁函数较多，风险主要是漏 import 或文案漂移；通过 direct renderer unit、targeted guided integration、compileall、diff check 和 fast regression 控制。
+- 边界情况 / 失败模式：不迁移 scan execution / trace、用户补充解析、团队规则、候选审查、Workflow 补充、最终确认或已有 Harness action runner；不修改 schema、LLM、writer、benchmark 或 Runtime 边界。
+- Sub agent 使用情况：按 playbook 尝试启动只读 sub agent 审查抽取边界，但当前会话返回 `agent thread limit reached`；本轮由主线程完成分析、实现和验证。
+- 价值切分说明：本轮不新增用户文案，而是保护首次 scan 对齐体验的工程边界；后续可以在 renderer 模块内继续优化扫描关注点、深度追问和 maturity snapshot。
+- 可执行验收标准及验证方式：unit 覆盖 evidence expansion、风险 / 不确定性 / 验证缺口、maturity snapshot 和 progress callback；integration 覆盖 guided init happy path、scan risk/uncertainty/gap、LLM evidence expansion、followup questions 和 scan supplement 链路。
+- 完成内容：新增 `guided_scan_presentation.py` 和 `tests/unit/test_guided_scan_presentation.py`；`interactive_init.py` 从约 1175 行降到约 782 行；新增本轮 spec / plan。
+- 验证结果：RED 测试先因缺少 `guided_scan_presentation` 模块失败；实现后 renderer unit 4 passed，renderer + scan supplement unit 8 passed，相关 guided init integration 6 passed；`.venv/bin/python -m compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 442 passed。
+- Self-Harness Gate：长期文档事实源无需更新；未新增 schema 或 todo；下一轮候选 gap 包括团队规则 / Workflow 补充 renderer 抽取、scan supplement parser 更友好示例、或 acceptance 环境补齐后统一 push。
+
 ## 2026-06-01 Guided Scan 补充解析诊断
 
 - North Star 模块：Init CLI Experience、渐进式交互、仓库理解深度、Maturity-driven Harness 设计预览。
