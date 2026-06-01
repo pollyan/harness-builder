@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness Action Summary Renderer 抽取
+
+- North Star 模块：CLI Experience、Maturity-driven Init、工程架构可维护性。
+- init North Star 旅程阶段：再次进入已有 Harness 的状态感知维护入口、维护动作结果摘要。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo；本轮候选包括 Existing Harness action summary renderer 抽取、Existing Harness action execution 抽模块、首次 init completion 生成清单进一步紧凑化。当前已有 Harness 入口已拆出 actions / status / signals，但 benchmark、workflow recommendation、candidate governance、human-input governance、self-improve 等维护动作完成后的 summary / preview helper 仍内联在 `interactive_init.py`。
+- 工程信任故事：作为 Harness Builder 维护者，当我继续打磨已有 Harness 维护入口的各个维护动作时，我可以在独立 action summary renderer 模块中修改和单测 benchmark、workflow recommendation、candidate governance、human-input governance、self-improve 和 improvement candidate 摘要，从而降低触碰主 guided init 编排文件的风险，并确保 Maintainer 选择维护动作后看到的结果摘要不漂移。
+- 当前代码 gap：`interactive_init.py` 仍有 1800+ 行，且 `_benchmark_summary()`、`_workflow_recommendation_summary()`、`_candidate_governance_summary()`、`_human_input_governance_summary()`、`_self_improve_summary()`、`_top_improvement_candidate()` 和 candidate apply preview helper 都与 action execution 分支混在一起。
+- 关键决策 / 取舍：新增 `existing_harness_action_summaries.py`，只抽取 action result renderer；不搬 action execution 分支，不改菜单、prompt、trace、artifact、summary 文案、schema、LLM、benchmark 或 Runtime 边界；`interactive_init.py` 保留 underscore facade 兼容旧调用。
+- Assumptions / risks：action summaries 是执行分支中最稳定、最适合先拆出的纯渲染边界；candidate apply preview 依赖目标文件存在性，因此用 direct unit 和 existing Harness apply integration 验证。
+- 边界情况 / 失败模式：benchmark failed summary、Workflow recommendation summary、candidate detail / apply preview、governance summaries、self-improve summary 和 top improvement candidate 都由新 unit 覆盖；workflow_policy candidate 仍只提示专家命令，不允许 guided apply。
+- Sub agent 使用情况：本轮未使用 sub agent；当前切片为单模块低风险抽取，主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮不是用户可见新功能，而是保护“选择维护动作 -> 看懂结果摘要 -> 继续治理”的 existing Harness 维护旅程；它为后续 action execution 抽模块降低风险。
+- 可执行验收标准及验证方式：新增 unit 覆盖 action summary renderer；existing Harness targeted integration 覆盖 benchmark、recommend-workflow、review-candidate apply preview、review-human-input 和 self-improve；`compileall`、`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：新增 `src/harness_builder_agent/tools/existing_harness_action_summaries.py`；`interactive_init.py` 的 action summary / preview helper 改为薄 facade；新增 `tests/unit/test_existing_harness_action_summaries.py`；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED unit 已确认新模块缺失；action summaries unit 4 passed；existing Harness targeted integration 5 passed；`compileall` passed；`git diff --check` passed；`scripts/test-fast.sh` 430 passed。
+- Self-Harness Gate：README / init workflow 无需更新，因为用户行为和长期契约未变；不新增 todo。下一轮候选 gap：Existing Harness action execution 抽模块、首次 init completion 生成清单进一步紧凑化，或 push 前 full regression / 远端同步。
+
 ## 2026-06-01 Review Human Input 默认待处理项
 
 - North Star 模块：CLI Experience、Maturity-driven Init、Experience & Self-Improve。
