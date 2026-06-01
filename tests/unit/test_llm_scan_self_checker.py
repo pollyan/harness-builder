@@ -56,6 +56,7 @@ def _self_check_json() -> str:
                     "status": "needs_targeted_scan",
                     "rationale": "Current evidence contains only a small Java source sample.",
                     "evidence_sources": ["source:.java", "src/App.java"],
+                    "suggested_action_type": "provide_module",
                     "suggested_next_action": "Ask maintainer for core Java module paths before finalizing sensors.",
                     "confidence": "medium",
                 }
@@ -73,7 +74,20 @@ def test_parse_scan_self_check_response_accepts_known_followups_and_sources():
 
     assert report.review_status == "pending_harness_maintainer_review"
     assert report.resolutions[0].status == "needs_targeted_scan"
+    assert report.resolutions[0].suggested_action_type == "provide_module"
     assert report.resolutions[0].evidence_sources == ["source:.java", "src/App.java"]
+
+
+def test_parse_scan_self_check_response_requires_structured_action_type_for_fresh_llm():
+    payload = json.loads(_self_check_json())
+    payload["resolutions"][0].pop("suggested_action_type")
+
+    with pytest.raises(ValueError, match="suggested_action_type"):
+        parse_scan_self_check_response(
+            json.dumps(payload),
+            allowed_interaction_ids={"confirm:scan-followup:coverage-source-java"},
+            allowed_evidence_sources={"source:.java", "src/App.java"},
+        )
 
 
 def test_parse_scan_self_check_response_rejects_unknown_interaction_id():
@@ -118,6 +132,8 @@ def test_build_scan_self_check_messages_uses_registered_prompt():
     assert "pending_harness_maintainer_review" in combined
     assert "confirm:scan-followup:coverage-source-java" in combined
     assert "src/App.java" in combined
+    assert "suggested_action_type" in combined
+    assert "provide_module" in combined
 
 
 def test_review_scan_followups_with_llm_rejects_empty_response():

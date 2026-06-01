@@ -10,6 +10,7 @@
 - `review_status` 必须是 `pending_harness_maintainer_review`。
 - `resolutions[].interaction_id` 必须逐字来自输入中的 `scan_metadata.followup_questions[].interaction_id`。
 - `resolutions[].trigger` 必须逐字来自对应 follow-up 的 `trigger`。
+- `resolutions[].suggested_action_type` 必须是允许枚举之一，不能只给自由文本建议。
 - `resolutions[].evidence_sources` 只能引用输入中的 repository paths、follow-up evidence、scan warning evidence、scan warning code 或 scan metadata 中已经出现的 evidence 字符串。
 - 不能发明路径、不能引用仓库外路径、不能引用 `.ai/` 产物作为扫描 evidence。
 - 如果 evidence 不足，使用 `needs_human_confirmation` 或 `needs_targeted_scan`，不要猜测。
@@ -22,6 +23,16 @@
 - `needs_human_confirmation`
 - `needs_targeted_scan`
 - `conflict_detected`
+
+允许的 `resolutions[].suggested_action_type`：
+
+- `provide_stack`
+- `provide_module`
+- `provide_command`
+- `provide_risk`
+- `review_current_evidence`
+- `run_targeted_scan`
+- `maintainer_review`
 
 ## User Message
 
@@ -44,6 +55,7 @@
       "status": "needs_targeted_scan",
       "rationale": "当前 evidence 对某类源码覆盖不足，仍可能遗漏核心模块或高风险路径。",
       "evidence_sources": ["source:.java", "src/App.java"],
+      "suggested_action_type": "provide_module",
       "suggested_next_action": "请 Maintainer 补充核心模块路径，或后续运行 targeted scan。",
       "confidence": "medium"
     }
@@ -57,5 +69,6 @@
 - `summary` 最多 1 句，避免复制大段 evidence。
 - `resolutions` 最多为每个 follow-up 输出 1 条。
 - `rationale` 最多 1 句，说明为什么给出该 status。
+- `suggested_action_type` 必须来自上方枚举，表达下一步动作类型；不要省略该字段。
 - `suggested_next_action` 最多 1 句，给 Harness Maintainer 可执行下一步。
 - `evidence_sources` 最多 8 项，只能使用输入中已经存在的 evidence 字符串或 scan warning code。

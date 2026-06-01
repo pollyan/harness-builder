@@ -6,6 +6,7 @@ from typing import Any
 from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 from harness_builder_agent.tools.risk_signals import high_impact_risk_areas, risk_slug
 from harness_builder_agent.tools.scan_followup_guidance import scan_followup_answer_guidance_text
+from harness_builder_agent.tools.scan_self_check_actions import scan_self_check_action_hint
 
 SUMMARY_LIMIT = 1200
 SCAN_CONFIRMATION_TYPES = {
@@ -110,9 +111,14 @@ def build_questionnaire(
         resolution = self_check_resolutions.get(str(followup.get("interaction_id") or ""))
         if resolution:
             status = resolution.get("status") or "needs_human_confirmation"
+            action_type = resolution.get("suggested_action_type") or "maintainer_review"
             action = resolution.get("suggested_next_action") or "请人工确认该追问。"
             rationale = resolution.get("rationale") or "LLM 二次自检未提供理由。"
-            reason = f"{reason} LLM 二次自检：{status}；建议：{action}；理由：{rationale}"
+            action_hint = scan_self_check_action_hint(str(action_type))
+            reason = (
+                f"{reason} LLM 二次自检：{status}；action_type={action_type}；"
+                f"动作提示：{action_hint}；建议：{action}；理由：{rationale}"
+            )
         response_status, response_sources = _scan_supplement_followup_response(followup, interaction_decisions)
         supplement_note = _scan_supplement_followup_note(response_sources)
         if supplement_note:

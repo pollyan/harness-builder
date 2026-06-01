@@ -122,6 +122,7 @@ def test_build_questionnaire_includes_scan_self_check_resolution():
                         "status": "needs_targeted_scan",
                         "rationale": "当前 evidence 只有少量 Java 样本。",
                         "evidence_sources": ["source:.java"],
+                        "suggested_action_type": "provide_module",
                         "suggested_next_action": "请补充核心 Java 模块路径。",
                         "confidence": "medium",
                     }
@@ -135,6 +136,7 @@ def test_build_questionnaire_includes_scan_self_check_resolution():
     )
     assert "LLM 二次自检" in question["reason"]
     assert "needs_targeted_scan" in question["reason"]
+    assert "action_type=provide_module" in question["reason"]
     assert "请补充核心 Java 模块路径" in question["reason"]
     Questionnaire.model_validate(questionnaire)
 

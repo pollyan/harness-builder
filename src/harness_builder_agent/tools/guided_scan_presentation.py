@@ -15,6 +15,7 @@ from harness_builder_agent.tools.scan_repo import ScanProgressEvent
 from harness_builder_agent.tools.scan_followup_guidance import (
     scan_followup_answer_guidance_lines as scan_followup_answer_guidance_lines_for_questions,
 )
+from harness_builder_agent.tools.scan_self_check_actions import scan_self_check_action_hint
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 
 
@@ -177,10 +178,12 @@ def show_scan_self_check(inventory: ProjectInventory) -> None:
     items = [item for item in resolutions if isinstance(item, dict)] if isinstance(resolutions, list) else []
     for item in items[:5]:
         status = str(item.get("status") or "needs_human_confirmation")
+        action_type = str(item.get("suggested_action_type") or "maintainer_review")
+        action_hint = scan_self_check_action_hint(action_type)
         action = str(item.get("suggested_next_action") or "请人工确认该追问。")
         rationale = str(item.get("rationale") or "当前 evidence 不足以完成确认。")
         interaction_id = str(item.get("interaction_id") or "unknown")
-        typer.echo(f"- `{interaction_id}`：{status}；建议：{action}；理由：{rationale}")
+        typer.echo(f"- `{interaction_id}`：{status}；动作={action_type}；提示：{action_hint}；建议：{action}；理由：{rationale}")
     remaining = len(items) - 5
     if remaining > 0:
         typer.echo(f"- 还有 {remaining} 条二次自检结论，详见 `.ai/scan-metadata.yaml`。")

@@ -413,6 +413,7 @@ def test_scan_metadata_accepts_self_check_report():
     assert metadata.self_check is not None
     assert metadata.self_check.review_status == "pending_harness_maintainer_review"
     assert metadata.self_check.resolutions[0].status == "needs_targeted_scan"
+    assert metadata.self_check.resolutions[0].suggested_action_type == "maintainer_review"
     assert metadata.self_check.resolutions[0].evidence_sources == ["source:.java", "src/App.java"]
 
 

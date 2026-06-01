@@ -21,6 +21,15 @@ ScanSelfCheckStatus = Literal[
     "needs_targeted_scan",
     "conflict_detected",
 ]
+ScanSelfCheckActionType = Literal[
+    "provide_stack",
+    "provide_module",
+    "provide_command",
+    "provide_risk",
+    "review_current_evidence",
+    "run_targeted_scan",
+    "maintainer_review",
+]
 
 
 class EvidenceBucketCoverage(BaseModel):
@@ -139,6 +148,7 @@ class ScanSelfCheckResolution(BaseModel):
     status: ScanSelfCheckStatus
     rationale: str
     evidence_sources: list[str] = Field(default_factory=list, max_length=8)
+    suggested_action_type: ScanSelfCheckActionType = "maintainer_review"
     suggested_next_action: str
     confidence: Confidence = "medium"
 

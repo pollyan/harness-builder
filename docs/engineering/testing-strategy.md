@@ -207,6 +207,7 @@ Acceptance 使用真实 DeepSeek 和真实开源仓库，验证 POC 在真实场
 - schema 缺字段。
 - stack 与 evidence 冲突。
 - low confidence 或 unknown stack。
+- scan self-check 缺少结构化 `suggested_action_type` 时必须显式失败，不能只接受自由文本 `suggested_next_action`。
 - DeepSeek 真实 acceptance。
 
 ## 针对 benchmark 的最低覆盖

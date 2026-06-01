@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Scan Self-Check 结构化建议动作
+
+- North Star 模块：Maturity-driven Init、仓库理解深度、渐进式交互、LLM / Python 契约闭环。
+- init North Star 旅程阶段：扫描结果友好呈现、深度追问、与用户对齐扫描理解。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；上一轮 Gate 候选包括 self-check suggested action 结构化约束、existing Harness action execution 抽模块、full regression / push 工作包和 human-input benchmark 后续扩展。当前 LLM scan self-check 已有 schema、evidence allowlist、guided CLI 展示和 questionnaire reason，但 `suggested_next_action` 仍是自由文本，Python 不能校验下一步到底是补 `stack`、`module`、`command`、`risk`、复核 evidence 还是 targeted scan。本轮选择结构化建议动作，因为它直接推进“LLM 做判断，Python 做 schema / validation”的智能化闭环。
+- 用户故事：作为 Harness Maintainer，当首次 guided `init` 的 LLM 二次自检判断某个扫描追问仍需处理时，我可以看到稳定的结构化动作类型和对应输入提示，例如补 `stack`、`module`、`command`、`risk`、复核 evidence 或运行 targeted scan；同时 Harness Builder 会拒绝缺少结构化动作的新 LLM self-check 响应，从而避免把不可消费的自由文本建议伪装成可审计结论。
+- 当前代码 gap：`ScanSelfCheckResolution` 只有自由文本 `suggested_next_action`；`parse_scan_self_check_response()` 只校验 interaction id 和 evidence source，不拒绝缺少结构化 action 的新 LLM payload；CLI 和 questionnaire reason 也没有 action type。
+- 关键决策 / 取舍：新增 `suggested_action_type` 枚举；旧 persisted metadata 缺字段时用 `maintainer_review` 兼容读取，但 fresh LLM parser 必须显式要求字段存在；动作类型只是 review-only 下一步意图，不执行 targeted scan、不修改正式资产、不创建 `.ai/task-runs`。
+- Assumptions / risks：真实 LLM 可能一开始漏字段；prompt 与 parser 会显式失败，等待修正而不是 silent fallback。`run_targeted_scan` 当前代表后续能力或人工流程，不在本轮实现。
+- 边界情况 / 失败模式：缺 `suggested_action_type` 的 fresh response 会失败；未知 enum 由 Pydantic schema 失败；未知 interaction id / evidence source 的既有失败保持不变；旧 metadata 仍能 schema validate。
+- Sub agent 使用情况：尝试启动 explorer 做只读审查，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只补 self-check 动作契约和用户可见提示，不混入 benchmark、新 targeted scan 执行器、existing Harness action execution 抽取或 push 工作包。
+- 可执行验收标准及验证方式：LLM parser unit 先 RED 证明缺字段不会失败、合法 action 不被保留、prompt 不含字段；实现后 schema / parser / prompt / questionnaire / guided init transcript 全部通过。
+- 完成内容：`ScanSelfCheckResolution` 新增 `suggested_action_type`；`llm_scan_self_checker.py` 对 fresh LLM payload 增加显式必填校验；prompt 枚举 action type；新增 `scan_self_check_actions.py`；guided CLI 和 questionnaire reason 展示 action type 与动作提示；README、init workflow、LLM contracts、testing strategy、本轮 spec / plan 同步。
+- 验证结果：RED targeted tests 先 5 failed；实现后 self-check / scan repo / schema / human confirmation 17 passed，guided follow-up integration 2 passed，相关 unit regression 80 passed，`scripts/test-llm-contracts.sh` 133 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 479 passed。
+- Self-Harness Gate：长期文档已同步；无需新增 todo；未触碰正式资产 writer、benchmark 或 Runtime。下一轮候选 gap：existing Harness action execution 抽模块，或在外部前置满足后处理 full regression / push 工作包。
+
 ## 2026-06-01 Human Input 处理方式 Benchmark 深度校验
 
 - North Star 模块：Maturity-driven Init、渐进式交互、人工确认治理、Benchmark 质量门禁。

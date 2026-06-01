@@ -902,6 +902,7 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
                                 "status": "needs_targeted_scan",
                                 "rationale": "当前 evidence 仍不足以确认 Java 核心模块覆盖。",
                                 "evidence_sources": ["source:.java"],
+                                "suggested_action_type": "provide_module",
                                 "suggested_next_action": "请补充核心 Java 模块路径。",
                                 "confidence": "medium",
                             }
@@ -930,6 +931,8 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
     assert "LLM 二次自检" in result.output
     assert "pending_harness_maintainer_review" in result.output
     assert "needs_targeted_scan" in result.output
+    assert "动作=provide_module" in result.output
+    assert "module=路径|类型|名称" in result.output
     assert "请补充核心 Java 模块路径" in result.output
     assert "深度追问回答建议" in result.output
     assert "`confirm:scan-followup:coverage-source-java`" in result.output
@@ -948,6 +951,7 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
     )
     assert question["interaction_type"] == "scan_followup_confirmation"
     assert "LLM 二次自检" in question["reason"]
+    assert "action_type=provide_module" in question["reason"]
     human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
     assert "confirm:scan-followup:coverage-source-java" in human_input
     assert "哪些 Java 目录" in human_input

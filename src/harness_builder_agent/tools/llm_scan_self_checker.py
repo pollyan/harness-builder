@@ -51,6 +51,7 @@ def parse_scan_self_check_response(
     except json.JSONDecodeError as exc:
         raise ValueError("DeepSeek scan self-check response must be valid JSON") from exc
 
+    _require_structured_action_types(payload)
     try:
         report = ScanSelfCheckReport.model_validate(payload)
     except ValidationError as exc:
@@ -63,6 +64,24 @@ def parse_scan_self_check_response(
             if source not in allowed_evidence_sources:
                 raise ValueError(f"DeepSeek scan self-check returned unknown evidence source: {source}")
     return report
+
+
+def _require_structured_action_types(payload: object) -> None:
+    if not isinstance(payload, dict):
+        return
+    resolutions = payload.get("resolutions")
+    if not isinstance(resolutions, list):
+        return
+    missing = [
+        str(item.get("interaction_id") or f"index:{index}")
+        for index, item in enumerate(resolutions)
+        if isinstance(item, dict) and "suggested_action_type" not in item
+    ]
+    if missing:
+        raise ValueError(
+            "DeepSeek scan self-check response must include resolutions[].suggested_action_type "
+            f"for: {', '.join(missing)}"
+        )
 
 
 def _allowed_interaction_ids(metadata: ScanMetadata) -> set[str]:

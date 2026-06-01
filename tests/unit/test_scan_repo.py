@@ -79,6 +79,7 @@ def _self_check_response(interaction_id: str, trigger: str, evidence_source: str
                     "status": "needs_human_confirmation",
                     "rationale": "Current evidence is insufficient to resolve this follow-up.",
                     "evidence_sources": [evidence_source],
+                    "suggested_action_type": "maintainer_review",
                     "suggested_next_action": "Ask the maintainer to provide the real stack and module boundary.",
                     "confidence": "medium",
                 }
