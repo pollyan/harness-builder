@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 维护入口模块抽取
+
+- North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、工程架构可维护性。
+- init North Star 旅程阶段：再次进入已有 Harness、维护状态摘要、维护动作选择。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 Existing Harness 维护入口模块抽取、首次 init completion summary 视觉紧凑化、push 前 full regression / 远端同步。当前 action runner、review actions、signals 和 status overview 已拆出，但 `_handle_existing_harness_entry()`、state load、维护入口渲染和 action prompt 仍留在 `interactive_init.py`；主向导文件约 878 行，继续打磨维护入口时仍会反复触碰首次 init 状态机。本轮选择模块抽取，因为它保护“再次进入已有 Harness”的后续迭代质量，且不改变用户可见契约。
+- 用户故事 / 工程信任故事：作为 Harness Builder 维护者，当我继续打磨“再次进入已有 Harness”的维护状态摘要、triage 和动作入口时，我可以在独立 `existing_harness_entry` 模块中修改和单测维护入口逻辑，而不触碰首次 guided `init` 的扫描、补充、候选审查和写入确认状态机，从而降低后续维护入口迭代的冲突和回归风险。
+- 当前代码 gap：`interactive_init.py` 混合首次 init 状态机和已有 Harness 维护入口；已有 Harness state load schema 校验、维护状态渲染、动作 prompt 和 action runner 调用缺少独立模块边界。
+- 关键决策 / 取舍：新增 `existing_harness_entry.py` 承接已有 Harness detection、state load、维护入口渲染和动作选择；动作执行仍留在 `existing_harness_action_runner.py`，review 类动作仍留在 `existing_harness_review_actions.py`；`interactive_init.py` 保留原私有 helper alias，兼容现有和隐藏测试。
+- Assumptions / risks：这是行为保持型重构，价值在降低后续 init 主线迭代风险；风险是搬迁遗漏 import 或私有 helper 漂移，因此用 unit 和 existing Harness integration 切片双层覆盖。
+- 边界情况 / 失败模式及回应：损坏 `.ai/harness-config.yaml` 仍通过 `ExistingHarnessStateLoadError` 显式失败并指向 `.ai/harness-config.yaml`；未知动作仍重新提示；exit、benchmark、recommend-workflow failure、self-improve failure 仍保持原 trace 和 Runtime 边界。
+- Sub agent 使用情况：尝试启动只读 explorer 审查拆分边界，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只抽取已有 Harness 维护入口编排，不拆 action runner 内部动作，不修改 CLI 文案、LLM、schema、writer、benchmark、Sensor 或 Runtime。
+- 可执行验收标准及验证方式：新增 `tests/unit/test_existing_harness_entry.py` 证明新模块存在、有效 core state 可 load、损坏 config source 可审计、`interactive_init.py` 只代理入口；existing Harness integration 切片覆盖 exit、unknown action、invalid config、benchmark、recommend-workflow failure、self-improve failure。
+- 完成内容：新增 `src/harness_builder_agent/tools/existing_harness_entry.py`；`interactive_init.py` 删除内联维护入口编排并降到 717 行；新增本轮 unit test；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED unit 先因 `existing_harness_entry` 模块不存在失败；实现后 `tests/unit/test_existing_harness_entry.py` 3 passed；existing Harness / preview unit 16 passed；existing Harness integration targeted 6 passed；`tests/integration/test_init_on_fixture_projects.py` 66 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 508 passed。`scripts/test-full.sh` 的 fast 段 508 passed，但 acceptance 3 failed，原因是沙箱内无法解析 `api.deepseek.com`；已按规则申请非沙箱 full regression，因会向外部 DeepSeek 发送本地 fixture / benchmark 仓库 evidence 被策略拒绝，因此本轮不 push。
+- Self-Harness Gate：本轮是模块边界重构，长期用户契约未变，README / init workflow 暂不需要更新；未改变 `.ai` schema、LLM prompt、benchmark、Sensor 或 Runtime。下一轮候选 gap 继续从 Current State Gap Analysis 选择，可考虑首次 init completion 紧凑化、action runner 进一步拆分，或在 full regression 外部前置满足后处理 push。
+
 ## 2026-06-01 Existing Harness LLM 维护动作失败 Trace
 
 - North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、LLM-first 错误边界、生成审计。
