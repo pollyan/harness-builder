@@ -595,6 +595,30 @@ def test_guided_init_final_confirm_accepts_chinese_confirm_alias(tmp_path: Path,
     assert decisions["final_confirmation"]["status"] == "confirmed"
 
 
+def test_guided_init_final_cancel_after_scan_keeps_trace_audit_without_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="\n\n\n\n\n\n\ncancel\n")
+
+    assert result.exit_code == 1, result.output
+    assert "已取消 init" in result.output
+    assert "未确认写入，未覆盖正式 Harness 资产，未创建 Runtime 产物" in result.output
+    assert "== 初始化完成 ==" not in result.output
+    assert not (repo / ".ai" / "project-inventory.json").exists()
+    assert not (repo / ".ai" / "harness-config.yaml").exists()
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "failed"
+    assert trace["summary"]["cancelled"] is True
+    assert trace["summary"]["cancel_stage"] == "prewrite_confirmation"
+    assert trace["summary"]["scan_completed"] is True
+    assert trace["summary"]["primary_stack"] == "java-spring"
+    assert trace["summary"]["command_count"] == 1
+
+
 def test_guided_init_final_summary_accepts_chinese_return_alias_to_team_rules(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
@@ -2401,6 +2425,37 @@ def test_guided_init_existing_harness_reinit_cancel_before_scan_keeps_assets(tmp
     assert trace["command"] == "init"
     assert trace["status"] == "failed"
     assert trace["summary"]["cancelled"] is True
+    assert trace["summary"]["cancel_stage"] == "startup_confirmation"
+    assert trace["summary"]["scan_completed"] is False
+    assert trace["summary"]["existing_harness_action"] == "reinit"
+
+
+def test_guided_init_existing_harness_reinit_final_cancel_keeps_trace_audit_and_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    formal_before = _formal_asset_snapshot(repo)
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="9\n\n\n\n\n\n\n\ncancel\n")
+
+    assert result.exit_code == 1, result.output
+    assert "已选择重新生成现有 Harness" in result.output
+    assert "已取消 init" in result.output
+    assert "未确认写入，未覆盖正式 Harness 资产，未创建 Runtime 产物" in result.output
+    assert "== 初始化完成 ==" not in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "failed"
+    assert trace["summary"]["cancelled"] is True
+    assert trace["summary"]["cancel_stage"] == "prewrite_confirmation"
+    assert trace["summary"]["scan_completed"] is True
+    assert trace["summary"]["primary_stack"] == "java-spring"
+    assert trace["summary"]["command_count"] == 1
     assert trace["summary"]["existing_harness_action"] == "reinit"
 
 

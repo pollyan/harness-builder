@@ -177,7 +177,12 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     reinit_requested = _is_existing_harness_reinit_requested(trace)
     _show_guided_init_startup_boundary(repo, reinit_requested=reinit_requested)
     if not typer.confirm("继续生成 Harness?", default=True):
-        _cancel_guided_init(trace, reinit_requested=reinit_requested, before_scan=True)
+        _cancel_guided_init(
+            trace,
+            reinit_requested=reinit_requested,
+            before_scan=True,
+            cancel_stage="startup_confirmation",
+        )
 
     _show_scan_progress_start(repo)
     trace.event("scan", "started", "Repository scan started.")
@@ -241,7 +246,14 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
         if action == "confirm":
             break
         if action == "cancel":
-            _cancel_guided_init(trace, reinit_requested=reinit_requested, before_scan=False)
+            _cancel_guided_init(
+                trace,
+                reinit_requested=reinit_requested,
+                before_scan=False,
+                cancel_stage="prewrite_confirmation",
+                inventory=inventory,
+                commands=commands,
+            )
         if action == "scan":
             previous_scan_overrides = scan_overrides
             _show_scan_back_revision_notice(previous_scan_overrides)
@@ -340,8 +352,24 @@ def _is_existing_harness_reinit_requested(trace: GenerationTrace) -> bool:
     )
 
 
-def _cancel_guided_init(trace: GenerationTrace, *, reinit_requested: bool, before_scan: bool) -> None:
-    summary = {"cancelled": True}
+def _cancel_guided_init(
+    trace: GenerationTrace,
+    *,
+    reinit_requested: bool,
+    before_scan: bool,
+    cancel_stage: str,
+    inventory: ProjectInventory | None = None,
+    commands: CommandCatalog | None = None,
+) -> None:
+    summary = {
+        "cancelled": True,
+        "cancel_stage": cancel_stage,
+        "scan_completed": inventory is not None and commands is not None,
+    }
+    if inventory is not None:
+        summary["primary_stack"] = inventory.primary_stack
+    if commands is not None:
+        summary["command_count"] = len(commands.commands)
     if reinit_requested:
         summary["existing_harness_action"] = "reinit"
     trace.finish("failed", summary)

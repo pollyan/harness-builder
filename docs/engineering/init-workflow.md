@@ -37,6 +37,8 @@
 
 默认 guided `init` 如果只发现 `.ai/project-inventory.json` 或 `.ai/harness-config.yaml` 中的一部分 core 文件，必须在第一次 `继续生成 Harness?` 确认前说明这是“不完整 Harness 状态”，列出已存在和缺失的 core 文件，说明因此不会进入已有 Harness 维护入口；继续后会按首次 init 重新扫描，但最终 `confirm` / `确认` 前仍不会覆盖正式 Harness 资产。`.ai/runs` 等 trace 目录不能被当成 partial Harness core。
 
+guided `init` 取消必须留下可审计 trace summary。启动确认阶段取消时，summary 必须包含 `cancelled=true`、`cancel_stage=startup_confirmation`、`scan_completed=false`；扫描完成、进入写入前预览或最终确认阶段后取消时，summary 必须包含 `cancelled=true`、`cancel_stage=prewrite_confirmation`、`scan_completed=true`、`primary_stack` 和 `command_count`。如果本轮来自 existing Harness `reinit`，取消 summary 还必须保留 `existing_harness_action=reinit`。取消不得写入或覆盖正式 Harness 资产，不得创建 Runtime 产物。
+
 如果 `review-human-input` 是由 human-input triage 推荐的动作，并且 triage detail 中存在首个待处理 scan follow-up interaction id，guided action 的 interaction id prompt 应把该 id 作为默认值，允许 Maintainer 直接回车处理推荐项；Maintainer 仍可输入其他 id 覆盖。没有默认 id 时不得猜测或 silent fallback，空 id 继续由 `review-human-input` 显式失败。
 
 ## 主流程

@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init 写入前取消 Trace 审计
+
+- North Star 模块：Maturity-driven Init、CLI Experience、渐进式协作、生成审计。
+- init North Star 旅程阶段：扫描理解对齐、成熟度 / 设计预览、最终确认前取消。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括写入前最终取消应保留扫描审计、full regression / push gate 受 DeepSeek 外部网络限制、existing Harness action runner 进一步拆分。当前 CLI 已能在最终确认前取消时说明“未确认写入，未覆盖正式 Harness 资产，未创建 Runtime 产物”，但 trace summary 只有 `cancelled=true` 和可选 `existing_harness_action`，无法区分启动阶段取消和扫描 / 预览后取消，也丢失已识别 stack 与 command 数量。本轮选择取消 trace 审计，因为它直接服务“trace 说明过程发生了什么”的 init 目标，并保护用户取消后复盘未写入会话。
+- 用户故事：作为 Harness Maintainer，当我在 guided `init` 已完成扫描和写入前设计预览后选择取消时，我可以在 CLI 中确认未写入正式 Harness 资产，并在 trace summary 中看到取消发生在写入前、扫描已经完成、识别出的 stack / command 摘要以及 reinit 来源，从而能安全复盘一次未完成的初始化或重新生成会话。
+- 当前代码 gap：`_cancel_guided_init()` 只接收 `before_scan` 用于 CLI 文案，trace summary 没有 `cancel_stage`、`scan_completed`、`primary_stack` 或 `command_count`；reinit final cancel 虽保留 action，但没有保留扫描摘要。
+- 关键决策 / 取舍：扩展 `_cancel_guided_init()` 的 trace summary：启动确认取消写 `cancel_stage=startup_confirmation`、`scan_completed=false`；写入前预览 / 最终确认取消写 `cancel_stage=prewrite_confirmation`、`scan_completed=true`、`primary_stack`、`command_count`；reinit 继续保留 `existing_harness_action=reinit`。不增加 CLI 长文案，不写取消场景的 interaction decisions，不改变 writer、LLM、schema、benchmark 或 Runtime 分工。
+- Assumptions / risks：`GenerationTrace.summary` 是审计摘要，不是严格 schema 产物，新增字段不会破坏机器契约。取消场景不沉淀用户补充明细，避免把未确认写入的补充伪装为正式资产事实。
+- 边界情况 / 失败模式及回应：首次 init final cancel 不生成 `.ai/project-inventory.json` / `.ai/harness-config.yaml`；reinit final cancel 保持正式资产 snapshot 不变；reinit startup cancel 不调用 scan 且记录 `scan_completed=false`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查取消审计候选，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理 guided init 取消 trace 审计这一条共享数据流，覆盖首次 init 与 reinit 的 startup / prewrite 取消，不混入 writer 覆盖策略、备份机制、用户补充持久化或 runner 重构。
+- 可执行验收标准及验证方式：新增 integration RED 先证明 final cancel 和 reinit cancel trace 缺少 `cancel_stage`；实现后断言首次 final cancel exit code 1、无初始化完成、未写正式资产、trace failed summary 含 prewrite cancel 和扫描摘要；断言 reinit final cancel 正式资产不变且 summary 保留 reinit action；回归 reinit startup cancel 和 reinit completion。
+- 完成内容：`interactive_init.py` 扩展 `_cancel_guided_init()` summary 和调用点；新增 2 条 integration 测试并增强 reinit before-scan cancel 断言；README 和 `docs/engineering/init-workflow.md` 沉淀取消 trace 规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED targeted 3 failed，失败点均为 `KeyError: cancel_stage`；实现后 targeted 4 passed；`tests/integration/test_init_on_fixture_projects.py` 63 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-full.sh` 的 fast 段 502 passed，acceptance 3 条因 sandbox 内 DNS 解析 `api.deepseek.com` 失败而失败；按规则申请非 sandbox full gate，被审批系统拒绝，理由是会向外部 DeepSeek API 发送本地 fixture / benchmark 仓库内容。
+- Self-Harness Gate：长期事实源已同步 README 和 init workflow；新增行为有 integration 覆盖，未改变 `.ai` schema、LLM prompt、Sensor、benchmark、Runtime 契约或 todo 状态。当前 `docs/todos` 仍无 open todo；full gate 未通过且非 sandbox 运行未获许可，因此本轮不 push。下一轮候选 gap 需重新从 Current State Gap Analysis 选择，push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 Existing Harness Reinit 完成审计
 
 - North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、生成审计。
