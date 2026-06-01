@@ -12,6 +12,9 @@ from harness_builder_agent.tools.maturity_model import build_maturity_report
 from harness_builder_agent.tools.prewrite_preview import has_existing_partial_harness
 from harness_builder_agent.tools.risk_signals import classify_risk_area, high_impact_risk_areas
 from harness_builder_agent.tools.scan_repo import ScanProgressEvent
+from harness_builder_agent.tools.scan_followup_guidance import (
+    scan_followup_answer_guidance_lines as scan_followup_answer_guidance_lines_for_questions,
+)
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 
 
@@ -204,49 +207,7 @@ def show_scan_followup_answer_guidance(inventory: ProjectInventory) -> None:
 
 def scan_followup_answer_guidance_lines(inventory: ProjectInventory) -> list[str]:
     questions = scan_followup_questions(inventory)
-    if not questions:
-        return []
-
-    lines = [scan_followup_answer_guidance_line(question) for question in questions[:5]]
-    remaining = len(questions) - 5
-    if remaining > 0:
-        lines.append(f"还有 {remaining} 个深度追问可按同样方式补充；完整问题会进入 `.ai/questionnaire.yaml`。")
-    lines.append(
-        "边界：这些补充只会进入本轮 scan supplement 并可能部分回应追问，"
-        "不会自动关闭追问；复核完成仍需使用 `review-human-input` 标记。"
-    )
-    return lines
-
-
-def scan_followup_answer_guidance_line(question: dict[str, object]) -> str:
-    interaction_id = str(question.get("interaction_id") or "confirm:scan-followup:unknown")
-    trigger = str(question.get("trigger") or "")
-    if trigger == "coverage_gap":
-        guidance = (
-            "可补充关键目录或风险路径，例如 `module=src/main/java|backend|核心模块`，"
-            "或 `risk=src/main/java/payments|支付或权限高风险`；也可以自然语言说明入口文件。"
-        )
-    elif trigger in {"stack_claim_without_evidence", "unknown_stack"}:
-        guidance = (
-            "可补充真实技术栈，例如 `stack=java-spring`；如果只是子模块，"
-            "请用自然语言说明它的边界和是否影响 Workflow。"
-        )
-    elif trigger == "module_boundary_unclear":
-        guidance = (
-            "可补充模块边界，例如 `module=src/main/java|backend|核心模块`；"
-            "如果该模块高风险，也可以补充 `risk=src/main/java/payments|支付或权限高风险`。"
-        )
-    elif trigger == "test_evidence_missing":
-        guidance = (
-            "可补充真实验证入口，例如 `command=unit_test|mvn test|test|hard|pom.xml|high`；"
-            "如果当前只能人工运行，请自然语言说明 soft gate 边界。"
-        )
-    else:
-        guidance = (
-            "可用自然语言说明真实工程边界，也可以按需补充 `stack=...`、"
-            "`module=路径|类型|名称`、`command=ID|命令|类型|gate|来源|置信度` 或 `risk=路径|原因`。"
-        )
-    return f"`{interaction_id}`：{guidance}"
+    return scan_followup_answer_guidance_lines_for_questions(questions)
 
 
 def evidence_expansion(inventory: ProjectInventory) -> dict[str, object] | None:

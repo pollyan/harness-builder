@@ -5,6 +5,7 @@ from typing import Any
 
 from harness_builder_agent.schemas.human_confirmation import ContextInputs, Questionnaire
 from harness_builder_agent.tools.risk_signals import high_impact_risk_areas, risk_slug
+from harness_builder_agent.tools.scan_followup_guidance import scan_followup_answer_guidance_text
 
 SUMMARY_LIMIT = 1200
 SCAN_CONFIRMATION_TYPES = {
@@ -348,9 +349,10 @@ def _scan_followup_action_guidance(interaction_id: str, question: dict[str, Any]
             f" 如需重新打开，运行 `harness-builder-agent review-human-input --interaction-id {interaction_id} --decision reopened --rationale \"<reason>\"`。"
         )
     supplement = "；当前 scan supplement 已部分回应，建议先人工复核是否足够关闭" if response_status == "partially_addressed_by_current_scan_supplement" else ""
+    guidance = scan_followup_answer_guidance_text(question)
     return (
-        "重新进入 guided `init`，根据追问补充 `stack=...`、`module=路径|类型|名称`、"
-        "`command=ID|命令|类型|gate|来源|置信度` 或 `risk=路径|原因`"
+        f"建议补充：{guidance} "
+        "重新进入 guided `init` 按该建议补充；这些补充不会自动关闭追问，也不会被伪装成已验证扫描 evidence"
         f"{supplement}。复核完成后运行 `harness-builder-agent review-human-input --interaction-id {interaction_id} --decision resolved --rationale \"<reason>\"` 标记。"
     )
 

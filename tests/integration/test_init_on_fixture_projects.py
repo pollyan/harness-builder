@@ -951,6 +951,11 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
     human_input = (repo / ".ai" / "human-input-needed.md").read_text(encoding="utf-8")
     assert "confirm:scan-followup:coverage-source-java" in human_input
     assert "哪些 Java 目录" in human_input
+    assert "module=src/main/java|backend|核心模块" in human_input
+    assert "risk=src/main/java/payments|支付或权限高风险" in human_input
+    assert "stack=java-spring" in human_input
+    assert "command=unit_test|mvn test|test|hard|pom.xml|high" in human_input
+    assert "不会自动关闭追问" in human_input
 
 
 def test_guided_init_marks_scan_followup_partially_addressed_by_current_supplement(tmp_path: Path, monkeypatch):

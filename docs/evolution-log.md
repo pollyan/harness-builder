@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Human Input 深度追问处理建议
+
+- North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、人工确认治理。
+- init North Star 旅程阶段：扫描结果友好呈现、深度追问、写入后的交付摘要和会后维护入口。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；上一轮已在首次 guided `init` 的 scan supplement 前展示“深度追问回答建议”，但 `.ai/human-input-needed.md#处理方式` 仍只给 scan follow-up 泛化格式提示。候选包括 human-input follow-up action guidance、self-check suggested action 结构化约束、benchmark 校验 human-input 处理方式深度和 push / full regression 工作包；本轮选择 human-input guidance，因为它直接补齐同一条“动态追问 -> 会后处理 -> 显式治理”的用户故事。
+- 用户故事：作为 Harness Maintainer，当我在首次 `init` 后查看 `.ai/human-input-needed.md#处理方式` 处理未解决或部分回应的 scan follow-up 时，我可以看到每个 follow-up 对应的具体补充建议和可复制示例，并继续通过 `review-human-input` 显式标记 resolved / reopened，从而让会后处理和已有 Harness 回访不依赖临时终端输出。
+- 当前代码 gap：`_scan_followup_action_guidance()` 只提示重新进入 guided `init`，并泛化列出 `stack/module/command/risk` 格式；它没有按 coverage / stack / module boundary / test evidence follow-up 给出具体示例。
+- 关键决策 / 取舍：新增轻量 `scan_followup_guidance.py` 共享 helper，让 guided CLI 和 human-input Markdown 使用同一套确定性 trigger 映射；不新增 `Questionnaire` 字段，human-input 端可从已有 `trigger` 或稳定 interaction id 推断建议；本轮不新增 benchmark content check，避免过早锁死 Markdown 表达。
+- Assumptions / risks：示例仍是输入格式帮助，不代表目标仓库真实存在这些路径或命令；Markdown 会略长，但只在存在 scan follow-up 时增加；resolved follow-up 仍优先展示已复核边界，不强行提示重新补充。
+- 边界情况 / 失败模式：coverage gap 输出 `module` / `risk` 示例；stack claim / unknown stack 输出 `stack` 示例；test evidence 输出 `command` 示例；partial response 保留“先人工复核是否足够关闭”；所有未解决 follow-up 都明确补充不会自动关闭追问，也不会伪装成已验证扫描 evidence。
+- Sub agent 使用情况：按 playbook 尝试启动只读 explorer 审查 human-input 生成链路，当前环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只把上一轮 CLI 即时建议延伸到持久化处理入口，不混入 self-check schema、benchmark hardening 或 push 工作包；它保护的是同一条 scan follow-up 人工治理链路。
+- 可执行验收标准及验证方式：unit 覆盖 `human_input_markdown()` 输出 per-id 示例和不自动关闭边界；guided scan presentation unit 确认 CLI 仍使用同一套建议；guided integration 确认 `.ai/human-input-needed.md` 生成内容包含示例并保留 questionnaire / self-check 信息；human-input governance regression 确认 resolved 动作不改正式资产。
+- 完成内容：新增 `tools/scan_followup_guidance.py`；`guided_scan_presentation.py` 改为复用 helper；`human_confirmation.py` 的 scan follow-up 处理方式追加 trigger-specific 建议；更新 README、`docs/engineering/init-workflow.md`、本轮 spec / plan 和测试。
+- 验证结果：RED unit / integration 先因 human-input 缺少 `module=src/main/java|backend|核心模块` 等示例失败；实现后 human confirmation + guided scan + guided follow-up 16 passed，human-input governance regression 4 passed，asset writer human confirmation 1 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 475 passed。
+- Self-Harness Gate：长期文档已同步；无需新增 todo；未触碰 LLM、schema、benchmark 或 Runtime。下一轮候选 gap：评估是否需要 benchmark `content:human-confirmation` 锁定处理方式深度，或审查 self-check suggested action 的结构化约束；push 工作包仍需单独 full regression 前置。
+
 ## 2026-06-01 深度追问回答建议
 
 - North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、仓库理解深度。

@@ -256,6 +256,59 @@ def test_human_input_markdown_distinguishes_followup_response_statuses():
     assert "review-human-input --interaction-id confirm:scan-followup:partial --decision resolved" in markdown
 
 
+def test_human_input_markdown_gives_trigger_specific_followup_guidance():
+    markdown = human_input_markdown(
+        {"schema_version": "1.0", "contexts": []},
+        {
+            "schema_version": "1.0",
+            "questions": [
+                {
+                    "interaction_type": "scan_followup_confirmation",
+                    "interaction_id": "confirm:scan-followup:coverage-source-java",
+                    "question": "哪些 Java 目录需要补充扫描？",
+                    "options": ["补充或修正相关信息"],
+                    "confidence": "low",
+                    "reason": "source:.java 抽样不足。",
+                    "trigger": "coverage_gap",
+                    "response_status": "unaddressed",
+                    "response_sources": [],
+                },
+                {
+                    "interaction_type": "scan_followup_confirmation",
+                    "interaction_id": "confirm:scan-followup:stack-node",
+                    "question": "是否存在 Node 子模块？",
+                    "options": ["补充或修正相关信息"],
+                    "confidence": "low",
+                    "reason": "node claim 缺少 evidence。",
+                    "trigger": "stack_claim_without_evidence",
+                    "response_status": "unaddressed",
+                    "response_sources": [],
+                },
+                {
+                    "interaction_type": "scan_followup_confirmation",
+                    "interaction_id": "confirm:scan-followup:test-evidence",
+                    "question": "真实测试入口是什么？",
+                    "options": ["补充或修正相关信息"],
+                    "confidence": "low",
+                    "reason": "缺少测试 evidence。",
+                    "trigger": "test_evidence_missing",
+                    "response_status": "unaddressed",
+                    "response_sources": [],
+                },
+            ],
+        },
+    )
+
+    assert "confirm:scan-followup:coverage-source-java" in markdown
+    assert "module=src/main/java|backend|核心模块" in markdown
+    assert "risk=src/main/java/payments|支付或权限高风险" in markdown
+    assert "confirm:scan-followup:stack-node" in markdown
+    assert "stack=java-spring" in markdown
+    assert "confirm:scan-followup:test-evidence" in markdown
+    assert "command=unit_test|mvn test|test|hard|pom.xml|high" in markdown
+    assert "不会自动关闭追问" in markdown
+
+
 def test_build_questionnaire_skips_raw_warnings_represented_by_targeted_followups():
     questionnaire = build_questionnaire(
         context_inputs={"schema_version": "1.0", "contexts": []},
