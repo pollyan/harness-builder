@@ -58,7 +58,7 @@ def init_command(
 def _should_render_initial_init_completion(trace: GenerationTrace) -> bool:
     trace_payload = yaml.safe_load((trace.run_dir / "trace.yaml").read_text(encoding="utf-8"))
     summary = trace_payload.get("summary", {}) if isinstance(trace_payload, dict) else {}
-    return "existing_harness_action" not in summary
+    return summary.get("existing_harness_action") in (None, "reinit")
 
 
 @app.command("benchmark")

@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness Reinit 完成审计
+
+- North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、生成审计。
+- init North Star 旅程阶段：再次进入已有 Harness、显式重新生成、写入后的交付摘要。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 reinit 成功完成后 trace 应保留 `existing_harness_action=reinit` 且仍展示初始化完成摘要、full regression / push gate 受 DeepSeek 外部网络限制、reinit 扫描后最终取消的更细审计。当前 reinit 取消路径已经保留 action，但成功路径 `trace.finish("completed", ...)` 只写 `primary_stack` 和 `command_count`；若直接补 action，`cli._should_render_initial_init_completion()` 又会因为 summary 存在 `existing_harness_action` 而 suppress `== 初始化完成 ==`。本轮选择 reinit 完成审计，因为它保护已有 Harness 重新生成这一条成功用户旅程。
+- 用户故事：作为 Harness Maintainer，当我在已有 Harness 维护入口选择 `reinit` 并最终确认重新生成时，我可以在 trace summary 中看到这次完成来自 `existing_harness_action=reinit`，同时仍看到 `== 初始化完成 ==` 交付摘要，从而既能审计覆盖来源，也不会丢失重新生成后的交付说明。
+- 当前代码 gap：`run_guided_init()` 成功写入后没有把 reinit intent 带入 completed summary；`_should_render_initial_init_completion()` 以“存在任何 existing_harness_action 就不渲染 completion”区分维护动作和首次 init，无法表达“reinit 是 existing Harness action，但完成后仍是完整 init 交付”。
+- 关键决策 / 取舍：成功路径复用上一轮 `_is_existing_harness_reinit_requested(trace)`；仅在 reinit completed summary 中追加 `existing_harness_action=reinit`；completion render 条件改为允许 `None` 或 `reinit`，其他维护动作继续 suppress；不改变 writer 覆盖语义、非交互 init、LLM、schema、benchmark 或 Runtime 分工。
+- Assumptions / risks：`existing-harness` event 中 `details.action=reinit` 继续作为稳定 reinit intent 来源。若未来新增其他会进入完整 init 写入流程的 existing Harness action，需要把 render 条件扩展为明确白名单。
+- 边界情况 / 失败模式及回应：reinit 取消仍不显示初始化完成摘要；existing Harness `exit` 仍不扫描、不覆盖、不显示首次交付摘要；reinit 成功完成既保留审计 action，又保留首次 init 交付摘要。
+- Sub agent 使用情况：尝试启动只读 explorer 审查本轮 gap，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理 reinit 成功完成的 trace / completion 契约，不混入 reinit 覆盖备份、writer 迁移、取消后更细 scanned 状态或 full gate 外部网络问题。
+- 可执行验收标准及验证方式：新增 integration RED 先证明 reinit 完成路径 trace summary 缺少 `existing_harness_action`；实现后断言输出含 reinit 边界、`== 初始化完成 ==`、`本次已生成`，trace completed 且 summary 含 `existing_harness_action=reinit`、`primary_stack=java-spring`、`command_count=1`；回归 reinit cancel 和 numbered exit。
+- 完成内容：`interactive_init.py` 在 reinit 成功写入后保留 completed summary action；`cli.py` 允许 completed reinit 渲染初始化完成摘要；README、`docs/engineering/init-workflow.md`、本轮 spec / plan 和 integration test 同步。
+- 验证结果：RED targeted integration 先 1 failed，失败点为 `KeyError: existing_harness_action`；实现后 reinit completion + reinit cancel + numbered exit targeted 3 passed；`tests/integration/test_init_on_fixture_projects.py` 61 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-full.sh` 的 fast 段 500 passed，acceptance 3 条因 sandbox 内 DNS 解析 `api.deepseek.com` 失败而失败；按规则申请非 sandbox full gate，被审批系统拒绝，理由是会向外部 DeepSeek API 发送本地 fixture / benchmark 仓库内容。
+- Self-Harness Gate：长期事实源已同步 README 和 init workflow；新增行为有 integration 覆盖，未改变 `.ai` schema、LLM prompt、Sensor、benchmark、Runtime 契约或 todo 状态。当前 `docs/todos` 仍无 open todo；full gate 未通过且非 sandbox 运行未获许可，因此本轮不 push。下一轮候选 gap 需重新从 Current State Gap Analysis 选择，push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 Existing Harness Reinit 边界
 
 - North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、正式资产保护。

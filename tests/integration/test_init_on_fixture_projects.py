@@ -2404,6 +2404,29 @@ def test_guided_init_existing_harness_reinit_cancel_before_scan_keeps_assets(tmp
     assert trace["summary"]["existing_harness_action"] == "reinit"
 
 
+def test_guided_init_existing_harness_reinit_completion_keeps_audit_and_summary(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="9\n\n\n\n\n\n\n\nconfirm\n")
+
+    assert result.exit_code == 0, result.output
+    assert "已选择重新生成现有 Harness" in result.output
+    assert "接下来会重新扫描这个仓库" in result.output
+    assert "== 初始化完成 ==" in result.output
+    assert "本次已生成" in result.output
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert trace["summary"]["existing_harness_action"] == "reinit"
+    assert trace["summary"]["primary_stack"] == "java-spring"
+    assert trace["summary"]["command_count"] == 1
+
+
 def test_guided_init_existing_harness_reports_invalid_config_without_rescan(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))

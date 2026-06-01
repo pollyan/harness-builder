@@ -305,7 +305,10 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
         context_paths=context_paths,
         interaction_decisions=decisions,
     )
-    trace.finish("completed", {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)})
+    summary = {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)}
+    if reinit_requested:
+        summary["existing_harness_action"] = "reinit"
+    trace.finish("completed", summary)
     return output_dir
 
 
