@@ -174,10 +174,10 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     existing = _handle_existing_harness_entry(repo, trace)
     if existing is not None:
         return existing
-    _show_guided_init_startup_boundary(repo)
+    reinit_requested = _is_existing_harness_reinit_requested(trace)
+    _show_guided_init_startup_boundary(repo, reinit_requested=reinit_requested)
     if not typer.confirm("继续生成 Harness?", default=True):
-        trace.finish("failed", {"cancelled": True})
-        raise typer.Abort()
+        _cancel_guided_init(trace, reinit_requested=reinit_requested, before_scan=True)
 
     _show_scan_progress_start(repo)
     trace.event("scan", "started", "Repository scan started.")
@@ -241,8 +241,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
         if action == "confirm":
             break
         if action == "cancel":
-            trace.finish("failed", {"cancelled": True})
-            raise typer.Abort()
+            _cancel_guided_init(trace, reinit_requested=reinit_requested, before_scan=False)
         if action == "scan":
             previous_scan_overrides = scan_overrides
             _show_scan_back_revision_notice(previous_scan_overrides)
@@ -310,8 +309,13 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     return output_dir
 
 
-def _show_guided_init_startup_boundary(repo: Path) -> None:
+def _show_guided_init_startup_boundary(repo: Path, *, reinit_requested: bool = False) -> None:
     typer.echo("\n== 启动说明 ==")
+    if reinit_requested:
+        typer.echo("- 已选择重新生成现有 Harness。")
+        typer.echo("- 接下来会重新扫描这个仓库，并重新生成 Harness 候选与正式资产预览。")
+        typer.echo("- 最终输入 `confirm`/`确认` 前，不会覆盖现有正式 Harness 资产。")
+        typer.echo("- 如需保留现有 Harness，请在继续前或最终确认前取消并备份 `.ai/`。")
     typer.echo("- 将扫描仓库文件、构建配置、CI、测试、文档和源码样本证据。")
     typer.echo("- 需要你确认或补充技术栈、模块边界、风险区域、验证命令、团队规则和 Workflow 说明。")
     typer.echo(
@@ -323,6 +327,33 @@ def _show_guided_init_startup_boundary(repo: Path) -> None:
     for line in _partial_harness_startup_boundary_lines(repo):
         typer.echo(line)
     typer.echo("- 在最终输入 `confirm`/`确认` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程。")
+
+
+def _is_existing_harness_reinit_requested(trace: GenerationTrace) -> bool:
+    return any(
+        event.get("stage") == "existing-harness"
+        and event.get("details", {}).get("action") == "reinit"
+        for event in trace.events
+    )
+
+
+def _cancel_guided_init(trace: GenerationTrace, *, reinit_requested: bool, before_scan: bool) -> None:
+    summary = {"cancelled": True}
+    if reinit_requested:
+        summary["existing_harness_action"] = "reinit"
+    trace.finish("failed", summary)
+    _show_guided_init_cancelled(reinit_requested=reinit_requested, before_scan=before_scan)
+    raise typer.Exit(code=1)
+
+
+def _show_guided_init_cancelled(*, reinit_requested: bool, before_scan: bool) -> None:
+    typer.echo("\n已取消 init。")
+    if reinit_requested and before_scan:
+        typer.echo("- 未重新扫描，未覆盖正式 Harness 资产，未创建 Runtime 产物。")
+    elif before_scan:
+        typer.echo("- 未开始扫描，未写入正式 Harness 资产，未创建 Runtime 产物。")
+    else:
+        typer.echo("- 未确认写入，未覆盖正式 Harness 资产，未创建 Runtime 产物。")
 
 
 def _partial_harness_startup_boundary_lines(repo: Path) -> list[str]:

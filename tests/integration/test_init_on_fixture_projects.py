@@ -2370,6 +2370,40 @@ def test_guided_init_existing_harness_rejects_unknown_action_before_exit(tmp_pat
     assert trace["summary"]["existing_harness_action"] == "exit"
 
 
+def test_guided_init_existing_harness_reinit_cancel_before_scan_keeps_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("reinit cancellation before continue must not scan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="9\nn\n")
+
+    assert result.exit_code == 1
+    assert "已选择重新生成现有 Harness" in result.output
+    assert "接下来会重新扫描这个仓库" in result.output
+    assert "最终输入 `confirm`/`确认` 前，不会覆盖现有正式 Harness 资产" in result.output
+    assert "已取消 init" in result.output
+    assert "未重新扫描，未覆盖正式 Harness 资产，未创建 Runtime 产物" in result.output
+    assert "Aborted" not in result.output
+    assert "\n扫描仓库\n" not in result.output
+    assert "== 初始化完成 ==" not in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "failed"
+    assert trace["summary"]["cancelled"] is True
+    assert trace["summary"]["existing_harness_action"] == "reinit"
+
+
 def test_guided_init_existing_harness_reports_invalid_config_without_rescan(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))

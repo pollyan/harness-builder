@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness Reinit 边界
+
+- North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、正式资产保护。
+- init North Star 旅程阶段：再次进入已有 Harness、显式重新生成、启动与目标说明、取消边界。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 existing Harness `reinit` 后应明确重新生成边界并保留取消审计、普通 guided cancel 应避免通用 `Aborted!`、full regression / push gate 仍受 DeepSeek DNS 与外发审批限制。当前已有 Harness 菜单支持 `9. reinit`，但选择后直接回到通用首次 init 启动说明，没有说明这是对现有 Harness 的重新生成，也没有在取消 trace summary 中保留 `existing_harness_action=reinit`。本轮选择 reinit 边界，因为它直接保护已有正式 Harness 资产不被误解为立即覆盖。
+- 用户故事：作为 Harness Maintainer，当我在已有 Harness 维护入口显式选择 `reinit` 准备重新生成时，我可以在继续扫描前看到重新生成现有 Harness 的边界说明，并且如果我取消，CLI 与 trace 都明确记录这是 reinit 取消且未扫描、未覆盖正式资产，从而能安全地决定是否继续重新生成。
+- 当前代码 gap：`run_existing_harness_action(..., "reinit")` 只记录 event 并返回 `None`；`run_guided_init()` 随后展示通用启动说明。取消分支直接 `trace.finish({"cancelled": True})` 并抛 `typer.Abort()`，CLI 显示 `Aborted.`，trace summary 丢失 reinit 意图。
+- 关键决策 / 取舍：不改变 action runner 返回类型，改为从 trace events 判断本轮是否选择过 `existing-harness action=reinit`；启动说明在 reinit 后增加专属边界；guided cancel 改为中文摘要和 `typer.Exit(1)`；reinit 取消 trace summary 保留 `existing_harness_action=reinit`。
+- Assumptions / risks：选择 `reinit` 表示 Maintainer 已表达可能重新生成的意图，但仍需要继续扫描确认与最终写入确认。trace event details 作为 reinit intent 来源，后续若调整 trace schema 需要同步测试。
+- 边界情况 / 失败模式及回应：reinit 后在第一次确认处取消不会调用扫描，不覆盖正式 `.ai` 资产，不创建 Runtime 产物；普通 partial Harness 取消仍不会伪造 reinit action；最终确认阶段取消也复用中文取消摘要。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 reinit 边界，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理 existing Harness `reinit` 的用户可见边界与取消审计，不混入 partial repair、备份命令、writer 覆盖策略或 full gate 网络问题。
+- 可执行验收标准及验证方式：新增 integration RED 先证明 reinit 后缺少专属说明且取消输出 `Aborted.`；实现后断言 reinit 边界、中文取消摘要、未扫描、正式资产 snapshot 未变、trace failed 且 summary 含 `cancelled=true` 与 `existing_harness_action=reinit`。
+- 完成内容：`interactive_init.py` 增加 reinit intent 识别、reinit 启动边界和 guided cancel helper；`docs/engineering/init-workflow.md` 和 README 同步稳定规则；新增本轮 spec / plan 和 integration test。
+- 验证结果：RED targeted integration 先 1 failed；实现后新增 targeted 1 passed；partial cancel + reinit cancel targeted 2 passed；existing Harness 相关 targeted 4 passed；`tests/integration/test_init_on_fixture_projects.py` 60 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 499 passed。提交后 `scripts/test-full.sh` 在 fast 499 passed 后进入 acceptance，3 条真实 DeepSeek / 真实仓库验收因 sandbox 内 DNS 解析 `api.deepseek.com` 失败而失败；按规则尝试申请非 sandbox full gate，被审批系统拒绝，理由是会向外部 DeepSeek API 发送本地 fixture / benchmark 仓库内容。
+- Self-Harness Gate：init workflow、README、spec / plan 和演进记录已同步；未改变 LLM prompt、schema、writer、Sensor、benchmark 或 Runtime 契约。full gate 未通过且非 sandbox 运行未获许可，因此本轮不 push。下一轮候选 gap 需重新从 Current State Gap Analysis 选择；远端 push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 非交互 Init 扫描失败边界
 
 - North Star 模块：Maturity-driven Init、CLI Experience、自动化信任、LLM-first 错误边界。
