@@ -1990,6 +1990,7 @@ def test_guided_init_final_summary_back_to_scan_replaces_previous_corrections(tm
             "back\n"
             "scan\n"
             "module=final|backend|final; command=final_test|make final-test|test|hard|Makefile|high; risk=final|最终风险\n"
+            "\n\n\n"
             "confirm\n"
         ),
     )
@@ -2047,7 +2048,7 @@ def test_guided_init_final_summary_back_to_scan_replaces_previous_corrections(tm
     assert "make final-test" in verification
 
 
-def test_guided_init_back_to_scan_resets_previous_candidate_decisions(tmp_path: Path, monkeypatch):
+def test_guided_init_back_to_scan_reenters_candidate_review_for_refreshed_candidates(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
@@ -2067,6 +2068,10 @@ def test_guided_init_back_to_scan_resets_previous_candidate_decisions(tmp_path: 
             "back\n"
             "scan\n"
             "risk=src/main/resources/application.yml|最终风险\n"
+            "a\n"
+            "r\n"
+            "e\n"
+            "新候选备注应该进入最终产物。\n"
             "confirm\n"
         ),
     )
@@ -2074,24 +2079,24 @@ def test_guided_init_back_to_scan_resets_previous_candidate_decisions(tmp_path: 
     assert result.exit_code == 0, result.output
     assert "候选项已根据新的扫描状态刷新" in result.output
     assert "上一轮候选审查决策已清空" in result.output
-    assert "back" in result.output
-    assert "candidates" in result.output
+    assert "接下来将按当前扫描状态重新审查候选" in result.output
+    assert result.output.count("逐项审查模型候选") == 2
     final_summary = result.output[result.output.rindex("\n最终确认\n") : result.output.index("输入 confirm/确认", result.output.rindex("\n最终确认\n"))]
-    assert "候选决策：待重新审查 3 条" in final_summary
-    assert "最终确认会默认保持候选" in final_summary
+    assert "候选决策：确认 1 条，拒绝 1 条，备注 1 条，保持候选 0 条" in final_summary
 
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
-    assert {item["decision"] for item in decisions["candidate_decisions"]} == {"kept"}
+    by_id = {item["candidate_id"]: item for item in decisions["candidate_decisions"]}
+    assert by_id["llm-guide-architecture-001"]["decision"] == "accepted"
+    assert by_id["llm-guide-risk-001"]["decision"] == "rejected"
+    assert by_id["llm-sensor-command-001"]["decision"] == "edited"
+    assert by_id["llm-sensor-command-001"]["notes"] == "新候选备注应该进入最终产物。"
     assert all("旧候选备注" not in item.get("notes", "") for item in decisions["candidate_decisions"])
-    assert {item["candidate_id"] for item in decisions["candidate_decisions"]} == {
-        "llm-guide-architecture-001",
-        "llm-guide-risk-001",
-        "llm-sensor-command-001",
-    }
 
     candidate_report = yaml.safe_load((repo / ".ai" / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
-    assert {item["status"] for item in candidate_report["candidates"]} == {"candidate"}
-    assert all(item["human_confirmation_required"] is True for item in candidate_report["candidates"])
+    statuses = {item["id"]: item["status"] for item in candidate_report["candidates"]}
+    assert statuses["llm-guide-architecture-001"] == "confirmed"
+    assert statuses["llm-guide-risk-001"] == "rejected"
+    assert statuses["llm-sensor-command-001"] == "candidate"
     assert all("旧候选备注" not in item.get("decision_notes", "") for item in candidate_report["candidates"])
 
 
@@ -2112,6 +2117,7 @@ def test_guided_init_final_summary_back_to_scan_can_clear_previous_corrections(t
             "back\n"
             "scan\n"
             "\n"
+            "\n\n\n"
             "confirm\n"
         ),
     )

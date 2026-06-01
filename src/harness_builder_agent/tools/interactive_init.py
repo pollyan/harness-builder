@@ -229,6 +229,8 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             candidate_ids = [item.id for item in candidate_report.candidates]
             candidate_decisions = []
             _show_candidate_review_reset_after_scan_back()
+            if candidate_ids:
+                candidate_decisions = _review_candidates(candidate_report, weapon_selection, commands)
             continue
         if action == "rules":
             previous_inline_contexts = inline_contexts
@@ -294,7 +296,7 @@ def _show_candidate_review_reset_after_scan_back() -> None:
     typer.echo("\n候选审查已刷新")
     typer.echo("- 候选项已根据新的扫描状态刷新。")
     typer.echo("- 上一轮候选审查决策已清空，避免旧 accept / reject / edit 套用到当前扫描理解。")
-    typer.echo("- 如需重新审查候选，请在最终确认输入 `back` 并选择 `candidates`。")
+    typer.echo("- 接下来将按当前扫描状态重新审查候选。")
 
 
 def _scan_repository_for_guided_init(repo: Path) -> tuple[ProjectInventory, CommandCatalog]:

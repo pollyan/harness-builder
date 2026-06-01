@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Scan Back 自动候选复核
+
+- North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、review-only 候选治理。
+- init North Star 旅程阶段：最终确认前返回修改 scan、重新计算设计预览、按当前扫描理解复核 Guide / Sensor candidates。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括返回 scan 后自动重新审查刷新候选、README 直接返回目标说明精度、full regression / push 工作包。当前返回 scan 已刷新候选并清空旧决策，但需要用户回到最终确认后再手动输入 candidates / 候选 才会重新审查。本轮选择自动候选复核，因为 candidate 设计依赖 scan 理解，修改 scan 后应在继续写入前立即重新对齐。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的最终确认阶段返回 `scan` 修改扫描理解后，我可以立即重新审查基于新扫描状态刷新的 Guide / Sensor 候选，并让最终 `.ai` 产物只记录这次新审查的决策，从而不会因为旧决策被清空后忘记再次进入候选审查而把候选默认保持。
+- 当前代码 gap：`run_guided_init()` 的 `action == "scan"` 分支重算 `weapon_selection` 和 `candidate_report` 后只清空 `candidate_decisions` 并提示后续可手动返回 candidates；下一次最终确认可以直接 confirm，最终把刷新候选默认写成 kept。
+- 关键决策 / 取舍：返回 scan 后仍先清空旧候选决策，随后如果刷新后的候选非空，立即调用 `_review_candidates()`；最终确认摘要展示本次新审查统计；无候选时保持空候选摘要；保留显式返回 candidates 能力；不修改 candidate schema、writer、LLM candidate generation 或 Runtime 分工。
+- Assumptions / risks：返回 scan 表示候选依赖的上游扫描理解已经改变，自动复核比默认 kept 更可信。代价是返回 scan 后交互步数增加，但用户仍可对单项候选直接回车保持。
+- 边界情况 / 失败模式及回应：旧 accept / reject / edit 和备注不会套用到当前 scan；第二轮 `a/r/e` 决策写入 `interaction-decisions.yaml` 和 review-only candidate report；返回 rules / workflow 不触发候选重审；不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 scan back candidate gap，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理“scan 理解改变后相关候选即时复核”这一条共享数据流，不混入候选正式应用、已有 Harness 维护入口或 push 工作包。
+- 可执行验收标准及验证方式：新增 integration RED 先证明 `back -> scan` 后不会自动进入第二轮候选复核；实现后断言 transcript 中“逐项审查模型候选”出现两次、第二轮 `a/r/e` 决策进入 `interaction-decisions.yaml`、旧备注不进入产物、最终确认摘要展示新审查统计。
+- 完成内容：scan back 分支刷新候选后自动进入 `_review_candidates()`；候选刷新提示改为即将按当前扫描状态重新审查；`docs/engineering/init-workflow.md` 和 README 同步稳定规则；新增本轮 spec / plan。
+- 验证结果：RED targeted integration 先 1 failed；实现后 scan back targeted 3 passed；`tests/integration/test_init_on_fixture_projects.py` 54 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 493 passed。`scripts/test-full.sh` 仍需外部 DeepSeek 访问；当前环境对非 sandbox 外发仓库 / benchmark evidence 的验收运行未获授权，因此本轮不 push。
+- Self-Harness Gate：init workflow、README、spec / plan 和演进记录已同步；未改变 schema、LLM、benchmark、writer、Sensor 或 Runtime。下一轮候选 gap 需重新从 Current State Gap Analysis 选择；远端 push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 Guided Final Direct Return Target
 
 - North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、写入前返回修改。
