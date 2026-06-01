@@ -30,10 +30,10 @@ from harness_builder_agent.tools.existing_harness_action_summaries import (
     top_improvement_candidate,
     workflow_recommendation_summary,
 )
-from harness_builder_agent.tools.existing_harness_action_runner import (
+from harness_builder_agent.tools.existing_harness_action_runner import run_existing_harness_action
+from harness_builder_agent.tools.existing_harness_review_actions import (
     find_asset_candidate,
     review_human_input_default_interaction_id,
-    run_existing_harness_action,
     show_asset_candidate_summary,
 )
 from harness_builder_agent.tools.existing_harness_signals import (

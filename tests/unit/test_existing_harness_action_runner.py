@@ -4,10 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 
-from harness_builder_agent.tools.existing_harness_action_runner import (
-    review_human_input_default_interaction_id,
-    run_existing_harness_action,
-)
+from harness_builder_agent.tools.existing_harness_action_runner import run_existing_harness_action
+from harness_builder_agent.tools.existing_harness_review_actions import review_human_input_default_interaction_id
 from harness_builder_agent.tools.maintenance_triage import MaintenanceAction
 
 

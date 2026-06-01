@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness Review Action 边界拆分
+
+- North Star 模块：Maturity-driven Init、Existing Harness 维护入口、工程架构、可观测性与审计。
+- init North Star 旅程阶段：再次进入已有 Harness、候选治理、human-input 治理、初始 LLM 候选治理。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 Existing Harness review action 边界拆分、首次 init 后续用户可见体验 gap、full regression / push 工作包。上一轮已统一 maintenance action 失败 trace，但 `existing_harness_action_runner.py` 仍 609 行，并直接持有 `review-candidate`、`review-human-input`、`review-initial-candidate` 的 precheck、prompt、governance schema、artifact 和 summary 细节。本轮选择拆分 review action 边界，因为它降低后续维护任一治理动作时影响整个已有 Harness 入口的风险。
+- 工程信任故事：作为 Harness Builder 维护者，当我后续修改已有 Harness 入口中的候选治理、human-input 治理或初始 LLM 候选治理动作时，我可以在独立的 review action 模块里维护这些动作，并由现有 guided integration 回归证明 CLI 行为、trace、review-only 边界不变，从而降低一个动作变更影响整个维护入口的风险。
+- 当前代码 gap：runner 同时承载动作调度、非 review action 编排、三类 review governance 细节和失败出口；review 相关 imports 让模块边界难以审查。
+- 关键决策 / 取舍：新增 `existing_harness_action_failures.py` 和 `existing_harness_review_actions.py`；runner 只委托 review 类动作，不改变 prompt、trace、artifact、summary、schema、benchmark、LLM 或 Runtime 分工。
+- Assumptions / risks：review 类动作都围绕 Maintainer 对 review-only 候选或 human input 的显式治理，适合独立模块；行为保持型重构风险用完整 `test_init_on_fixture_projects.py` 回归覆盖。
+- 边界情况 / 失败模式及回应：缺候选报告、unknown id、unsupported decision、workflow policy guided applied、human-input unknown id 等失败仍通过 action-specific trace helper 结束；不重扫、不覆盖正式 Harness、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 action runner 拆分边界，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只做已有 Harness review action 模块边界收口，不混入首次 init 用户体验增强或 push 工作包；push 会在本轮完成后按仓库规则尝试。
+- 可执行验收标准及验证方式：新增 unit 架构边界测试先因缺少 `existing_harness_review_actions` 失败；实现后 unit 证明 runner delegate review actions 且不直接依赖 governance schema / tool；existing Harness integration 回归证明行为不漂移。
+- 完成内容：新增 `existing_harness_action_failures.py`、`existing_harness_review_actions.py` 和 `tests/unit/test_existing_harness_action_boundaries.py`；更新 `existing_harness_action_runner.py`、`interactive_init.py`、既有 runner unit import、架构文档和本轮 spec / plan。
+- 验证结果：RED 边界测试先 import failed；实现后边界/runner/default unit 6 passed，`tests/integration/test_init_on_fixture_projects.py` 49 passed，`compileall` 通过，`git diff --check` 通过，`scripts/test-fast.sh` 487 passed。
+- Self-Harness Gate：模块边界已写入架构文档；无需新增 open todo；未改变 schema、LLM、benchmark 或 Runtime。下一轮候选 gap：继续从 init North Star 选择首次 init 用户可见 gap，或在满足 `scripts/test-full.sh` 外部前置后 push 远端。
+
 ## 2026-06-01 Existing Harness 维护动作失败 Trace 保真
 
 - North Star 模块：Maturity-driven Init、Existing Harness 维护入口、可观测性与审计。

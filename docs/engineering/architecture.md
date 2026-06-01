@@ -21,6 +21,9 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 | `src/harness_builder_agent/cli.py` | CLI 参数解析、命令入口、顶层异常出口 |
 | `src/harness_builder_agent/schemas/` | 机器消费数据结构的 Pydantic schema |
 | `src/harness_builder_agent/tools/` | 扫描、LLM、调和、资产生成、benchmark 等业务模块 |
+| `src/harness_builder_agent/tools/existing_harness_action_runner.py` | 已有 Harness guided 维护入口的动作路由和非 review 动作编排 |
+| `src/harness_builder_agent/tools/existing_harness_review_actions.py` | 已有 Harness 的候选治理、human-input 治理和初始 LLM 候选治理动作实现 |
+| `src/harness_builder_agent/tools/existing_harness_action_failures.py` | 已有 Harness 维护动作的 action-specific 失败 trace 出口 |
 | `src/harness_builder_agent/prompts/` | 机器消费型 LLM prompt 资产，按功能集中管理 |
 | `src/harness_builder_agent/templates/skills/` | 固定内置 Workflow Skill 模板 |
 | `tests/unit/` | 单模块、函数、schema、边界条件测试 |
@@ -116,6 +119,7 @@ Harness Builder 是一个 Python CLI 项目，主入口是 `harness-builder-agen
 - 生成的重要文件应记录到 artifact list。
 - 失败不能只表现为异常栈；应尽量保留可解释的阶段和上下文。
 - trace 是调试和验收依据，不是装饰性输出。
+- 已有 Harness guided 维护入口应由 `existing_harness_action_runner.py` 负责动作路由；review 类治理动作由 `existing_harness_review_actions.py` 维护，action-specific 失败 trace 统一通过 `existing_harness_action_failures.py` 写入，避免失败上下文退化成泛化 init failure。
 
 ### Benchmark 层
 
