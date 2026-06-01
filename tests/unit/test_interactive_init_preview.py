@@ -30,7 +30,12 @@ def test_prewrite_preview_renderer_shows_scan_supplement_constraints(tmp_path: P
     repo.mkdir()
     show_prewrite_maturity_preview(
         repo,
-        ProjectInventory(repo_name="demo", root_path=str(repo), primary_stack="java-spring"),
+        ProjectInventory(
+            repo_name="demo",
+            root_path=str(repo),
+            primary_stack="java-spring",
+            stack_extensions={"risk_areas": [{"path": "frontend/package.json", "reason": "前端依赖需要单独确认"}]},
+        ),
         CommandCatalog(commands=[]),
         _weapon_selection(),
         GuidedScanOverrides(
@@ -73,6 +78,8 @@ def test_prewrite_preview_renderer_shows_scan_supplement_constraints(tmp_path: P
     assert "结构化风险区域：`frontend/package.json`，前端依赖需要单独确认" in output
     assert "影响 project inventory、command catalog、risk hints、Guides、Sensors、Workflow 升级和人工确认" in output
     assert "不会被伪装成已验证扫描事实" in output
+    assert "risk_area:frontend/package.json" in output
+    assert "风险路径 `frontend/package.json` 会升级到 standard 工作流" in output
 
 
 def test_prewrite_preview_renderer_shows_scan_baseline_when_no_supplement(tmp_path: Path, capsys):

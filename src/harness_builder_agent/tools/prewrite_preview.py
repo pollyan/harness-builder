@@ -6,11 +6,11 @@ from pathlib import Path
 import typer
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
-from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.interaction_decision import WorkflowConfirmation
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library import WeaponLibraryEntry, WeaponLibrarySelection
+from harness_builder_agent.tools.harness_config_builder import build_harness_config
 from harness_builder_agent.tools.maturity_model import build_maturity_report
 
 
@@ -32,7 +32,7 @@ def show_prewrite_maturity_preview(
     inline_contexts: list[str] | None = None,
     workflow_confirmation: WorkflowConfirmation | None = None,
 ) -> None:
-    config = HarnessConfig.default()
+    config = build_harness_config(inventory)
     planned = build_maturity_report(
         ai=None,
         inventory=inventory,
@@ -117,6 +117,10 @@ def show_prewrite_maturity_preview(
     for rule in config.workflow_routing.rules:
         note = routing_notes.get(rule.id, rule.rationale)
         typer.echo(f"- `{rule.id}` -> {rule.selected_workflow}：{note}")
+        for trigger in rule.triggers:
+            if trigger.startswith("risk_area:"):
+                risk_path = trigger.removeprefix("risk_area:")
+                typer.echo(f"  - `{trigger}`：风险路径 `{risk_path}` 会升级到 standard 工作流。")
 
 
 def has_existing_partial_harness(repo: Path) -> bool:

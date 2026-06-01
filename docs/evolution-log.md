@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 写入前风险路由预览一致性
+
+- North Star 模块：Maturity-driven Init、渐进式交互、Workflow routing、风险控制。
+- init North Star 旅程阶段：成熟度驱动的 Harness 设计预览、最终确认前的用户输入消费说明。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；本轮候选包括写入前 Workflow 风险路由预览与最终配置一致、Existing Harness action execution 进一步抽模块、full regression / push 工作包。当前 `write_initial_assets()` 已把 scan risk path 写入最终 `harness-config.yaml` 的 `standard-escalation` trigger，但 `show_prewrite_maturity_preview()` 仍用裸 `HarnessConfig.default()` 展示 routing，导致用户确认前看不到 `risk_area:*` 风险升级规则。本轮选择该 gap，因为它直接保护“用户补充 risk -> 设计预览 -> 正式 routing policy”的可见闭环。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的写入前预览中看到 Workflow routing 设计时，我可以看到当前扫描风险或我补充的风险路径会如何进入 `standard-escalation` 的 `risk_area:*` 触发条件，从而在最终确认前确认高风险区域不会只停留在 Guide / Sensor 文案，而会进入实际生成的路由策略。
+- 当前代码 gap：`prewrite_preview.py` 使用静态 `HarnessConfig.default()` 计算 preview 和成熟度；正式 writer 使用 `write_assets.build_harness_config()`，两者对风险路径 routing 的事实源不一致。
+- 关键决策 / 取舍：把正式 config 构造抽成 `harness_config_builder.py`，preview 和 writer 共用；本轮不新增 routing DSL，不把自由文本 Workflow 补充直接应用为正式 routing policy，不修改 schema、LLM、benchmark 或 Runtime。
+- Assumptions / risks：复用正式 builder 后 preview 更接近最终资产；如果成熟度阻断项因此变化，应视为修正旧 preview 偏差。CLI 只在存在风险路径时增加 trigger 明细。
+- 边界情况 / 失败模式：scan risk 和结构化 scan supplement risk 都通过当前内存态 inventory 进入 preview；风险路径仍保留用户补充事实边界，不声称已由扫描 evidence 验证；不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查用户输入消费链路，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只修正写入前 Workflow routing 预览与最终配置的一致性，不混入 existing Harness 维护入口重构或远端 push 工作包。
+- 可执行验收标准及验证方式：unit 先 RED 证明 preview 缺少 `risk_area:frontend/package.json`；guided integration 先 RED 证明终端预览缺少同一 trigger；实现后 unit、guided integration、write assets / risk context benchmark 相关回归、compileall、diff check 和 fast regression 通过。
+- 完成内容：新增 `src/harness_builder_agent/tools/harness_config_builder.py`；`write_assets.py` 和 `prewrite_preview.py` 共用 `build_harness_config()`；Workflow routing preview 对 `risk_area:*` trigger 增加中文风险升级说明；README 和 `docs/engineering/init-workflow.md` 同步稳定行为；新增本轮 spec / plan。
+- 验证结果：RED targeted tests 先 2 failed；实现后 `tests/unit/test_interactive_init_preview.py` 11 passed，`tests/integration/test_init_on_fixture_projects.py` 44 passed，`tests/unit/test_write_assets.py` 与相关 risk context benchmark 5 passed，`compileall` 通过，`git diff --check` 通过；`scripts/test-fast.sh` 479 passed。
+- Self-Harness Gate：长期文档已同步；无需新增 todo；未触碰 LLM、schema、benchmark check 或 Runtime 分工。下一轮候选 gap：Existing Harness action execution 进一步抽模块，或在外部前置满足后评估 full regression / push 工作包。
+
 ## 2026-06-01 Scan Self-Check 结构化建议动作
 
 - North Star 模块：Maturity-driven Init、仓库理解深度、渐进式交互、LLM / Python 契约闭环。

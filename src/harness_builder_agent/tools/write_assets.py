@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
-from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.interaction_decision import InteractionDecisions
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.asset_writers.candidates import write_candidate_assets
@@ -15,6 +13,7 @@ from harness_builder_agent.tools.asset_writers.reports import write_report_asset
 from harness_builder_agent.tools.asset_writers.sensors import write_sensor_assets
 from harness_builder_agent.tools.asset_writers.skills import write_skill_assets
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.harness_config_builder import build_harness_config
 from harness_builder_agent.tools.human_confirmation import build_questionnaire, read_context_inputs
 from harness_builder_agent.tools.interaction_decisions import apply_candidate_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
@@ -91,37 +90,3 @@ def write_initial_assets(
     if trace:
         trace.event("asset-write", "completed", "Initial harness asset writing completed.", {"artifact_count": len(trace.artifacts)})
     return ai
-
-
-def build_harness_config(inventory: ProjectInventory) -> HarnessConfig:
-    config = HarnessConfig.default()
-    standard = next((rule for rule in config.workflow_routing.rules if rule.id == "standard-escalation"), None)
-    if standard is None:
-        return config
-
-    rationale_notes: list[str] = []
-    for risk in _risk_areas(inventory)[:5]:
-        path = str(risk.get("path") or risk.get("area") or "").strip()
-        if not path:
-            continue
-        reason = str(risk.get("reason") or risk.get("summary") or "需要人工确认。").strip()
-        trigger = f"risk_area:{path}"
-        if trigger not in standard.triggers:
-            standard.triggers.append(trigger)
-        rationale_notes.append(f"Scanned risk area `{path}` requires standard workflow review: {reason}")
-
-    if rationale_notes:
-        standard.rationale = standard.rationale.rstrip(".") + ". " + " ".join(rationale_notes)
-    return config
-
-
-def _risk_areas(inventory: ProjectInventory) -> list[dict[str, Any]]:
-    risk_areas = inventory.stack_extensions.get("risk_areas", [])
-    if isinstance(risk_areas, list) and risk_areas:
-        return [item for item in risk_areas if isinstance(item, dict)]
-    proposal = inventory.stack_extensions.get("llm_scan_proposal", {})
-    if isinstance(proposal, dict):
-        proposal_risks = proposal.get("risk_areas", [])
-        if isinstance(proposal_risks, list):
-            return [item for item in proposal_risks if isinstance(item, dict)]
-    return []

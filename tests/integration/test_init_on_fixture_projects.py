@@ -1584,6 +1584,8 @@ def test_guided_init_structured_scan_corrections_update_modules_commands_and_ris
     assert "`frontend/package.json`，前端依赖需要单独确认" in prewrite_preview
     assert "影响 project inventory、command catalog、risk hints、Guides、Sensors、Workflow 升级和人工确认" in prewrite_preview
     assert "不会被伪装成已验证扫描事实" in prewrite_preview
+    assert "risk_area:frontend/package.json" in prewrite_preview
+    assert "风险路径 `frontend/package.json` 会升级到 standard 工作流" in prewrite_preview
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
     assert {"name": "frontend", "path": "frontend", "kind": "frontend"} in inventory["modules"]
     assert {"path": "frontend/package.json", "reason": "前端依赖需要单独确认"} in inventory["stack_extensions"]["risk_areas"]
@@ -1592,6 +1594,9 @@ def test_guided_init_structured_scan_corrections_update_modules_commands_and_ris
     assert any("frontend 还包含批处理入口" in note for note in inventory["stack_extensions"]["human_overrides"]["scan_notes"])
     catalog = yaml.safe_load((repo / ".ai" / "command-catalog.yaml").read_text(encoding="utf-8"))
     assert any(command["id"] == "frontend_test" and command["command"] == "npm test" for command in catalog["commands"])
+    config = yaml.safe_load((repo / ".ai" / "harness-config.yaml").read_text(encoding="utf-8"))
+    standard = next(rule for rule in config["workflow_routing"]["rules"] if rule["id"] == "standard-escalation")
+    assert "risk_area:frontend/package.json" in standard["triggers"]
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert decisions["scan_confirmation"]["status"] == "amended"
     assert decisions["scan_confirmation"]["modules"] == [{"path": "frontend", "kind": "frontend", "name": "frontend"}]
