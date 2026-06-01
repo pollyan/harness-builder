@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Init Completion 下一步动作去重
+
+- North Star 模块：Maturity-driven Init、CLI Experience、Maturity & Evolution、交付摘要可行动性。
+- init North Star 旅程阶段：写入后的交付摘要、下一步建议、Benchmark / human-input 基础治理。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 completion 下一步动作去重、completion 资产概览进一步压缩、existing Harness action dispatch registry。当前 completion summary 已行动优先，但 `_completion_next_action_lines()` 会把基础 benchmark 动作和 maturity recommended next steps 中的 benchmark 建议同时列出，导致 `建议下一步` 出现重复，挤占不同的成熟度建议。本轮选择 completion 下一步动作去重，因为它直接服务首次 init 后“用户知道下一步该干什么”的北极星体验。
+- 用户故事：作为 Harness Maintainer，当我完成首次 guided `init` 后，我可以在 `== 初始化完成 ==` 的 `建议下一步` 中看到不重复的优先动作：先运行 benchmark 或处理 failed checks，再处理待人工确认，最后展示不同的成熟度后续建议，从而不会被重复 benchmark 提示占掉关键行动空间。
+- 当前代码 gap：`_completion_next_action_lines()` 只做字符串相等去重；`先运行 benchmark`、`处理 failed checks 后重新运行 benchmark` 和 `运行 benchmark 验证第一版 Harness` 语义相同但文本不同，因此会重复出现。
+- 关键决策 / 取舍：为 completion action 增加轻量语义 key，`benchmark`、质量门禁、failed check、重新运行 benchmark 归为 `benchmark_quality_gate`；human-input 归为 `human_input_review`；去重只影响终端 completion message，不修改 maturity report 原始 recommended next steps。
+- Assumptions / risks：首次 init 后 benchmark / failed check 是基础治理动作，重复出现不应占用行动位；自由文本建议可能有非常规表达，本轮只覆盖当前稳定的中英文 benchmark / 质量门禁 / failed check 表述，不引入复杂 NLP。
+- 边界情况 / 失败模式及回应：benchmark 未运行时第一项仍是运行 `harness-builder-agent benchmark --repo <repo>`；benchmark failed 时第一项仍是查看 `.ai/benchmark-report.yaml` 并处理 failed checks；questionnaire 有待确认时 human-input 处理入口仍排在成熟度建议之前；不改变 `.ai/init-summary.md`、schema、benchmark 语义、正式资产生成或 Runtime 分工。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查 completion message，当前环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只修正 completion summary 的下一步行动列表，不压缩资产概览，不做 existing Harness runner dispatch registry，不改变任何机器契约。
+- 可执行验收标准及验证方式：unit 覆盖 benchmark 未运行和 failed benchmark 的语义去重；guided init integration 覆盖真实 completion transcript 中 benchmark 只出现一次且 human-input 仍排第二；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前门禁。
+- 完成内容：`src/harness_builder_agent/tools/init_summary.py` 新增 completion action semantic key 去重；更新 unit 与 integration transcript 断言；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED unit 先因重复 benchmark 建议失败 2 条；实现后 `tests/unit/test_init_summary.py` 10 passed；targeted guided init integration 1 passed；`git diff --check` 通过；提交前 `scripts/test-fast.sh` 512 passed。push 前 `scripts/test-full.sh` 的 fast 段 512 passed，但 acceptance 3 failed，原因是沙箱内无法解析 `api.deepseek.com`；已按规则申请非沙箱 full regression，因会向外部 DeepSeek 发送本地 fixture / benchmark 仓库 evidence 被策略拒绝，因此本轮不 push。
+- Self-Harness Gate：长期工程文档无需更新，因为 README / init workflow 已要求基础治理动作优先且没有要求重复展示；未新增 `.ai` schema、benchmark、Sensor、LLM prompt 或 Runtime 契约。当前 `docs/todos` 仍无 open todo。下一轮候选 gap 可从 completion 资产概览压缩、existing Harness action dispatch registry、或 push/full regression 外部前置中重新评估。
+
 ## 2026-06-01 Existing Harness 确定性维护动作模块抽取
 
 - North Star 模块：Maturity-driven Init、已有 Harness 维护入口、Maturity & Evolution、Benchmark 质量门禁、工程架构可维护性。

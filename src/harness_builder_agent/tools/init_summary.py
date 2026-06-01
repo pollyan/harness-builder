@@ -132,27 +132,71 @@ def _numbered_lines(items: list[str]) -> str:
 
 def _completion_next_action_lines(ai: Path, score: MaturityReport) -> str:
     actions: list[str] = []
+    seen_action_keys: set[str] = set()
     report_path = ai / "benchmark-report.yaml"
     if report_path.exists():
         report = BenchmarkReport.model_validate(yaml.safe_load(report_path.read_text(encoding="utf-8")))
         failed_checks = sum(1 for check in report.checks if not check.passed)
         if failed_checks:
-            actions.append(f"先查看 `.ai/benchmark-report.yaml` 并处理 {failed_checks} 个 failed check，再重新运行 benchmark。")
+            _append_completion_action(
+                actions,
+                seen_action_keys,
+                f"先查看 `.ai/benchmark-report.yaml` 并处理 {failed_checks} 个 failed check，再重新运行 benchmark。",
+                key="benchmark_quality_gate",
+            )
     else:
-        actions.append(f"先运行 `harness-builder-agent benchmark --repo {ai.parent}`，确认第一版 Harness 质量门禁。")
+        _append_completion_action(
+            actions,
+            seen_action_keys,
+            f"先运行 `harness-builder-agent benchmark --repo {ai.parent}`，确认第一版 Harness 质量门禁。",
+            key="benchmark_quality_gate",
+        )
 
     questionnaire_path = ai / "questionnaire.yaml"
     if questionnaire_path.exists():
         questionnaire = Questionnaire.model_validate(yaml.safe_load(questionnaire_path.read_text(encoding="utf-8")))
         if questionnaire.questions:
-            actions.append("处理 `.ai/human-input-needed.md#处理方式` 中的待确认问题，保留 `confirm:*` ID 作为审计入口。")
+            _append_completion_action(
+                actions,
+                seen_action_keys,
+                "处理 `.ai/human-input-needed.md#处理方式` 中的待确认问题，保留 `confirm:*` ID 作为审计入口。",
+                key="human_input_review",
+            )
 
     for item in score.recommended_next_steps:
-        if item not in actions:
-            actions.append(item)
+        _append_completion_action(actions, seen_action_keys, item)
         if len(actions) >= 3:
             break
     return _numbered_lines(actions[:3])
+
+
+def _append_completion_action(
+    actions: list[str],
+    seen_action_keys: set[str],
+    item: str,
+    *,
+    key: str | None = None,
+) -> None:
+    action_key = key or _completion_action_key(item)
+    if action_key in seen_action_keys:
+        return
+    actions.append(item)
+    seen_action_keys.add(action_key)
+
+
+def _completion_action_key(item: str) -> str:
+    normalized = item.strip().lower()
+    if (
+        "benchmark" in normalized
+        or "质量门禁" in normalized
+        or "failed check" in normalized
+        or "failed checks" in normalized
+        or "重新运行" in normalized
+    ):
+        return "benchmark_quality_gate"
+    if "human-input-needed" in normalized or "待确认" in normalized or "confirm:*" in normalized:
+        return "human_input_review"
+    return normalized
 
 
 def _completion_evidence_gap_lines(score: MaturityReport) -> str:
