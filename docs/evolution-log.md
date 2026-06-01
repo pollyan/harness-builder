@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Scan 补充解析诊断
+
+- North Star 模块：Init CLI Experience、渐进式交互、仓库理解深度、Maturity-driven Harness 设计预览。
+- init North Star 旅程阶段：扫描理解对齐、用户补充吸收、写入前预览。
+- Gap Analysis 摘要：当前没有 open todo；本轮对比 init North Star、README、工程规则和 `interactive_init.py` 后发现，扫描补充支持结构化 `module=` / `command=` / `risk=`，但格式不完整时会静默进入 notes，用户可能误以为 command 已进入 command catalog 或 risk 已进入 risk hints。scan presentation renderer 拆分仍有价值，但本轮优先修用户可感知的输入生效边界。远端同步候选因 push 前 full regression 需要 `DEEPSEEK_API_KEY` 与 `.benchmarks/*` 暂不进入本轮。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的扫描对齐阶段输入结构化补充但格式不完整或字段非法时，我可以立即看到该片段没有进入结构化 project inventory / command catalog / risk hints，只会作为自然语言补充保留，从而避免误以为 Harness 已经吸收了一个实际验证命令或风险区域。
+- 当前代码 gap：`_collect_scan_supplement()` 同时负责提示、解析和构造 overrides；非法结构化片段被原样追加到 notes，没有解释结构化生效失败。
+- 关键决策 / 取舍：新增 `guided_scan_supplements.py` 作为可单测解析器；合法结构化补充保持原行为，非法结构化片段生成中文诊断 note，明确“未进入结构化补充，只作为自然语言补充保留”。不新增 `GuidedScanOverrides` 字段，不修改 interaction decision schema 或 writer 契约；诊断作为 notes 进入现有审计链路。
+- Assumptions / risks：诊断 note 会进入后续语义资产，可能增加少量文本噪声；但它表达的是真实人工输入未结构化生效的边界，优先级高于静默吞掉格式错误。
+- 边界情况 / 失败模式：自然语言补充不被误报为结构化错误；非法 `command=` 不生成 `CommandDefinition`；invalid stack 仍保留二次输入体验，二次输入仍非法时才诊断保留为自然语言补充。
+- Sub agent 使用情况：按 playbook 尝试启动只读 sub agent 交叉审查本轮 gap，但当前会话返回 `agent thread limit reached`；本轮由主线程完成分析、实现和验证。
+- 价值切分说明：本轮只修 scan 补充解析诊断，不修改 LLM、scan reconciler、asset writer、benchmark 或 Runtime 分工；scan presentation renderer 拆分留作下一轮候选。
+- 可执行验收标准及验证方式：unit 覆盖合法/非法结构化片段和自然语言补充；integration 覆盖 guided `init` 中非法 `command=` 的 CLI 诊断、未写入 command catalog、interaction-decisions notes 审计。
+- 完成内容：新增 `parse_guided_scan_supplement()`；`interactive_init.py` 改为委托解析器；补充 README 与 `docs/engineering/init-workflow.md` 中的稳定行为说明；新增本轮 spec / plan。
+- 验证结果：RED 测试先因缺少 `guided_scan_supplements` 模块失败；实现后 targeted `tests/unit/test_guided_scan_supplements.py` 与相关 guided init integration 7 passed；`git diff --check` 通过；`scripts/test-fast.sh` 438 passed。
+- Self-Harness Gate：长期文档已同步；未新增 schema；未触碰 Runtime；未新增 todo。下一轮候选 gap：scan presentation renderer 抽取、scan supplement parser 进一步支持更友好的错误提示 / 示例、或在 acceptance 环境补齐后统一 push。
+
 ## 2026-06-01 Init Completion 资产概览压缩
 
 - North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。

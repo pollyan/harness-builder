@@ -1599,6 +1599,34 @@ def test_guided_init_structured_scan_corrections_update_modules_commands_and_ris
     assert "npm test" in init_summary
 
 
+def test_guided_init_explains_invalid_structured_scan_correction_does_not_update_catalog(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "command=bad_test|npm test|test|hard\n"
+            "\n\n\n\n"
+            "\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    immediate_summary = result.output[result.output.index("扫描补充理解") : result.output.index("\n团队规则")]
+    assert "结构化 command 片段未解析：command=bad_test|npm test|test|hard" in immediate_summary
+    assert "未进入 command catalog，只作为自然语言补充保留" in immediate_summary
+    catalog = yaml.safe_load((repo / ".ai" / "command-catalog.yaml").read_text(encoding="utf-8"))
+    assert all(command["id"] != "bad_test" for command in catalog["commands"])
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert decisions["scan_confirmation"]["commands"] == []
+    assert any("未进入 command catalog" in note for note in decisions["scan_confirmation"]["notes"])
+
+
 def test_guided_init_reviews_candidates_one_by_one(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

@@ -8,7 +8,7 @@ import yaml
 
 from harness_builder_agent.schemas.asset_candidate import AssetCandidateReport
 from harness_builder_agent.schemas.benchmark_report import BenchmarkReport
-from harness_builder_agent.schemas.command_catalog import CommandCatalog, CommandDefinition
+from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.interaction_decision import CandidateDecision, WorkflowConfirmation
 from harness_builder_agent.schemas.maturity_report import MaturityReport
@@ -46,6 +46,7 @@ from harness_builder_agent.tools.existing_harness_signals import (
 )
 from harness_builder_agent.tools.existing_harness_status import render_existing_harness_status_overview_lines
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.guided_scan_supplements import parse_guided_scan_supplement
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
 from harness_builder_agent.tools.maintenance_triage import (
@@ -790,58 +791,14 @@ def _collect_scan_supplement(inventory: ProjectInventory) -> GuidedScanOverrides
     answer = typer.prompt("你的补充或修正", default="", show_default=False).strip()
     if not answer:
         return GuidedScanOverrides()
-    overrides = GuidedScanOverrides()
-    unparsed: list[str] = []
-    for part in [item.strip() for item in answer.split(";") if item.strip()]:
-        key, separator, value = part.partition("=")
-        if not separator:
-            unparsed.append(part)
-            continue
-        key = key.strip().lower()
-        value = value.strip()
-        if key == "stack":
-            if value not in {"java-spring", "dotnet-aspnet", "node", "python-flask", "unknown"}:
-                value = typer.prompt(
-                    "请输入允许的技术栈：java-spring / dotnet-aspnet / node / python-flask / unknown",
-                    default=inventory.primary_stack,
-                ).strip()
-            overrides.primary_stack = value
-            overrides.notes.append(f"用户将主要技术栈修正为：{value}")
-        elif key == "module":
-            fields = [item.strip() for item in value.split("|")]
-            if len(fields) >= 3:
-                overrides.modules.append({"path": fields[0], "kind": fields[1], "name": fields[2]})
-                overrides.notes.append(f"用户补充模块：{fields[0]}（{fields[1]}，{fields[2]}）")
-            else:
-                unparsed.append(part)
-        elif key == "command":
-            fields = [item.strip() for item in value.split("|")]
-            if len(fields) >= 6 and fields[2] in {"build", "test", "lint", "typecheck", "other"} and fields[3] in {"hard", "soft"}:
-                confidence = fields[5] if fields[5] in {"low", "medium", "high"} else "medium"
-                overrides.commands.append(
-                    CommandDefinition(
-                        id=fields[0],
-                        command=fields[1],
-                        type=fields[2],
-                        gate=fields[3],
-                        source=fields[4],
-                        confidence=confidence,
-                    )
-                )
-                overrides.notes.append(f"用户补充验证命令：{fields[1]}，gate={fields[3]}")
-            else:
-                unparsed.append(part)
-        elif key == "risk":
-            fields = [item.strip() for item in value.split("|", 1)]
-            if len(fields) == 2:
-                overrides.risk_areas.append({"path": fields[0], "reason": fields[1]})
-                overrides.notes.append(f"用户补充风险区域：{fields[0]}，{fields[1]}")
-            else:
-                unparsed.append(part)
-        else:
-            unparsed.append(part)
-    overrides.notes.extend(unparsed)
-    return overrides
+
+    def resolve_stack(_value: str) -> str:
+        return typer.prompt(
+            "请输入允许的技术栈：java-spring / dotnet-aspnet / node / python-flask / unknown",
+            default=inventory.primary_stack,
+        ).strip()
+
+    return parse_guided_scan_supplement(answer, current_stack=inventory.primary_stack, stack_resolver=resolve_stack)
 
 
 def _collect_team_rules() -> list[str]:
