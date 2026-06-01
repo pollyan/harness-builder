@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+import typer
+
 from harness_builder_agent.tools.existing_harness_action_runner import run_existing_harness_action
 from harness_builder_agent.tools.existing_harness_review_actions import review_human_input_default_interaction_id
 from harness_builder_agent.tools.maintenance_triage import MaintenanceAction
@@ -44,11 +47,17 @@ def test_existing_harness_action_runner_handles_exit_reinit_and_unknown(tmp_path
     assert reinit_trace.finishes == []
 
     unknown_trace = FakeTrace()
-    assert run_existing_harness_action(repo, ai, inventory, "surprise", unknown_trace, []) == ai
-    assert unknown_trace.events[-1][1] == "warning"
+    with pytest.raises(typer.Exit):
+        run_existing_harness_action(repo, ai, inventory, "surprise", unknown_trace, [])
+    assert unknown_trace.events[-1] == (
+        "existing-harness",
+        "failed",
+        "Unknown existing Harness action.",
+        {"primary_stack": "java-spring", "action": "surprise", "error": "unknown_existing_harness_action"},
+    )
     assert unknown_trace.finishes[-1] == (
-        "completed",
-        {"primary_stack": "java-spring", "existing_harness_action": "exit"},
+        "failed",
+        {"primary_stack": "java-spring", "existing_harness_action": "surprise", "error": "unknown_existing_harness_action"},
     )
 
 

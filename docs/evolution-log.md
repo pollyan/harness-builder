@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 维护动作未知输入保护
+
+- North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、工程可信度。
+- init North Star 旅程阶段：再次进入已有 Harness、维护动作选择、只读退出边界。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括已有 Harness 维护入口未知动作不能默认退出、维护入口默认推荐动作快捷化、full regression / push 工作包。当前 `normalize_existing_harness_action()` 会把未知字符串传给 runner，runner 末尾把未知 action “默认退出且不覆盖现有 Harness”，并把 trace summary 记录为 `existing_harness_action=exit`。本轮选择修复未知动作，因为它直接违反 no silent fallback，并会把用户 typo 伪装成有意退出。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 进入已有 Harness 维护入口并误输入不存在的维护动作时，我可以看到明确的未知输入提示并重新选择有效菜单项，从而不会把一次 typo 静默记录成有意退出，也不会误以为推荐维护动作已经执行。
+- 当前代码 gap：已有 Harness action prompt 只提示一次；未知输入不会停留在菜单，而是被 runner fallback 处理成 exit completed。
+- 关键决策 / 取舍：新增 action table 校验；维护入口 prompt 循环直到输入有效编号 / action / alias；默认回车仍是 `1` 只读退出；runner unknown fallback 改为显式 `unknown_existing_harness_action` 失败，防止绕过 prompt 的调用继续 silent fallback；不改变任何已有 action 产物或编号。
+- Assumptions / risks：未知维护动作更可能是 typo，应重新提示。若有人依赖任意字符串退出，应改用回车、`1`、`exit`、`quit`、`q` 或 `退出`。
+- 边界情况 / 失败模式及回应：未知输入不会扫描、不覆盖正式 Harness、不创建 Runtime 产物；后续显式输入 `1` 才记录 exit；内部 runner 收到未知 action 会失败而不是伪装成功。
+- Sub agent 使用情况：尝试启动只读 explorer 审查已有 Harness 维护入口未知动作，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理“维护动作选择不能 silent fallback”这一条工程信任故事，不混入默认推荐动作、action 别名扩展或 push 工作包。
+- 可执行验收标准及验证方式：新增 integration RED 先证明未知维护动作直接默认退出；实现后断言 CLI 输出未知维护动作提示、重新出现选择 prompt、随后显式 `1` 才退出、正式资产不变、trace summary 为用户显式 exit，且输出不再包含默认退出 fallback 文案。
+- 完成内容：`existing_harness_actions.py` 增加 action 校验；`interactive_init.py` 的 existing Harness action prompt 改为循环；`existing_harness_action_runner.py` unknown fallback 改为显式失败；`docs/engineering/init-workflow.md` 沉淀稳定规则；新增本轮 spec / plan。
+- 验证结果：RED targeted integration 先 1 failed；实现后 unknown action / exit targeted 3 passed；`tests/integration/test_init_on_fixture_projects.py` 55 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 494 passed。`scripts/test-full.sh` 仍需外部 DeepSeek 访问；当前环境对非 sandbox 外发仓库 / benchmark evidence 的验收运行未获授权，因此本轮不 push。
+- Self-Harness Gate：init workflow、spec / plan 和演进记录已同步；README 已有维护入口说明无需扩展该错误处理细节；未改变 schema、LLM、benchmark、writer、Sensor 或 Runtime。下一轮候选 gap 需重新从 Current State Gap Analysis 选择；远端 push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 Guided Scan Back 自动候选复核
 
 - North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、review-only 候选治理。

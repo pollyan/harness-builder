@@ -2264,6 +2264,37 @@ def test_guided_init_existing_harness_can_exit_with_numbered_action(tmp_path: Pa
     assert trace["summary"]["existing_harness_action"] == "exit"
 
 
+def test_guided_init_existing_harness_rejects_unknown_action_before_exit(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("unknown existing Harness action must not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="not-a-real-action\n1\n")
+
+    assert result.exit_code == 0, result.output
+    assert "未识别的维护动作：not-a-real-action" in result.output
+    assert "请输入菜单编号、英文命令或中文别名" in result.output
+    assert result.output.count("你的选择") >= 2
+    assert "默认退出且不覆盖现有 Harness" not in result.output
+    assert "== 启动说明 ==" not in result.output
+    assert "== 初始化完成 ==" not in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert trace["summary"]["existing_harness_action"] == "exit"
+
+
 def test_guided_init_existing_harness_shows_latest_workflow_recommendation_history(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))

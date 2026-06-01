@@ -17,6 +17,7 @@ from harness_builder_agent.schemas.self_improve_package import SelfImprovePackag
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.existing_harness_actions import (
     existing_harness_action_menu_lines,
+    is_existing_harness_action,
     normalize_existing_harness_action,
 )
 from harness_builder_agent.tools.existing_harness_action_summaries import (
@@ -366,7 +367,13 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     for line in _existing_harness_action_menu_lines():
         typer.echo(line)
 
-    action = _normalize_existing_harness_action(typer.prompt("你的选择", default="1").strip())
+    while True:
+        raw_action = typer.prompt("你的选择", default="1").strip()
+        action = _normalize_existing_harness_action(raw_action)
+        if _is_existing_harness_action(action):
+            break
+        typer.echo(f"未识别的维护动作：{raw_action}")
+        typer.echo("请输入菜单编号、英文命令或中文别名；直接回车等同于 `1` 只读退出。")
     return run_existing_harness_action(repo, ai, inventory, action, trace, maintenance_actions)
 
 
@@ -376,6 +383,10 @@ def _existing_harness_action_menu_lines() -> list[str]:
 
 def _normalize_existing_harness_action(value: str) -> str:
     return normalize_existing_harness_action(value)
+
+
+def _is_existing_harness_action(value: str) -> bool:
+    return is_existing_harness_action(value)
 
 
 def _benchmark_signal_lines(ai: Path) -> list[str]:

@@ -87,6 +87,11 @@ def existing_harness_action_number(action: str) -> str | None:
     return None
 
 
+def is_existing_harness_action(action: str) -> bool:
+    normalized = action.strip().lower()
+    return any(item.action == normalized for item in EXISTING_HARNESS_ACTIONS)
+
+
 def normalize_existing_harness_action(value: str) -> str:
     normalized = value.strip().lower()
     for item in EXISTING_HARNESS_ACTIONS:

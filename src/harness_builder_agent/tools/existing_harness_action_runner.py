@@ -293,18 +293,11 @@ def run_existing_harness_action(
             {"primary_stack": inventory.primary_stack, "action": "reinit"},
         )
         return None
-    typer.echo("未识别的选择，默认退出且不覆盖现有 Harness。")
-    trace.event(
-        "existing-harness",
-        "warning",
-        "Unknown existing Harness action; defaulted to exit.",
-        {"primary_stack": inventory.primary_stack, "action": action},
+    fail_existing_harness_action(
+        trace,
+        inventory,
+        action,
+        "Unknown existing Harness action.",
+        "unknown_existing_harness_action",
     )
-    trace.finish(
-        "completed",
-        {
-            "primary_stack": inventory.primary_stack,
-            "existing_harness_action": "exit",
-        },
-    )
-    return ai
+    return None
