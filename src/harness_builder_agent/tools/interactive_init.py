@@ -328,6 +328,13 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     typer.echo("- 维护状态摘要（Maintenance overview）:")
     for line in render_existing_harness_status_overview_lines(ai, config, score, maintenance_actions):
         typer.echo(f"  - {line}")
+    typer.echo("- 维护建议（Maintenance triage guidance）:")
+    for line in render_maintenance_triage_guidance_lines(maintenance_actions):
+        typer.echo(f"  - {line}")
+    typer.echo("- 推荐动作快捷选择（Maintenance action shortcuts）:")
+    for line in render_maintenance_triage_menu_hint_lines(maintenance_actions):
+        typer.echo(f"  - {line}")
+    typer.echo("- 审计明细（Audit signals）: 以下字段保留给排查、测试定位和报告溯源；优先按上方维护建议行动。")
     typer.echo("- 质量门禁信号（Benchmark signals）:")
     for line in benchmark_signal_lines(ai):
         typer.echo(f"  - {line}")
@@ -339,12 +346,6 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         typer.echo(f"  - {line}")
     typer.echo("- 维护优先级（Maintenance triage）:")
     for line in render_maintenance_triage_lines(maintenance_actions):
-        typer.echo(f"  - {line}")
-    typer.echo("- 维护建议（Maintenance triage guidance）:")
-    for line in render_maintenance_triage_guidance_lines(maintenance_actions):
-        typer.echo(f"  - {line}")
-    typer.echo("- 推荐动作快捷选择（Maintenance action shortcuts）:")
-    for line in render_maintenance_triage_menu_hint_lines(maintenance_actions):
         typer.echo(f"  - {line}")
     typer.echo("\n可选动作")
     for line in _existing_harness_action_menu_lines():

@@ -1978,6 +1978,12 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert "质量门禁：尚未运行 benchmark；建议先运行菜单 `4` 的 `benchmark` 建立质量基线。" in result.output
     assert "Workflow 路由：default=`lightweight`，standard escalation 已启用" in result.output
     assert "优先动作：输入 `4` 运行 `benchmark`（reason=benchmark_not_run，source=.ai/benchmark-report.yaml）。" in result.output
+    assert "审计明细（Audit signals）" in result.output
+    assert result.output.index("维护建议（Maintenance triage guidance）") < result.output.index("质量门禁信号（Benchmark signals）")
+    assert result.output.index("推荐动作快捷选择（Maintenance action shortcuts）") < result.output.index("质量门禁信号（Benchmark signals）")
+    assert result.output.index("审计明细（Audit signals）") < result.output.index("质量门禁信号（Benchmark signals）")
+    assert result.output.count("维护建议（Maintenance triage guidance）") == 1
+    assert result.output.count("推荐动作快捷选择（Maintenance action shortcuts）") == 1
     assert "质量门禁信号（Benchmark signals）" in result.output
     assert "benchmark_failed_checks=not_available" in result.output
     assert "Workflow 路由信号（Workflow routing signals）" in result.output

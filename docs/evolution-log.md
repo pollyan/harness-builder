@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 已有 Harness 维护焦点前置
+
+- North Star 模块：Maturity-driven Init、CLI Experience、Existing Harness 维护入口、Experience / review。
+- init North Star 旅程阶段：再次进入已有 Harness、维护状态摘要、下一步动作选择。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；上一轮 Gate 候选包括 Existing Harness raw signals 瘦身、full regression / push 工作包和继续围绕 init North Star 做新 gap。当前 existing Harness 入口已有中文 overview、triage guidance 和 shortcuts，但 guidance / shortcuts 排在 Benchmark / Workflow / Experience raw signals 后面，Maintainer 第一眼会先看到 `benchmark_failed_checks=`、`routing_default=`、`pending_improvements=` 等内部字段。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 进入已有 Harness 维护入口时，我可以在 raw 审计字段之前先看到中文维护建议和对应菜单编号，从而立刻知道下一步该选哪个动作，同时仍保留 Benchmark / Workflow / Experience raw signals 供排查和测试定位。
+- 当前代码 gap：`_handle_existing_harness_entry()` 在 overview 后立即输出 raw Benchmark / Workflow / Experience signals，最后才输出 `Maintenance triage guidance` 和 shortcuts；没有明确告诉用户后续机器字段是 audit detail。
+- 关键决策 / 取舍：不删除 raw signals，不新增隐藏 flag；只把 `Maintenance triage guidance` 和 shortcuts 前置，并增加 `Audit signals` 说明；raw section 名称和字段保持稳定，避免破坏审计和既有测试定位。
+- Assumptions / risks：输出顺序变化可能影响 transcript 测试，因此本轮用 integration 测试锁定 guidance / shortcut / audit label 出现在 raw signal 前，且只输出一次。
+- 边界情况 / 失败模式：exit 和 numbered exit 仍是只读动作，不扫描、不覆盖正式 Harness 资产、不追加首次初始化完成摘要；本轮不修改 action 执行、schema、benchmark、LLM、scan 或 Runtime。
+- Sub agent 使用情况：按 playbook 尝试启动只读 explorer 审查现有输出噪声和测试切入点，当前环境返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮是用户可见的 CLI 焦点调整，保护已有 Harness 维护入口第一屏决策体验；不把更大的首次 init follow-up / self-check 呈现重排或 push 工作包混入同一提交。
+- 可执行验收标准及验证方式：guided existing Harness exit integration 覆盖 guidance / shortcuts / audit label 顺序和不重复；相关 existing Harness tests 覆盖 overview、signals、triage、numbered exit 和 review-initial-candidate 行为；文档 diff 覆盖 README 和 init workflow。
+- 完成内容：`interactive_init.py` 将 `Maintenance triage guidance` 和 `Maintenance action shortcuts` 前置到 raw signals 之前，新增 `审计明细（Audit signals）` 说明；README 与 `docs/engineering/init-workflow.md` 同步；新增本轮 spec / plan。
+- 验证结果：RED integration 先因缺少 `Audit signals` 失败；实现后 targeted exit integration 1 passed；existing Harness / maintenance triage 相关 regression 40 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 473 passed。
+- Self-Harness Gate：长期文档已同步；无需新增 todo。下一轮候选 gap 包括首次 init 深度追问 / self-check 呈现审查，或在外部前置满足后处理 full regression / push 工作包。
+
 ## 2026-06-01 初始候选治理 Benchmark 契约
 
 - North Star 模块：Maturity-driven Init、Experience / review 维护入口、候选资产审核、schema / 数据契约、Benchmark 质量门禁。
