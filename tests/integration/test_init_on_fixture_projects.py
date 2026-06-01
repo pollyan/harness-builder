@@ -1947,6 +1947,51 @@ def test_guided_init_final_summary_back_to_scan_replaces_previous_corrections(tm
     assert "make final-test" in verification
 
 
+def test_guided_init_back_to_scan_resets_previous_candidate_decisions(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n"
+            "\n"
+            "\n"
+            "a\n"
+            "r\n"
+            "e\n"
+            "旧候选备注不应进入最终产物。\n"
+            "\n"
+            "back\n"
+            "scan\n"
+            "risk=src/main/resources/application.yml|最终风险\n"
+            "confirm\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "候选项已根据新的扫描状态刷新" in result.output
+    assert "上一轮候选审查决策已清空" in result.output
+    assert "back" in result.output
+    assert "candidates" in result.output
+
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    assert {item["decision"] for item in decisions["candidate_decisions"]} == {"kept"}
+    assert all("旧候选备注" not in item.get("notes", "") for item in decisions["candidate_decisions"])
+    assert {item["candidate_id"] for item in decisions["candidate_decisions"]} == {
+        "llm-guide-architecture-001",
+        "llm-guide-risk-001",
+        "llm-sensor-command-001",
+    }
+
+    candidate_report = yaml.safe_load((repo / ".ai" / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
+    assert {item["status"] for item in candidate_report["candidates"]} == {"candidate"}
+    assert all(item["human_confirmation_required"] is True for item in candidate_report["candidates"])
+    assert all("旧候选备注" not in item.get("decision_notes", "") for item in candidate_report["candidates"])
+
+
 def test_guided_init_final_summary_back_to_scan_can_clear_previous_corrections(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

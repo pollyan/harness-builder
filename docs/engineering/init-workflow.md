@@ -141,6 +141,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - scan 补充的即时复述必须发生在 `_apply_scan_overrides()` 更新内存态 inventory / command catalog 之后，让用户知道后续 weapon selection、maturity preview 和正式资产生成将基于已吸收的补充继续推进。
 - 用户在最终确认阶段返回 scan 重新输入补充时，新的 scan 补充必须替换上一版 scan 补充，而不是叠加旧 module / command / risk 到正式 project inventory 或 command catalog；最终 `.ai` 资产只能保留最新 scan 修正。
 - 用户在最终确认阶段返回 scan 且上一版 scan 补充非空时，CLI 必须明确说明新输入会替换上一版补充，直接回车会清空上一版补充；如果用户输入新的 scan 补充，CLI 必须输出“上一版补充 / 当前生效补充”的替换结果，说明最终写入只会使用当前生效补充；如果用户直接回车清空旧补充，CLI 必须输出可见确认，说明后续预览和正式资产会按扫描基线继续。
+- 用户在最终确认阶段返回 scan 后，CLI 必须刷新候选项并清空上一轮 candidate 审查决策，避免旧 scan 状态下的 `accepted` / `rejected` / `edited` 静默套用到当前扫描理解；如果用户需要重新审查候选，应显式返回 `candidates`。
 - 团队规则必须说明会进入团队上下文 Guide 和 `human-input-needed.md`。
 - 首次 guided `init` 收到团队规则后，必须在进入候选审查前立即复述这些规则，并说明它们会进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`；CLI 必须明确团队规则是用户提供的约束，不能被当作扫描事实。
 - `interaction-decisions.yaml` 中的 `context_confirmation` 必须在存在 `--context` 文件或交互式团队规则时记录机器可读的 `impact_scopes`、`review_status=pending_harness_maintainer_review` 和 `policy_effect=context_only_no_direct_policy_change`；无团队规则 / 无 context 输入时必须保持 `review_status=not_required` 和 `policy_effect=not_applicable`，避免后续 self-improve 或人工审计把团队规则自由文本误判为已应用的正式 policy。

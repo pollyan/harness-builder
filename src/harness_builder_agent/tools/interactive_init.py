@@ -226,6 +226,8 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             weapon_selection = select_weapon_library(inventory, commands)
             candidate_report = build_llm_enhancement_candidates(inventory, commands)
             candidate_ids = [item.id for item in candidate_report.candidates]
+            candidate_decisions = []
+            _show_candidate_review_reset_after_scan_back()
             continue
         if action == "rules":
             previous_inline_contexts = inline_contexts
@@ -285,6 +287,13 @@ def _show_guided_init_startup_boundary() -> None:
     typer.echo("- 本次会话会记录 generation trace，用于审计取消、失败和完成结果。")
     typer.echo("- 不会执行 Runtime，不会创建 `.ai/task-runs`，不会默认运行 benchmark。")
     typer.echo("- 在最终输入 `confirm` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程。")
+
+
+def _show_candidate_review_reset_after_scan_back() -> None:
+    typer.echo("\n候选审查已刷新")
+    typer.echo("- 候选项已根据新的扫描状态刷新。")
+    typer.echo("- 上一轮候选审查决策已清空，避免旧 accept / reject / edit 套用到当前扫描理解。")
+    typer.echo("- 如需重新审查候选，请在最终确认输入 `back` 并选择 `candidates`。")
 
 
 def _scan_repository_for_guided_init(repo: Path) -> tuple[ProjectInventory, CommandCatalog]:

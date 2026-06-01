@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Scan Back Candidate Review Reset
+
+- North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、候选治理审计。
+- init North Star 旅程阶段：最终确认前返回修改 scan、重新计算设计预览、review-only 候选确认边界。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括返回 scan 后清空旧候选审查决策、返回 scan 后自动重新进入候选审查、full regression / push 工作包。当前 `back -> scan` 已重算 `inventory`、`commands`、`weapon_selection` 和 `candidate_report`，但没有清空旧 `candidate_decisions`；如果用户在旧 scan 状态下接受 / 拒绝 / 编辑候选，再返回 scan 修改后直接确认，最终候选报告仍会套用旧决策。本轮选择清空旧决策，因为它最小化交互负担，同时堵住旧上下文污染当前审计记录。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的最终确认阶段返回 scan 修改扫描理解后，我可以看到候选审查决策已随 scan 状态刷新而清空，并且最终写入不会把上一版 scan 状态下的 accept / reject / edit 决策静默套用到当前候选，从而相信“返回修改”真的只使用当前生效的扫描理解和审查状态。
+- 当前代码 gap：`run_guided_init()` 的 `action == "scan"` 分支重算候选报告和候选 id，但保留旧 `candidate_decisions`；`accepted_interactive_decisions()` 和 `apply_candidate_decisions()` 会继续把这些旧决策写进 `interaction-decisions.yaml` 与 `.ai/experience/weapon-library-candidates.yaml`。
+- 关键决策 / 取舍：返回 scan 后清空 `candidate_decisions` 并输出候选审查刷新提示；不自动重新进入候选审查，用户需要复核时可显式 `back -> candidates`；不修改 candidate schema、LLM enhancement candidate 生成、writer、benchmark 或 Runtime 分工。
+- Assumptions / risks：scan 修改代表候选审查依赖的上游理解发生变化，旧 accept / reject / edit 不应继续生效；即使用户只是小幅修改 scan supplement，也需要重新显式审查候选，这是为了避免旧上下文污染正式审计记录。
+- 边界情况 / 失败模式及回应：返回 scan 后旧候选备注不会进入最终产物；当前候选仍会以默认 `kept` 保留 review-only 状态；用户仍可通过最终确认的 `back -> candidates` 重新逐项审查；不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 `back -> scan` 候选链路，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理首次 guided init 的 scan 返回修改与候选审查状态一致性，不混入自动重审 UX、existing Harness 维护入口或 push 工作包。
+- 可执行验收标准及验证方式：新增 integration RED 先证明旧 candidate accept / reject / edit 会在 `back -> scan` 后保留；实现后断言 CLI 输出清空提醒、`interaction-decisions.yaml` 当前候选全为 `kept`、`.ai/experience/weapon-library-candidates.yaml` 保持 `candidate` 且不含旧备注；完整 guided init integration 回归覆盖其他 back 路径。
+- 完成内容：`run_guided_init()` 在返回 scan 后刷新候选报告并清空旧 `candidate_decisions`；新增候选审查刷新提示；新增 integration test；`docs/engineering/init-workflow.md` 沉淀稳定规则；新增本轮 spec / plan。
+- 验证结果：RED targeted integration 先 1 failed；实现后新增 targeted 1 passed，scan back / candidate review targeted 4 passed，`tests/unit/test_guided_candidate_review.py` 3 passed，`tests/integration/test_init_on_fixture_projects.py` 50 passed。
+- Self-Harness Gate：长期 init workflow 已同步；无需新增 open todo；未改变 schema、LLM、benchmark、writer 或 Runtime。下一轮候选 gap：自动重新审查 candidates 是否值得引入，或继续从 init North Star 选择首次 init 用户可见 gap；push 仍需 full regression 外部前置。
+
 ## 2026-06-01 Guided Init Workflow Skill 启动边界
 
 - North Star 模块：Maturity-driven Init、CLI Experience、Workflow Toolkit、文档事实源。
