@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 智能维护动作模块抽取
+
+- North Star 模块：Maturity-driven Init、已有 Harness 维护入口、Experience / Self-Improve、LLM / review-only 智能改进、工程架构可维护性。
+- init North Star 旅程阶段：再次进入已有 Harness、维护动作选择、智能维护动作成功 / 失败审计。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 Existing Harness 智能维护动作抽取、首次 init completion summary 继续紧凑化、push / full regression 同步工作包。当前已有 Harness entry、review actions、failure helper 和 summaries 已拆出，但 `existing_harness_action_runner.py` 仍直接持有 `recommend-workflow` 和 `self-improve` 的 LLM 工具、schema 读取、YAML 解析、artifact 记录和失败边界。本轮选择智能维护动作抽取，因为它保护“再次进入已有 Harness -> 运行 review-only 智能动作”的后续迭代，并且不改变用户可见契约。
+- 用户故事 / 工程信任故事：作为 Harness Builder 维护者，当我继续演进已有 Harness 入口里的 `recommend-workflow` 和 `self-improve` 智能维护动作时，我可以在独立的 intelligent action 模块中维护 LLM / review-only 动作的输入、schema 读取、trace artifact、成功摘要和 action-specific 失败边界，从而让 action runner 保持路由清晰，并降低改智能动作时影响 `assess`、`improve`、`benchmark`、review governance 或 `reinit` 的风险。
+- 当前代码 gap：`existing_harness_action_runner.py` 同时混合 deterministic action、review action delegate 和 LLM / review-only intelligent action；智能动作与 runner 耦合导致后续修改 workflow recommendation 或 self-improve 失败边界时容易误伤其他维护动作。
+- 关键决策 / 取舍：新增 `existing_harness_intelligent_actions.py` 承接 `run_recommend_workflow_action()` 与 `run_self_improve_action()`；runner 只保留 delegate；不改变 prompt、schema、artifact kind、CLI 文案、trace summary、正式资产写入或 Runtime 分工；integration monkeypatch 路径迁到新模块。
+- Assumptions / risks：假设外部用户只通过 CLI 使用这两条 guided action，不依赖 runner 内部导入符号。风险是行为保持型抽取遗漏 artifact 或 trace 字段，因此用 success / failure targeted integration 与完整 init integration 覆盖。
+- 边界情况 / 失败模式及回应：`recommend-workflow` 空 task brief 仍 action-specific failed；底层 workflow router 失败仍保留 `workflow_recommendation_failed`、短错误和 `task_id`；`self-improve` 失败仍保留 `self_improve_failed`、短错误和错误类型；两者均不覆盖正式 Harness 资产、不创建 `.ai/task-runs`、不写泛化 `init failed`。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 调研 action runner 边界，当前环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只抽取已有 Harness 中两个 LLM / review-only 智能动作，不拆 `assess`、`improve`、`benchmark`，不修改 review governance、首次 init、LLM prompt、benchmark 或 Runtime。
+- 可执行验收标准及验证方式：新增 unit 边界测试证明 runner 委托 intelligent action 模块且不直接持有 LLM schema / tool 依赖；recommend-workflow / self-improve success 和 failure targeted integration 证明 CLI、trace、正式资产和 Runtime 边界保持；完整 init integration 回归维护入口主要路径。
+- 完成内容：新增 `src/harness_builder_agent/tools/existing_harness_intelligent_actions.py`；`existing_harness_action_runner.py` 删除 direct LLM action 实现并降到委托；更新 integration monkeypatch 路径；`docs/engineering/architecture.md` 记录新模块职责；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED unit 先因 `existing_harness_intelligent_actions` 模块不存在失败；实现后 `tests/unit/test_existing_harness_action_boundaries.py` 4 passed；recommend-workflow / self-improve targeted integration 5 passed；`tests/integration/test_init_on_fixture_projects.py` 66 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 510 passed。`scripts/test-full.sh` 的 fast 段 510 passed，但 acceptance 3 failed，原因是沙箱内无法解析 `api.deepseek.com`；已按规则申请非沙箱 full regression，因会向外部 DeepSeek 发送本地 fixture / benchmark 仓库 evidence 被策略拒绝，因此本轮不 push。
+- Self-Harness Gate：架构文档已同步新模块职责；README / init workflow 不需要更新，因为用户可见契约未变；未改变 `.ai` schema、LLM prompt、benchmark、Sensor 或 Runtime。当前 `docs/todos` 仍无 open todo。下一轮候选 gap 继续从 Current State Gap Analysis 选择，可考虑首次 init completion 细节、existing Harness deterministic action 进一步分层，或在获得合规外部验收许可后处理 push 同步。
+
 ## 2026-06-01 Existing Harness 维护入口模块抽取
 
 - North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、工程架构可维护性。

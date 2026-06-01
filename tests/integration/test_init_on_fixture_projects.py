@@ -3065,7 +3065,7 @@ def test_guided_init_existing_harness_recommend_workflow_llm_failure_preserves_a
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
     monkeypatch.setattr(
-        "harness_builder_agent.tools.existing_harness_action_runner.recommend_workflow",
+        "harness_builder_agent.tools.existing_harness_intelligent_actions.recommend_workflow",
         fail_recommend_workflow,
     )
 
@@ -3811,7 +3811,7 @@ def test_guided_init_existing_harness_self_improve_failure_preserves_action_trac
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
     monkeypatch.setattr(
-        "harness_builder_agent.tools.existing_harness_action_runner.run_self_improve",
+        "harness_builder_agent.tools.existing_harness_intelligent_actions.run_self_improve",
         fail_self_improve,
     )
 
