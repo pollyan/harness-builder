@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Scan Back Candidate Summary
+
+- North Star 模块：Maturity-driven Init、CLI Experience、review-only 候选治理、写入前确认边界。
+- init North Star 旅程阶段：最终确认前返回修改 scan、重新计算设计预览、候选审查状态说明。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括返回 scan 后最终确认准确展示候选待复核状态、返回 scan 后自动重新进入候选审查、full regression / push 工作包。当前 `back -> scan` 已刷新候选并清空旧决策，但下一次最终确认摘要只统计 `candidate_decisions`，因此显示“保持候选 0 条”，与最终写入默认生成 3 条 kept 候选不一致。本轮选择修正摘要，因为它直接保护写入前审查可信度，同时不增加自动重审的交互成本。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 最终确认阶段返回 scan 修改扫描理解后，我可以在下一次最终确认摘要中看到候选已刷新、旧决策已清空、当前仍有多少候选待重新审查且默认保持候选，从而不会把“候选决策 0 条”误解为“没有候选需要审查”。
+- 当前代码 gap：`_confirm_summary()` 只接收并统计 `candidate_decisions`；返回 scan 后该列表被清空，虽然 `accepted_interactive_decisions()` 最终会按 `candidate_ids` 写入 kept 决策，CLI 却没有展示这个默认边界。
+- 关键决策 / 取舍：给 `_confirm_summary()` 传入刷新后的候选数量；有逐项决策时保留原统计，无逐项决策但存在候选时展示“待重新审查 N 条”和默认 kept 边界；不自动重新进入候选审查，不修改 candidate schema、writer、LLM candidate generation、benchmark 或 Runtime 分工。
+- Assumptions / risks：清空候选决策后的默认 kept 是当前稳定契约；本轮只把这个契约讲清楚。提示只在无逐项决策但有候选时出现，避免普通 happy path 输出变长。
+- 边界情况 / 失败模式及回应：无候选时显示暂无候选；有候选且已逐项审查时继续显示确认 / 拒绝 / 备注 / 保持统计；返回 scan 后旧备注不会进入最终产物；用户仍可通过 `back` / `返回` -> `candidates` / `候选` 重新审查。
+- Sub agent 使用情况：尝试启动只读 explorer 审查候选 gap，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只修正“返回 scan 后候选状态在最终确认中讲清楚”的用户可见事实，不把自动重审 UX 或已有 Harness 候选治理入口混入。
+- 可执行验收标准及验证方式：新增 integration RED 先证明 `back -> scan` 后最终确认摘要缺少待复核候选说明；实现后断言 CLI 展示待重新审查 3 条和默认保持候选边界，同时 `interaction-decisions.yaml` 仍为 3 条 kept 且旧备注不进入 candidate report。
+- 完成内容：`interactive_init.py` 增加候选摘要 helper 和 `candidate_count` 输入；返回 scan 后最终确认摘要准确展示待复核候选数量；`docs/engineering/init-workflow.md` 沉淀稳定规则；新增本轮 spec / plan。
+- 验证结果：RED targeted integration 先 1 failed；实现后 targeted 1 passed；候选逐项审查 happy path 1 passed；`tests/integration/test_init_on_fixture_projects.py` 53 passed。提交前 fast / full 结果见本轮最终验证。
+- Self-Harness Gate：init workflow 已同步；README 无需为该细节加长主说明；未新增 schema、LLM、benchmark、writer 或 Runtime 变更。下一轮候选 gap 仍可评估是否需要自动重审 candidates；远端 push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 Guided Final Confirm Chinese Aliases
 
 - North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、写入前确认边界。

@@ -204,7 +204,8 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             scan_overrides,
             inline_contexts,
             candidate_decisions,
-            workflow_confirmation,
+            candidate_count=len(candidate_ids),
+            workflow_confirmation=workflow_confirmation,
         )
         if action == "confirm":
             break
@@ -534,6 +535,7 @@ def _confirm_summary(
     scan_overrides: GuidedScanOverrides,
     inline_contexts: list[str],
     candidate_decisions: list[CandidateDecision],
+    candidate_count: int,
     workflow_confirmation: WorkflowConfirmation,
 ) -> str:
     typer.echo("\n最终确认")
@@ -541,11 +543,7 @@ def _confirm_summary(
     typer.echo(f"- 技术栈：{_stack_summary_label(inventory)}")
     typer.echo(f"- 模块数量：{len(inventory.modules)}")
     typer.echo(f"- 团队规则：{len(inline_contexts)} 条")
-    accepted = sum(1 for item in candidate_decisions if item.decision == "accepted")
-    rejected = sum(1 for item in candidate_decisions if item.decision == "rejected")
-    edited = sum(1 for item in candidate_decisions if item.decision == "edited")
-    kept = sum(1 for item in candidate_decisions if item.decision == "kept")
-    typer.echo(f"- 候选决策：确认 {accepted} 条，拒绝 {rejected} 条，备注 {edited} 条，保持候选 {kept} 条")
+    typer.echo(_candidate_decision_summary_line(candidate_decisions, candidate_count))
     hard_gates = [command.command for command in commands.commands if command.gate == "hard"]
     typer.echo(f"- hard gate 命令：{', '.join(hard_gates) if hard_gates else '暂未确认'}")
     typer.echo(f"- Workflows：{', '.join(workflow_confirmation.shown_workflows) or '无'}")
@@ -572,6 +570,18 @@ def _confirm_summary(
             return "cancel"
         typer.echo(f"未识别的最终确认输入：{raw_choice.strip()}")
         typer.echo("请输入 `confirm`/`确认`、`back`/`返回` 或 `cancel`/`取消`；直接回车等同于 `confirm`。")
+
+
+def _candidate_decision_summary_line(candidate_decisions: list[CandidateDecision], candidate_count: int) -> str:
+    if candidate_decisions:
+        accepted = sum(1 for item in candidate_decisions if item.decision == "accepted")
+        rejected = sum(1 for item in candidate_decisions if item.decision == "rejected")
+        edited = sum(1 for item in candidate_decisions if item.decision == "edited")
+        kept = sum(1 for item in candidate_decisions if item.decision == "kept")
+        return f"- 候选决策：确认 {accepted} 条，拒绝 {rejected} 条，备注 {edited} 条，保持候选 {kept} 条"
+    if candidate_count:
+        return f"- 候选决策：待重新审查 {candidate_count} 条；最终确认会默认保持候选，可输入 back/返回 -> candidates/候选 复核。"
+    return "- 候选决策：暂无候选。"
 
 
 def _apply_scan_overrides(

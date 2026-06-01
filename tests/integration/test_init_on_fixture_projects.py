@@ -2043,6 +2043,9 @@ def test_guided_init_back_to_scan_resets_previous_candidate_decisions(tmp_path: 
     assert "上一轮候选审查决策已清空" in result.output
     assert "back" in result.output
     assert "candidates" in result.output
+    final_summary = result.output[result.output.rindex("\n最终确认\n") : result.output.index("输入 confirm/确认", result.output.rindex("\n最终确认\n"))]
+    assert "候选决策：待重新审查 3 条" in final_summary
+    assert "最终确认会默认保持候选" in final_summary
 
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     assert {item["decision"] for item in decisions["candidate_decisions"]} == {"kept"}
