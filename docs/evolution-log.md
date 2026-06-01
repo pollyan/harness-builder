@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init Workflow Skill 启动边界
+
+- North Star 模块：Maturity-driven Init、CLI Experience、Workflow Toolkit、文档事实源。
+- init North Star 旅程阶段：首次初始化启动说明、继续扫描前的边界确认、`.ai/` 产物理解。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括启动说明与 README 产物树显式列出三类 Workflow Skill、返回 scan 后重新审查 LLM enhancement candidates、full regression / push 工作包。上一轮已补齐 Workflow 确认阶段的 `standard`，但启动说明仍只泛称 Workflow Skills，README `.ai/skills/` 树也漏列 `standard/SKILL.md`。本轮选择该 gap，因为它让 Maintainer 在继续扫描前和查阅 README 时都能看到三条默认工作流基线。
+- 用户故事：作为 Harness Maintainer，当我刚运行首次 guided `init` 并看到启动说明或查阅 README 的 `.ai/` 产物树时，我可以明确知道本次会生成 `lightweight`、`bugfix` 和 `standard` 三类 Workflow Skill，从而在继续扫描前就理解 Harness 会包含低风险、缺陷修复和高风险升级三条工作流基线。
+- 当前代码 gap：`_show_guided_init_startup_boundary()` 只说明会生成 Workflow Skills，没有列出三类 Skill；README 产物树只列 `lightweight` / `bugfix`，与当前 writer、`harness-config.yaml` 和写入前 preview 的三类 Skill 事实源不一致。
+- 关键决策 / 取舍：保留原有 `Workflow Skills` 稳定短语，同时补充 `lightweight`、`bugfix`、`standard` 明细；只修正启动说明和 README 树，不修改 Skill 模板、schema、routing policy、benchmark、LLM 或 Runtime 分工。
+- Assumptions / risks：三类 Workflow Skill 是当前首次 init 的稳定默认基线，适合放进启动边界；启动说明不展开每类 Skill 阶段细节，详细关系仍由后续 Workflow 确认和写入前 preview 承担。
+- 边界情况 / 失败模式及回应：确认继续前仍不写正式 Harness 资产；不执行 Runtime、不创建 `.ai/task-runs`；README 树只修正当前明确遗漏的 `standard/SKILL.md`，不把树扩展成完整资产索引。
+- Sub agent 使用情况：尝试启动只读 explorer 审查启动说明与 README 产物树缺口，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只完成“用户在 init 起点理解三类 Workflow Skill 基线”的纵向小切片，不混入返回 scan 后候选重审、existing Harness 维护入口或远端同步工作包。
+- 可执行验收标准及验证方式：guided init integration 先 RED 证明启动说明缺少三类 Skill 名；实现后 startup transcript 在继续扫描前包含 `lightweight` / `bugfix` / `standard`；README `.ai/skills/` 树包含 `standard/SKILL.md`；skill writer regression 继续证明三类 Skill 实际生成。
+- 完成内容：更新 `_show_guided_init_startup_boundary()` 启动文案；README `.ai/skills/` 树补齐 `standard/SKILL.md`；新增 guided init startup transcript 断言；新增本轮 spec / plan。
+- 验证结果：RED targeted integration 先 1 failed；实现后 targeted guided integration 1 passed、skill writer 1 passed、`tests/integration/test_init_on_fixture_projects.py` 49 passed，`compileall` 通过，`git diff --check` 通过，`scripts/test-fast.sh` 488 passed。
+- Self-Harness Gate：长期 README 已同步；无需新增 open todo；未改变 schema、LLM、benchmark、writer 或 Runtime。下一轮候选 gap：返回 scan 后 candidate review 是否需要重审，或在补齐 DeepSeek key 与 `.benchmarks` 后重新执行 full regression 并 push。
+
 ## 2026-06-01 Guided Init Standard Workflow 确认
 
 - North Star 模块：Maturity-driven Init、CLI Experience、Workflow Toolkit、渐进式交互。

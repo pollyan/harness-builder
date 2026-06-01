@@ -72,6 +72,7 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
   skills/
     lightweight/SKILL.md
     bugfix/SKILL.md
+    standard/SKILL.md
   maturity-report.md
   maturity-score.yaml
   maturity-evidence.yaml

@@ -278,7 +278,10 @@ def _show_guided_init_startup_boundary() -> None:
     typer.echo("\n== 启动说明 ==")
     typer.echo("- 将扫描仓库文件、构建配置、CI、测试、文档和源码样本证据。")
     typer.echo("- 需要你确认或补充技术栈、模块边界、风险区域、验证命令、团队规则和 Workflow 说明。")
-    typer.echo("- 最终确认写入后将生成 project inventory、command catalog、Guides、Sensors、Workflow Skills、成熟度报告和待确认项。")
+    typer.echo(
+        "- 最终确认写入后将生成 project inventory、command catalog、Guides、Sensors、Workflow Skills、成熟度报告和待确认项；"
+        "Workflow Skills 包括 `lightweight`、`bugfix` 和 `standard`。"
+    )
     typer.echo("- 本次会话会记录 generation trace，用于审计取消、失败和完成结果。")
     typer.echo("- 不会执行 Runtime，不会创建 `.ai/task-runs`，不会默认运行 benchmark。")
     typer.echo("- 在最终输入 `confirm` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程。")

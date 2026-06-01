@@ -428,6 +428,10 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "将扫描仓库文件、构建配置、CI、测试、文档和源码样本证据" in result.output
     assert "需要你确认或补充技术栈、模块边界、风险区域、验证命令、团队规则和 Workflow 说明" in result.output
     assert "最终确认写入后将生成 project inventory、command catalog、Guides、Sensors、Workflow Skills、成熟度报告和待确认项" in result.output
+    startup = result.output[result.output.index("== 启动说明 ==") : result.output.index("继续生成 Harness?")]
+    assert "lightweight" in startup
+    assert "bugfix" in startup
+    assert "standard" in startup
     assert "本次会话会记录 generation trace，用于审计取消、失败和完成结果" in result.output
     assert "不会执行 Runtime" in result.output
     assert "不会创建 `.ai/task-runs`" in result.output
