@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import typer
@@ -108,32 +109,29 @@ from harness_builder_agent.tools.prewrite_preview import (
     weapon_maturity_dimension_keys as _weapon_maturity_dimension_keys,
     weapon_next_lift_summary as _weapon_next_lift_summary,
 )
-from harness_builder_agent.tools.scan_repo import scan_repository
+from harness_builder_agent.tools.scan_repo import ScanProgressEvent, scan_repository
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
 
 def run_non_interactive_init(repo: Path, context_paths: list[Path], trace: GenerationTrace) -> Path:
     trace.event("scan", "started", "Repository scan started.")
+    progress = _ScanProgressRecorder(trace=trace, echo=False)
     try:
-        inventory, commands = scan_repository(repo)
+        inventory, commands = _scan_repository_with_optional_progress(repo, progress)
     except Exception as exc:
         error_message = _short_error_message(exc)
+        failed_details = _scan_failure_details(exc, error_message, progress)
         trace.event(
             "scan",
             "failed",
             "Repository scan failed before writing formal Harness assets.",
-            {"error_type": type(exc).__name__, "error": error_message},
+            failed_details,
         )
         _show_non_interactive_scan_failed(exc, error_message)
         trace.finish(
             "failed",
-            {
-                "error_type": type(exc).__name__,
-                "scan_error": error_message,
-                "scan_completed": False,
-                "formal_assets_written": False,
-            },
+            _scan_failure_summary(exc, error_message, progress),
         )
         raise typer.Exit(code=1) from None
     trace.event(
@@ -181,23 +179,27 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
 
     _show_scan_progress_start(repo)
     trace.event("scan", "started", "Repository scan started.")
+    progress = _ScanProgressRecorder(trace=trace, echo=True)
     try:
-        inventory, commands = _scan_repository_for_guided_init(repo)
+        inventory, commands = _scan_repository_for_guided_init(repo, progress)
     except Exception as exc:
         error_message = _short_error_message(exc)
+        failed_details = _scan_failure_details(exc, error_message, progress)
         trace.event(
             "scan",
             "failed",
             "Repository scan failed before writing formal Harness assets.",
-            {"error_type": type(exc).__name__, "error": error_message},
+            failed_details,
         )
-        _show_scan_progress_failed(exc, error_message=error_message)
-        summary = {
-            "error_type": type(exc).__name__,
-            "scan_error": error_message,
-            "scan_completed": False,
-            "formal_assets_written": False,
-        }
+        _show_scan_progress_failed(
+            exc,
+            error_message=error_message,
+            failed_phase=progress.current_phase,
+            failed_phase_details=progress.current_details,
+            trace_path=trace.run_dir / "trace.yaml",
+            repo=repo,
+        )
+        summary = _scan_failure_summary(exc, error_message, progress)
         if reinit_requested:
             summary["existing_harness_action"] = "reinit"
         trace.finish("failed", summary)
@@ -432,10 +434,57 @@ def _show_candidate_review_reset_after_scan_back() -> None:
     typer.echo("- 接下来将按当前扫描状态重新审查候选。")
 
 
-def _scan_repository_for_guided_init(repo: Path) -> tuple[ProjectInventory, CommandCatalog]:
+@dataclass
+class _ScanProgressRecorder:
+    trace: GenerationTrace
+    echo: bool
+    current_phase: str | None = None
+    current_details: dict[str, object] = field(default_factory=dict)
+
+    def __call__(self, event: ScanProgressEvent) -> None:
+        if event.status == "started":
+            self.current_phase = event.phase
+            self.current_details = dict(event.details)
+        elif event.phase == self.current_phase:
+            self.current_details.update(event.details)
+        if self.echo:
+            _guided_scan_progress(event)
+        self.trace.event(f"scan:{event.phase}", event.status, event.message, event.details)
+
+
+def _scan_repository_for_guided_init(repo: Path, progress: _ScanProgressRecorder) -> tuple[ProjectInventory, CommandCatalog]:
+    return _scan_repository_with_optional_progress(repo, progress)
+
+
+def _scan_repository_with_optional_progress(repo: Path, progress: _ScanProgressRecorder) -> tuple[ProjectInventory, CommandCatalog]:
     if _scan_repository_accepts_progress(scan_repository):
-        return scan_repository(repo, progress=_guided_scan_progress)
+        return scan_repository(repo, progress=progress)
     return scan_repository(repo)
+
+
+def _scan_failure_details(exc: Exception, error_message: str, progress: _ScanProgressRecorder) -> dict[str, object]:
+    details: dict[str, object] = {"error_type": type(exc).__name__, "error": error_message}
+    if progress.current_phase:
+        details["failed_scan_phase"] = progress.current_phase
+    for key in ("llm_phase", "llm_input_chars", "model", "timeout_seconds"):
+        if key in progress.current_details:
+            details[key] = progress.current_details[key]
+    return details
+
+
+def _scan_failure_summary(exc: Exception, error_message: str, progress: _ScanProgressRecorder) -> dict[str, object]:
+    summary: dict[str, object] = {
+        "error_type": type(exc).__name__,
+        "scan_error": error_message,
+        "scan_completed": False,
+        "formal_assets_written": False,
+    }
+    if progress.current_phase:
+        summary["failed_scan_phase"] = progress.current_phase
+    for key in ("llm_input_chars", "model", "timeout_seconds"):
+        if key in progress.current_details:
+            summary[key] = progress.current_details[key]
+    return summary
 
 
 def _scan_repository_accepts_progress(scan_callable) -> bool:

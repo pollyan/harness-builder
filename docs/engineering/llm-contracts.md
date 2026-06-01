@@ -82,6 +82,7 @@ Harness Builder 的扫描策略是 LLM-first。
 
 - 在错误信息中说明需要配置 DeepSeek。
 - 对 DeepSeek 返回空 `content` 这类瞬时 API 响应异常做有限重试；重试仍失败时必须显式失败并暴露 `finish_reason`、message keys 等非敏感诊断信息。
+- 在 LLM 请求前后记录非敏感诊断信息，例如 LLM 子阶段、model、timeout、输入字符数估算和 trace 路径；这些信息只能用于定位超时、schema 失败或网络问题，不能作为 fallback 成功依据。
 - 在调和阶段降低置信度。
 - 对无法确认的信息标记 `needs_human_confirmation`。
 - 在 Markdown 中明确写出“未发现证据”或“需要人工确认”。

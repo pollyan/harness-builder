@@ -33,6 +33,29 @@ class DeepSeekConfig:
         )
 
 
+@dataclass(frozen=True)
+class DeepSeekRuntimeSettings:
+    base_url: str
+    model: str
+    timeout_seconds: int
+    temperature: float
+    max_tokens: int
+    api_key_configured: bool
+
+    @classmethod
+    def from_env(cls, env_path: Path | None = None, load_dotenv: bool = True) -> "DeepSeekRuntimeSettings":
+        if load_dotenv:
+            _load_dotenv(env_path or Path.cwd() / ".env")
+        return cls(
+            base_url=os.getenv("HARNESS_BUILDER_LLM_BASE_URL", "https://api.deepseek.com").rstrip("/"),
+            model=os.getenv("HARNESS_BUILDER_LLM_MODEL", "deepseek-v4-pro"),
+            timeout_seconds=int(os.getenv("HARNESS_BUILDER_LLM_TIMEOUT_SECONDS", "60")),
+            temperature=float(os.getenv("HARNESS_BUILDER_LLM_TEMPERATURE", "0.1")),
+            max_tokens=int(os.getenv("HARNESS_BUILDER_LLM_MAX_TOKENS", "8192")),
+            api_key_configured=bool(os.getenv("HARNESS_BUILDER_LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY")),
+        )
+
+
 def _load_dotenv(path: Path) -> None:
     if not path.exists():
         return

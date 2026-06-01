@@ -439,9 +439,11 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "不完整 Harness 状态" not in result.output
     assert "最终输入 `confirm`/`确认` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程" in result.output
     assert scan_stage in result.output
-    assert "正在收集仓库文件、构建配置、CI、测试和文档证据" in result.output
-    assert "正在请求 LLM 做结构化扫描" in result.output
-    assert "正在调和 LLM 判断与 evidence" in result.output
+    assert "LLM 扫描配置" in result.output
+    assert "扫描阶段计划" in result.output
+    assert "1. 收集仓库 evidence" in result.output
+    assert "4. 请求 LLM 结构化扫描" in result.output
+    assert "5. 调和扫描结果" in result.output
     assert "扫描完成" in result.output
     assert "当前阶段：收集仓库 evidence" in result.output
     assert "当前阶段：请求 LLM 规划补充 evidence" in result.output
@@ -775,9 +777,23 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
         messages.append(str(message))
         return original_echo(message, *args, **kwargs)
 
-    def fail_scan(repo_path: Path):
+    def fail_scan(repo_path: Path, progress=None):
         assert any("扫描仓库" in message for message in messages)
-        raise RuntimeError("synthetic scan failure\nwith internal details")
+        assert progress is not None
+        progress(
+            ScanProgressEvent(
+                phase="plan-evidence-expansion",
+                status="started",
+                message="Planning evidence expansion with LLM.",
+                details={
+                    "llm_phase": "evidence planner",
+                    "llm_input_chars": 1_159_745,
+                    "model": "deepseek-v4-pro",
+                    "timeout_seconds": 60,
+                },
+            )
+        )
+        raise TimeoutError("The read operation timed out")
 
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.typer.echo", record_echo)
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
@@ -788,19 +804,23 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
     assert result.exit_code != 0
     assert "扫描仓库" in output
     assert "扫描阶段失败" in output
+    assert "失败阶段：LLM evidence planner" in output
+    assert "DeepSeek 请求在 60s 内未返回" in output
+    assert "本次 LLM 输入估算：约 1.1MB" in output
+    assert "HARNESS_BUILDER_LLM_TIMEOUT_SECONDS=180" in output
     assert "未写入正式 Harness 资产" in output
     assert "请检查 LLM 配置、网络或扫描错误后重试" in output
-    assert "RuntimeError: synthetic scan failure with internal details" in output
-    assert "RuntimeError: synthetic scan failure\nwith internal details" not in output
+    assert "TimeoutError: The read operation timed out" in output
     assert "Traceback" not in output
-    assert not isinstance(result.exception, RuntimeError)
+    assert not isinstance(result.exception, TimeoutError)
     assert output.index("扫描仓库") < output.index("扫描阶段失败")
     run_dirs = sorted((repo / ".ai" / "runs").iterdir())
     assert len(run_dirs) == 1
     trace = yaml.safe_load((run_dirs[0] / "trace.yaml").read_text(encoding="utf-8"))
     assert trace["status"] == "failed"
-    assert trace["summary"]["error_type"] == "RuntimeError"
-    assert trace["summary"]["scan_error"] == "synthetic scan failure with internal details"
+    assert trace["summary"]["error_type"] == "TimeoutError"
+    assert trace["summary"]["scan_error"] == "The read operation timed out"
+    assert trace["summary"]["failed_scan_phase"] == "plan-evidence-expansion"
     assert trace["summary"]["scan_completed"] is False
     assert trace["summary"]["formal_assets_written"] is False
     events = [
@@ -810,8 +830,15 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
     assert any(
         event["stage"] == "scan"
         and event["event_type"] == "failed"
-        and event["details"]["error_type"] == "RuntimeError"
-        and event["details"]["error"] == "synthetic scan failure with internal details"
+        and event["details"]["error_type"] == "TimeoutError"
+        and event["details"]["error"] == "The read operation timed out"
+        and event["details"]["failed_scan_phase"] == "plan-evidence-expansion"
+        for event in events
+    )
+    assert any(
+        event["stage"] == "scan:plan-evidence-expansion"
+        and event["event_type"] == "started"
+        and event["details"]["llm_input_chars"] == 1_159_745
         for event in events
     )
     assert not any(event["stage"] == "init" and event["event_type"] == "failed" for event in events)

@@ -8,6 +8,7 @@ from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.harness_config import HarnessConfig
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
+from harness_builder_agent.tools.llm_config import DeepSeekRuntimeSettings
 from harness_builder_agent.tools.maturity_model import build_maturity_report
 from harness_builder_agent.tools.prewrite_preview import has_existing_partial_harness
 from harness_builder_agent.tools.risk_signals import classify_risk_area, high_impact_risk_areas
@@ -28,22 +29,41 @@ SCAN_PROGRESS_LABELS = {
     "scan-self-check": "请求 LLM 二次自检深度追问",
 }
 
+LLM_FAILURE_PHASE_LABELS = {
+    "plan-evidence-expansion": "LLM evidence planner",
+    "llm-scan": "LLM scan analyzer",
+    "scan-self-check": "LLM scan self-check",
+}
+
 
 def show_scan_progress_start(repo: Path) -> None:
+    settings = DeepSeekRuntimeSettings.from_env()
     typer.echo("\n扫描仓库")
     typer.echo(f"- 目标仓库：{repo}")
-    typer.echo("- 正在收集仓库文件、构建配置、CI、测试和文档证据。")
-    typer.echo("- 正在识别构建、测试、验证命令、源码入口、模块线索和风险区域。")
-    typer.echo("- 正在请求 LLM 做结构化扫描，并校验返回 schema。")
-    typer.echo("- 正在调和 LLM 判断与 evidence；这个阶段可能需要一些时间。")
+    typer.echo("\nLLM 扫描配置")
+    typer.echo("- provider: DeepSeek")
+    typer.echo(f"- model: {settings.model}")
+    typer.echo(f"- timeout: {settings.timeout_seconds}s")
+    typer.echo("- 预计 LLM 调用：evidence planner、scan analyzer，必要时 scan self-check。")
+    typer.echo("- 大仓库可能需要更长时间；超时不会写入正式 Harness 资产。")
+    typer.echo("\n扫描阶段计划")
+    typer.echo("1. 收集仓库 evidence")
+    typer.echo("2. 请求 LLM 规划补充 evidence")
+    typer.echo("3. 读取补充 evidence")
+    typer.echo("4. 请求 LLM 结构化扫描")
+    typer.echo("5. 调和扫描结果")
 
 
 def guided_scan_progress(event: ScanProgressEvent) -> None:
     label = SCAN_PROGRESS_LABELS.get(event.phase, event.message)
     if event.status == "started":
-        typer.echo(f"- 当前阶段：{label}")
+        suffix = _progress_detail_suffix(event.details)
+        typer.echo(f"- 当前阶段：{label}{suffix}")
         return
-    typer.echo(f"  已完成：{label}")
+    suffix = _progress_detail_suffix(event.details)
+    typer.echo(f"  已完成：{label}{suffix}")
+    if event.phase == "collect-evidence" and _is_large_scan(event.details):
+        typer.echo("  检测到大仓库扫描：LLM 输入较大，可能超过默认 timeout。")
 
 
 def show_scan_progress_completed(inventory: ProjectInventory, commands: CommandCatalog) -> None:
@@ -53,12 +73,75 @@ def show_scan_progress_completed(inventory: ProjectInventory, commands: CommandC
     typer.echo(f"- 初步识别验证命令数量：{len(commands.commands)}。")
 
 
-def show_scan_progress_failed(exc: Exception, error_message: str | None = None) -> None:
+def show_scan_progress_failed(
+    exc: Exception,
+    error_message: str | None = None,
+    *,
+    failed_phase: str | None = None,
+    failed_phase_details: dict[str, object] | None = None,
+    trace_path: Path | None = None,
+    repo: Path | None = None,
+) -> None:
     reason = error_message if error_message is not None else str(exc)
+    details = failed_phase_details or {}
     typer.echo("\n扫描阶段失败")
+    if failed_phase:
+        typer.echo(f"- 失败阶段：{LLM_FAILURE_PHASE_LABELS.get(failed_phase, SCAN_PROGRESS_LABELS.get(failed_phase, failed_phase))}")
     typer.echo(f"- 原因：{type(exc).__name__}: {reason}")
+    timeout_seconds = details.get("timeout_seconds")
+    if isinstance(exc, TimeoutError) and timeout_seconds:
+        typer.echo(f"- 诊断：DeepSeek 请求在 {timeout_seconds}s 内未返回。")
+    model = details.get("model")
+    if model:
+        typer.echo(f"- 当前模型：{model}")
+    llm_input_chars = details.get("llm_input_chars")
+    if isinstance(llm_input_chars, int) and llm_input_chars > 0:
+        typer.echo(f"- 本次 LLM 输入估算：约 {_format_chars_as_mb(llm_input_chars)}")
+    if trace_path:
+        typer.echo(f"- Trace：{trace_path}")
     typer.echo("- 未写入正式 Harness 资产。")
     typer.echo("- 请检查 LLM 配置、网络或扫描错误后重试。")
+    if isinstance(exc, TimeoutError):
+        command = "HARNESS_BUILDER_LLM_TIMEOUT_SECONDS=180 .venv/bin/harness-builder-agent init"
+        if repo:
+            command = f"{command} --repo {repo}"
+        typer.echo("- 建议下一步：")
+        typer.echo(f"  1. 临时提高超时：`{command}`")
+        typer.echo("  2. 如果仍超时，建议为大仓库启用 evidence budget / exclude 规则后重试。")
+
+
+def _progress_detail_suffix(details: dict[str, object]) -> str:
+    parts: list[str] = []
+    evidence_file_count = details.get("evidence_file_count")
+    if isinstance(evidence_file_count, int) and evidence_file_count > 0:
+        parts.append(f"发现 {evidence_file_count} 个文件")
+    selected_evidence_count = details.get("selected_evidence_count")
+    if isinstance(selected_evidence_count, int) and selected_evidence_count > 0:
+        parts.append(f"选中 {selected_evidence_count} 个 evidence")
+    llm_input_chars = details.get("llm_input_chars")
+    if isinstance(llm_input_chars, int) and llm_input_chars > 0:
+        parts.append(f"预计 LLM 输入约 {_format_chars_as_mb(llm_input_chars)}")
+    if not parts:
+        return ""
+    return f"（{'; '.join(parts)}）"
+
+
+def _is_large_scan(details: dict[str, object]) -> bool:
+    evidence_file_count = details.get("evidence_file_count")
+    selected_evidence_count = details.get("selected_evidence_count")
+    llm_input_chars = details.get("llm_input_chars")
+    return (
+        isinstance(evidence_file_count, int)
+        and evidence_file_count >= 1000
+        or isinstance(selected_evidence_count, int)
+        and selected_evidence_count >= 300
+        or isinstance(llm_input_chars, int)
+        and llm_input_chars >= 800_000
+    )
+
+
+def _format_chars_as_mb(chars: int) -> str:
+    return f"{chars / (1024 * 1024):.1f}MB"
 
 
 def show_scan_findings(inventory: ProjectInventory, commands: CommandCatalog) -> None:

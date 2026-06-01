@@ -75,10 +75,10 @@ Evidence 收集负责从目标仓库抽取事实，例如：
 - 不应该假设企业代码库一定符合标准目录结构。
 - 不应该因为没找到 `tests/` 就断定项目没有测试。
 - 初始 evidence 之后可以执行 LLM-guided evidence expansion：LLM 只能从已发现文件索引中请求少量补充文件，Python 负责路径 allowlist 校验和摘要读取，再把补充文件作为 `llm_requested_files` 提供给最终 LLM scan。
-- 首次 guided `init` 在进入阻塞式仓库扫描前，必须先输出用户可见的“扫描仓库”阶段说明，说明将收集仓库文件、构建配置、CI、测试、文档证据，并会请求 LLM 做结构化扫描和 schema 校验。
-- 首次 guided `init` 必须通过 `scan_repository()` 的 progress callback 展示内部扫描阶段：收集仓库 evidence、请求 LLM 规划补充 evidence、读取 LLM 请求的补充 evidence、请求最终 LLM 结构化扫描、调和扫描结果。内部事件 id 保持英文稳定，CLI 文案负责中文翻译；该进度只用于用户可见状态和测试观察，不改变扫描决策。
+- 首次 guided `init` 在进入阻塞式仓库扫描前，必须先输出用户可见的“扫描仓库”阶段说明，展示目标仓库、LLM 扫描配置（provider、model、timeout、预计 LLM 调用）、大仓库超时边界，以及按顺序展开的扫描阶段计划。阶段计划必须区分“将要发生”和“当前正在执行”，不能在扫描开始时把后续 LLM scan / reconcile 伪装成已经开始。
+- 首次 guided `init` 必须通过 `scan_repository()` 的 progress callback 展示内部扫描阶段：收集仓库 evidence、请求 LLM 规划补充 evidence、读取 LLM 请求的补充 evidence、请求最终 LLM 结构化扫描、调和扫描结果。内部事件 id 保持英文稳定，CLI 文案负责中文翻译；该进度只用于用户可见状态和测试观察，不改变扫描决策。progress details 应尽量携带可诊断指标，例如 detected file count、selected evidence count、LLM 输入字符估算、LLM phase、model 和 timeout；大仓库或大 prompt 应在 CLI 中明确提示可能超过默认 timeout。
 - guided 扫描成功后，必须在“扫描发现”之前输出“扫描完成”，说明 evidence 收集、LLM 结构化分析和扫描调和已经完成。
-- guided 扫描失败时，必须说明失败发生在扫描阶段、原因摘要、未写入正式 Harness 资产，以及建议检查 LLM 配置、网络或扫描错误；随后继续显式失败，不能吞异常或使用确定性 fallback。失败 trace 必须以 `scan` 阶段记录错误类型和短错误消息，并把 `trace.yaml` 标记为 `failed`，summary 必须包含 `scan_completed=false` 和 `formal_assets_written=false`；如果本轮来自 existing Harness `reinit`，summary 还必须保留 `existing_harness_action=reinit`。CLI 应以失败退出码结束，但不向用户展示原始 Python traceback，也不额外写入会混淆阶段定位的外层 `init failed` 事件。
+- guided 扫描失败时，必须说明失败发生在扫描阶段、具体失败子阶段（如 LLM evidence planner / scan analyzer）、原因摘要、可用的 model / timeout / LLM 输入规模诊断、trace 路径、未写入正式 Harness 资产，以及建议检查 LLM 配置、网络或扫描错误；超时时应给出提高 `HARNESS_BUILDER_LLM_TIMEOUT_SECONDS` 的可执行重试命令。随后继续显式失败，不能吞异常或使用确定性 fallback。失败 trace 必须以 `scan` 阶段记录错误类型、短错误消息和失败子阶段，并把 `trace.yaml` 标记为 `failed`，summary 必须包含 `scan_completed=false` 和 `formal_assets_written=false`；如果本轮来自 existing Harness `reinit`，summary 还必须保留 `existing_harness_action=reinit`。CLI 应以失败退出码结束，但不向用户展示原始 Python traceback，也不额外写入会混淆阶段定位的外层 `init failed` 事件。progress callback 的子阶段事件可以写入 trace（例如 `scan:plan-evidence-expansion`），用于审计失败定位。
 - `--non-interactive` 自动化路径不承担 guided CLI 进度展示契约，避免改变 CI、脚本和 acceptance 的输出语义；但如果扫描阶段失败，也必须输出短错误说明、标出 `scan` 阶段、错误类型、未写入正式 Harness 资产和检查 LLM / 网络 / 扫描错误的建议，并以 `scan` failed trace 结束，summary 必须包含 `scan_completed=false` 和 `formal_assets_written=false`，不额外写入会混淆阶段定位的外层 `init failed` 事件。
 
 ### 2. LLM 结构化扫描

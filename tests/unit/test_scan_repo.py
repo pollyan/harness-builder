@@ -208,7 +208,14 @@ def test_scan_repository_reports_progress_for_each_stage(tmp_path: Path):
         ("reconcile-scan", "completed"),
     ]
     assert events[1].details["evidence_file_count"] >= 1
+    assert events[1].details["selected_evidence_count"] >= 1
+    assert events[1].details["llm_input_chars"] > 0
+    assert events[2].details["llm_phase"] == "evidence planner"
+    assert events[2].details["model"] == "unknown"
+    assert events[2].details["timeout_seconds"] is None
     assert events[5].details["requested_path_count"] == 1
+    assert events[6].details["llm_phase"] == "scan analyzer"
+    assert events[6].details["llm_input_chars"] >= events[1].details["llm_input_chars"]
     assert events[-1].details["command_count"] == 1
 
 

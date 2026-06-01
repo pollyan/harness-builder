@@ -5,6 +5,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from harness_builder_agent.prompts.registry import (
+    LLM_EVIDENCE_PLAN_V1,
+    LLM_FIRST_SCAN_V2,
+    build_machine_prompt_messages,
+)
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.evidence_collector import collect_evidence, expand_evidence_with_requested_paths
@@ -39,16 +44,27 @@ def scan_repository(
     root = repo.resolve()
     _emit_progress(progress, "collect-evidence", "started", "Collecting repository evidence.")
     evidence = collect_evidence(root)
+    evidence_plan_input_chars = _evidence_plan_input_chars(evidence)
     _emit_progress(
         progress,
         "collect-evidence",
         "completed",
         "Repository evidence collected.",
-        {"evidence_file_count": evidence.detected_file_count},
+        {
+            "evidence_file_count": evidence.detected_file_count,
+            "selected_evidence_count": evidence.coverage.selected_evidence_count if evidence.coverage else 0,
+            "llm_input_chars": evidence_plan_input_chars,
+        },
     )
     evidence_plan: LLMEvidencePlan | None = None
     if evidence_planner_caller is not None or llm_caller is None:
-        _emit_progress(progress, "plan-evidence-expansion", "started", "Planning evidence expansion with LLM.")
+        _emit_progress(
+            progress,
+            "plan-evidence-expansion",
+            "started",
+            "Planning evidence expansion with LLM.",
+            _llm_progress_details("evidence planner", evidence_plan_input_chars, config),
+        )
         evidence_plan = plan_evidence_expansion_with_llm(evidence, caller=evidence_planner_caller, config=config)
         _emit_progress(
             progress,
@@ -66,7 +82,14 @@ def scan_repository(
             "LLM requested evidence files read.",
             {"requested_path_count": len(evidence_plan.requested_paths), "llm_requested_file_count": len(evidence.llm_requested_files)},
         )
-    _emit_progress(progress, "llm-scan", "started", "Requesting structured LLM scan.")
+    scan_input_chars = _scan_input_chars(evidence)
+    _emit_progress(
+        progress,
+        "llm-scan",
+        "started",
+        "Requesting structured LLM scan.",
+        _llm_progress_details("scan analyzer", scan_input_chars, config),
+    )
     proposal = analyze_evidence_with_llm(evidence, caller=llm_caller, config=config)
     _emit_progress(
         progress,
@@ -111,6 +134,31 @@ def scan_repository(
             {"resolution_count": len(self_check.resolutions), "overall_risk": self_check.overall_risk},
         )
     return inventory, commands
+
+
+def _llm_progress_details(llm_phase: str, input_chars: int, config: DeepSeekConfig | None) -> dict[str, object]:
+    return {
+        "llm_phase": llm_phase,
+        "llm_input_chars": input_chars,
+        "model": config.model if config else "unknown",
+        "timeout_seconds": config.timeout_seconds if config else None,
+    }
+
+
+def _evidence_plan_input_chars(evidence) -> int:
+    return _message_content_chars(
+        build_machine_prompt_messages(LLM_EVIDENCE_PLAN_V1.key, evidence.model_dump(mode="json", exclude_none=True))
+    )
+
+
+def _scan_input_chars(evidence) -> int:
+    return _message_content_chars(
+        build_machine_prompt_messages(LLM_FIRST_SCAN_V2.key, evidence.model_dump(mode="json", exclude_none=True))
+    )
+
+
+def _message_content_chars(messages: list[dict[str, str]]) -> int:
+    return sum(len(message["content"]) for message in messages)
 
 
 def _emit_progress(
