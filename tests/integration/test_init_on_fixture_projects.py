@@ -1447,7 +1447,7 @@ def test_guided_init_existing_harness_can_review_human_input_without_overwriting
         ["init", "--repo", str(repo)],
         input=(
             "review-human-input\n"
-            "confirm:scan-followup:test-evidence\n"
+            "\n"
             "resolved\n"
             "Maintainer confirmed mvn test is the stable test gate.\n"
             "lead-reviewer\n"

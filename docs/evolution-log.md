@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Review Human Input 默认待处理项
+
+- North Star 模块：CLI Experience、Maturity-driven Init、Experience & Self-Improve。
+- init North Star 旅程阶段：再次进入已有 Harness 的状态感知维护入口、human-input 治理动作。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo；本轮候选包括 review-human-input 默认待处理 interaction id、Existing Harness action execution 抽模块、首次 init completion 生成清单进一步紧凑化。当前 maintenance triage 已能展示 `human_input_scan_followups_pending` 的 count 和首个 interaction id，但进入 guided `review-human-input` 后仍要求 Maintainer 手动复制该 id。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 并选择 `review-human-input` 处理待确认 scan follow-up 时，我可以直接回车接受维护入口推荐的首个 interaction id，从而不用手动复制上方 triage detail，也能完成显式人工复核治理。
+- 当前代码 gap：`interactive_init.py` 的 `review-human-input` 分支对 interaction id prompt 使用空默认值，未消费同一入口中已经计算出的 maintenance triage detail。
+- 关键决策 / 取舍：默认 id 只来自当前 `build_maintenance_triage()` 返回的 `human_input_scan_followups_pending.detail`；Maintainer 可输入其他 id 覆盖；没有默认 id 时继续显式失败，不猜测、不 silent fallback。
+- Assumptions / risks：triage detail 已由 `Questionnaire` schema 读取，足够作为默认 interaction id 的事实来源；Typer prompt 默认值可能影响 transcript，因此测试只要求回车可治理默认 id，不绑定 prompt 样式。
+- 边界情况 / 失败模式：本轮不自动关闭全部 follow-up，不跳过 decision / rationale / reviewer prompt，不修改正式 Guides、Sensors、Workflow Skills、配置或 Runtime 产物。
+- Sub agent 使用情况：尝试启动 explorer 做只读 gap 审查，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：这是一个小型但完整的 existing Harness 维护入口纵向切片，把“状态信号 -> 推荐动作 -> 默认治理对象”接成低负担操作闭环。
+- 可执行验收标准及验证方式：integration 覆盖 interaction id prompt 直接回车仍治理首个待处理 scan follow-up；unit 覆盖默认 id helper 有 / 无 pending detail；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：`review-human-input` guided action 使用 human-input triage detail 作为默认 interaction id；README 和 `docs/engineering/init-workflow.md` 同步长期契约；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED integration 已确认空 interaction id 会失败；默认值 unit 2 passed；目标 review-human-input integration 1 passed；existing Harness 相关 unit 18 passed；existing Harness exit / numbered exit / review-human-input integration 3 passed；`git diff --check` passed；`scripts/test-fast.sh` 426 passed。
+- Self-Harness Gate：长期文档已同步；不新增 todo。下一轮候选 gap：Existing Harness action execution 抽模块、首次 init completion 生成清单进一步紧凑化，或 push 前 full regression / 远端同步。
+
 ## 2026-06-01 Existing Harness Signal Renderer 抽取
 
 - North Star 模块：CLI Experience、Maturity-driven Init、工程架构可维护性。

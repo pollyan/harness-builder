@@ -1008,7 +1008,12 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         typer.echo(_candidate_governance_summary(latest.candidate_id, latest.decision, latest.reviewer, len(latest.applied_paths)))
         return output_dir
     if action == "review-human-input":
-        interaction_id = typer.prompt("Human input interaction ID", default="", show_default=False).strip()
+        default_interaction_id = _review_human_input_default_interaction_id(maintenance_actions)
+        interaction_id = typer.prompt(
+            "Human input interaction ID",
+            default=default_interaction_id or "",
+            show_default=default_interaction_id is not None,
+        ).strip()
         decision = typer.prompt("决策 resolved/reopened", default="resolved").strip().lower()
         rationale = typer.prompt("决策理由", default="", show_default=False).strip()
         reviewer = typer.prompt("Reviewer", default="harness-maintainer").strip() or "harness-maintainer"
@@ -1172,6 +1177,13 @@ def _workflow_routing_status_lines(config: HarnessConfig) -> list[str]:
 
 def _human_input_needed_status_lines(ai: Path) -> list[str]:
     return human_input_needed_status_lines(ai)
+
+
+def _review_human_input_default_interaction_id(maintenance_actions) -> str | None:
+    for action in maintenance_actions:
+        if action.action == "review-human-input" and action.reason == "human_input_scan_followups_pending":
+            return action.detail
+    return None
 
 
 def _benchmark_summary(report: BenchmarkReport) -> str:
