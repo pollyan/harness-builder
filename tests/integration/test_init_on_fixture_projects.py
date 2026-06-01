@@ -1661,6 +1661,10 @@ def test_guided_init_reviews_candidates_one_by_one(tmp_path: Path, monkeypatch):
     assert "llm-guide-architecture-001" in result.output
     assert "llm-guide-risk-001" in result.output
     assert "llm-sensor-command-001" in result.output
+    assert "成熟度影响：补齐 Guides 上下文" in result.output
+    assert "成熟度影响：补齐 Guides 上下文、Risk Control 风险控制" in result.output
+    assert "成熟度影响：补齐 Sensors 验证、Verification 验证成熟度" in result.output
+    assert "审查边界：保持 review-only；接受只记录确认，不会自动写入正式 Guide 或 Sensor。" in result.output
     decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
     by_id = {item["candidate_id"]: item for item in decisions["candidate_decisions"]}
     assert by_id["llm-guide-architecture-001"]["decision"] == "accepted"

@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided 候选审查成熟度影响提示
+
+- North Star 模块：Init CLI Experience、Maturity-driven Preview、候选资产审核、渐进式交互。
+- init North Star 旅程阶段：Guide / Sensor 候选审查、写入前 Harness 设计预览、review-only 候选治理。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；上一轮 Gate 候选包括候选审查成熟度解释增强和 push / 远端同步。写入前 preview 已能对内置 weapon 展示关联成熟度、阻断和下一阶段贡献，但 LLM candidate 审查只展示类型、作用和 evidence，没有说明它与 Guides / Risk Control / Sensors / Verification 成熟度差距的关系。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 中逐项审查 LLM 提出的 Guide / Sensor 候选时，我可以看到每个候选预计补齐的成熟度维度、对下一阶段基线的贡献和 review-only 边界，从而更有依据地决定接受、拒绝、备注或保持候选。
+- 当前代码 gap：`guided_candidate_review.py` 只负责候选呈现和 `CandidateDecision` 构造，缺少 maturity-driven 解释；`WeaponLibraryCandidate` schema 也没有 maturity fields。
+- 关键决策 / 取舍：新增确定性 `candidate_maturity_impact_lines()`，从 `candidate_type`、`id`、`title`、`rationale` 和 evidence 推导保守 CLI 提示；不修改 `WeaponLibraryCandidate` schema、不修改 LLM candidate generation、不修改 writer 或 benchmark。
+- Assumptions / risks：确定性映射较粗，因此只作为用户可读审查提示，不作为机器契约；风险类关键词命中时提示 Risk Control，其余 Guide candidate 只提示 Guides 上下文。
+- 边界情况 / 失败模式：`llm-guide-no-enhancement-001` 输出审计边界而非成熟度提升；Sensor candidate 输出 Sensors / Verification；所有候选都明确保持 review-only，接受只记录确认，不自动写入正式 Guide 或 Sensor；不执行 Runtime，不创建 `.ai/task-runs`。
+- Sub agent 使用情况：本轮未使用 sub agent；前几轮连续遇到 `agent thread limit reached`，本轮切片范围窄、由主线程完成。
+- 价值切分说明：本轮让 LLM 候选审查和写入前 maturity-driven preview 叙事更一致，但不扩大 schema 或生成资产范围。
+- 可执行验收标准及验证方式：unit 覆盖 Guide / risk Guide / Sensor / no-enhancement 的成熟度影响提示和 review-only 边界；guided integration 覆盖真实 `init` transcript；compileall、diff check 和 fast regression 作提交前验证。
+- 完成内容：`guided_candidate_review.py` 为每个 LLM candidate 输出成熟度影响、下一阶段贡献和 review-only 边界；更新 unit 与 guided integration；新增本轮 spec / plan。
+- 验证结果：RED unit / integration 先因缺少成熟度提示失败；实现后 `tests/unit/test_guided_candidate_review.py` 3 passed，相关 guided integration 1 passed，compileall 通过，`git diff --check` 通过；`scripts/test-fast.sh` 453 passed。
+- Self-Harness Gate：长期文档事实源无需更新；未新增 schema 或 todo；后续候选 gap 包括是否把 candidate maturity impact 提升为机器契约，或在 acceptance 外部前置满足后统一 push。
+
 ## 2026-06-01 Guided 团队规则输入引导增强
 
 - North Star 模块：Init CLI Experience、渐进式交互、用户上下文吸收、工程架构可维护性。

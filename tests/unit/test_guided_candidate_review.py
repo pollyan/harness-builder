@@ -129,3 +129,31 @@ def test_review_candidates_records_accept_reject_edit_and_default_keep(capsys: p
     assert "类型：规则 Guide" in output
     assert "类型：传感器 Sensor" in output
     assert "依据：暂无" in output
+    assert "成熟度影响：补齐 Guides 上下文" in output
+    assert "成熟度影响：补齐 Guides 上下文、Risk Control 风险控制" in output
+    assert "成熟度影响：补齐 Sensors 验证、Verification 验证成熟度" in output
+    assert "审查边界：保持 review-only；接受只记录确认，不会自动写入正式 Guide 或 Sensor。" in output
+
+
+def test_review_candidates_explains_no_enhancement_as_audit_boundary(capsys: pytest.CaptureFixture[str]):
+    def prompt(_message: str, **_kwargs: object) -> str:
+        return ""
+
+    report = FakeCandidateReport(
+        [
+            {
+                "id": "llm-guide-no-enhancement-001",
+                "title": "未发现明确模型增强建议",
+                "candidate_type": "guide",
+                "rationale": "LLM scan proposal 未提供 architecture_signals、risk_areas 或 command_candidates。",
+                "evidence": ["java-spring"],
+            }
+        ]
+    )
+
+    decisions = review_candidates(report, _weapon_selection(), _commands(), prompt=prompt)
+
+    assert decisions[0].decision == "kept"
+    output = capsys.readouterr().out
+    assert "成熟度影响：未发现明确增强项；保留候选审计边界，提醒 Maintainer 复核 LLM scan 是否遗漏 Guide / Sensor 线索。" in output
+    assert "审查边界：保持 review-only；接受只记录确认，不会自动写入正式 Guide 或 Sensor。" in output
