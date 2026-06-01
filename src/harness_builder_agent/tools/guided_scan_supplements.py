@@ -10,6 +10,15 @@ ALLOWED_STACKS = {"java-spring", "dotnet-aspnet", "node", "python-flask", "unkno
 ALLOWED_COMMAND_TYPES = {"build", "test", "lint", "typecheck", "other"}
 ALLOWED_COMMAND_GATES = {"hard", "soft"}
 ALLOWED_CONFIDENCE = {"low", "medium", "high"}
+INVALID_FRAGMENT_FORMAT_HINTS = {
+    "stack": "可用格式：stack=java-spring|dotnet-aspnet|node|python-flask|unknown。",
+    "module": "可用格式：module=路径|类型|名称。",
+    "command": (
+        "可用格式：command=ID|命令|类型(build/test/lint/typecheck/other)|"
+        "gate(hard/soft)|来源|置信度(low/medium/high)。"
+    ),
+    "risk": "可用格式：risk=路径|原因。",
+}
 
 StackResolver = Callable[[str], str]
 
@@ -58,7 +67,7 @@ def _apply_stack_fragment(
         overrides.notes.append(f"用户将主要技术栈修正为：{resolved}")
         return
     overrides.notes.append(
-        f"结构化 stack 片段未解析：{part}；未进入 primary stack override，只作为自然语言补充保留。"
+        _invalid_structured_fragment_note("stack", part, "primary stack override")
     )
 
 
@@ -68,7 +77,7 @@ def _apply_module_fragment(overrides: GuidedScanOverrides, part: str, value: str
         overrides.modules.append({"path": fields[0], "kind": fields[1], "name": fields[2]})
         overrides.notes.append(f"用户补充模块：{fields[0]}（{fields[1]}，{fields[2]}）")
         return
-    overrides.notes.append(f"结构化 module 片段未解析：{part}；未进入 project inventory，只作为自然语言补充保留。")
+    overrides.notes.append(_invalid_structured_fragment_note("module", part, "project inventory"))
 
 
 def _apply_command_fragment(overrides: GuidedScanOverrides, part: str, value: str) -> None:
@@ -92,7 +101,7 @@ def _apply_command_fragment(overrides: GuidedScanOverrides, part: str, value: st
         )
         overrides.notes.append(f"用户补充验证命令：{fields[1]}，gate={fields[3]}")
         return
-    overrides.notes.append(f"结构化 command 片段未解析：{part}；未进入 command catalog，只作为自然语言补充保留。")
+    overrides.notes.append(_invalid_structured_fragment_note("command", part, "command catalog"))
 
 
 def _apply_risk_fragment(overrides: GuidedScanOverrides, part: str, value: str) -> None:
@@ -101,4 +110,8 @@ def _apply_risk_fragment(overrides: GuidedScanOverrides, part: str, value: str) 
         overrides.risk_areas.append({"path": fields[0], "reason": fields[1]})
         overrides.notes.append(f"用户补充风险区域：{fields[0]}，{fields[1]}")
         return
-    overrides.notes.append(f"结构化 risk 片段未解析：{part}；未进入 risk hints，只作为自然语言补充保留。")
+    overrides.notes.append(_invalid_structured_fragment_note("risk", part, "risk hints"))
+
+
+def _invalid_structured_fragment_note(kind: str, part: str, target: str) -> str:
+    return f"结构化 {kind} 片段未解析：{part}；未进入 {target}，只作为自然语言补充保留。{INVALID_FRAGMENT_FORMAT_HINTS[kind]}"

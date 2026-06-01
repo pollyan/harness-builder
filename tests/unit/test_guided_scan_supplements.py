@@ -32,6 +32,7 @@ def test_parse_guided_scan_supplement_reports_invalid_structured_command_as_note
     assert overrides.notes == [
         "结构化 command 片段未解析：command=unit-test|npm test|test|hard；"
         "未进入 command catalog，只作为自然语言补充保留。"
+        "可用格式：command=ID|命令|类型(build/test/lint/typecheck/other)|gate(hard/soft)|来源|置信度(low/medium/high)。"
     ]
 
 
@@ -44,8 +45,24 @@ def test_parse_guided_scan_supplement_reports_invalid_module_and_risk_without_st
     assert overrides.modules == []
     assert overrides.risk_areas == []
     assert overrides.notes == [
-        "结构化 module 片段未解析：module=apps/api|backend；未进入 project inventory，只作为自然语言补充保留。",
-        "结构化 risk 片段未解析：risk=apps/payments；未进入 risk hints，只作为自然语言补充保留。",
+        "结构化 module 片段未解析：module=apps/api|backend；未进入 project inventory，只作为自然语言补充保留。"
+        "可用格式：module=路径|类型|名称。",
+        "结构化 risk 片段未解析：risk=apps/payments；未进入 risk hints，只作为自然语言补充保留。"
+        "可用格式：risk=路径|原因。",
+    ]
+
+
+def test_parse_guided_scan_supplement_reports_invalid_stack_with_allowed_values():
+    overrides = parse_guided_scan_supplement(
+        "stack=rails",
+        current_stack="java-spring",
+        stack_resolver=lambda _value: "rails",
+    )
+
+    assert overrides.primary_stack is None
+    assert overrides.notes == [
+        "结构化 stack 片段未解析：stack=rails；未进入 primary stack override，只作为自然语言补充保留。"
+        "可用格式：stack=java-spring|dotnet-aspnet|node|python-flask|unknown。"
     ]
 
 

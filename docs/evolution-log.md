@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Scan 结构化补充修正提示
+
+- North Star 模块：Init CLI Experience、渐进式交互、仓库理解深度、可审计输入吸收。
+- init North Star 旅程阶段：扫描理解对齐、用户补充吸收、写入前 Harness 设计预览。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo，`local-unique-capability-migration.md` 已是 implemented。本轮候选包括结构化 scan 补充修正格式提示、团队规则 / Workflow 补充 renderer 抽取、push / 远端同步。当前 parser 已能说明 invalid `module` / `command` / `risk` 不会进入结构化资产，但缺少用户可复制的正确格式示例；`init-north-star.md` 明确要求结构化修正提供清晰示例和容错提示。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的扫描对齐阶段输入格式不完整或字段非法的结构化补充时，我可以立即看到该片段没有进入结构化资产，并看到可复制的正确格式示例，从而能低成本修正输入并信任 Harness 没有把错误补充伪装成已验证事实。
+- 当前代码 gap：`guided_scan_supplements.py` 的 invalid fragment note 只说明“未进入 ... 只作为自然语言补充保留”，没有告诉用户下一次应该如何写 `stack`、`module`、`command` 或 `risk`。
+- 关键决策 / 取舍：格式提示放入 parser 生成的 note，而不是只改 prompt 文案；这样 CLI immediate summary、prewrite preview、`interaction-decisions.yaml` 和后续语义资产都能保留同一条审计诊断。不新增 schema 字段，不改变合法结构化补充行为。
+- Assumptions / risks：诊断 note 会比之前更长，但它表达的是结构化补充未生效的事实边界和修正方式；优先级高于保持短句。
+- 边界情况 / 失败模式：自然语言补充不被误报；合法结构化补充继续进入 overrides；invalid command 不进入 command catalog；invalid stack 不覆盖 primary stack。
+- Sub agent 使用情况：尝试启动 explorer 做只读复核，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮只改善首次 init scan 补充的错误恢复体验，不修改 LLM、schema、writer、benchmark 或 Runtime 分工。
+- 可执行验收标准及验证方式：unit 覆盖 invalid stack / module / command / risk 的可用格式提示；integration 覆盖 guided init immediate summary、command catalog 未更新和 `interaction-decisions.yaml` notes 审计；`git diff --check` 与 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：`guided_scan_supplements.py` 增加统一 invalid fragment hint；README 与 `docs/engineering/init-workflow.md` 同步稳定行为；新增本轮 spec / plan。
+- 验证结果：RED targeted tests 先因缺少 `可用格式` 失败；实现后 targeted tests 6 passed；`git diff --check` 通过；`scripts/test-fast.sh` 443 passed。
+- Self-Harness Gate：长期文档已同步；未新增 schema 或 todo；未触碰 Runtime；下一轮候选 gap 包括团队规则 / Workflow 补充 renderer 抽取、或在 acceptance 外部前置满足后统一 push。
+
 ## 2026-06-01 Guided Scan Presentation Renderer 抽取
 
 - North Star 模块：Init CLI Experience、渐进式交互、成熟度叙事、工程架构可维护性。

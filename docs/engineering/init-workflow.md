@@ -133,7 +133,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 规则：
 
 - 结构化 scan 补充必须说明会影响 project inventory、command catalog、risk hints、Guides、Sensors 或写入前成熟度预览。
-- 如果用户输入的 `module=`、`command=` 或 `risk=` 片段格式不完整或字段非法，CLI 必须明确说明该片段未进入结构化 scan 补充，只作为自然语言补充保留；不能让用户误以为 command 已进入 command catalog、module 已进入 project inventory 或 risk 已进入 risk hints。
+- 如果用户输入的 `stack=`、`module=`、`command=` 或 `risk=` 片段格式不完整或字段非法，CLI 必须明确说明该片段未进入结构化 scan 补充，只作为自然语言补充保留，并给出对应可用格式提示；不能让用户误以为 command 已进入 command catalog、module 已进入 project inventory、risk 已进入 risk hints 或 stack override 已生效。
 - 自然语言 scan 补充必须明确标记为人工补充说明，进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`，不能伪装成扫描事实。
 - `interaction-decisions.yaml` 中的 `scan_confirmation` 必须在存在 `stack`、`module`、`command`、`risk` 或自然语言 scan 补充时记录机器可读的 `modules`、`commands`、`risk_areas`、`impact_scopes`、`review_status=pending_harness_maintainer_review` 和 `fact_effect=user_supplied_correction_review_required`；无 scan 补充时必须保持空结构化字段、`review_status=not_required` 和 `fact_effect=not_applicable`，避免后续 self-improve 或审计把用户补充误判为已由扫描 evidence 验证的事实。
 - scan 补充的即时复述必须发生在 `_apply_scan_overrides()` 更新内存态 inventory / command catalog 之后，让用户知道后续 weapon selection、maturity preview 和正式资产生成将基于已吸收的补充继续推进。
