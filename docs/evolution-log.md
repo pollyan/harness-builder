@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness Action Dispatch Registry
+
+- North Star 模块：Maturity-driven Init、已有 Harness 维护入口、CLI Experience、工程架构可维护性。
+- init North Star 旅程阶段：再次进入已有 Harness、维护动作选择、动作执行与审计。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 Existing Harness action dispatch registry、completion 资产概览进一步压缩、push / full regression 同步远端。当前菜单动作集中在 `EXISTING_HARNESS_ACTIONS`，runner 已降到 79 行并委托 deterministic / intelligent / review action 模块，但菜单动作集合和 runner 可处理动作集合仍靠人工同步，没有测试证明每个菜单项都有 handler。本轮选择 dispatch registry，因为它保护“再次运行 init -> 选择维护动作 -> 获得可审计结果”的核心维护入口，并降低后续新增动作漏接风险。
+- 用户故事 / 工程信任故事：作为 Harness Builder 维护者，当我继续给已有 Harness 维护入口新增或调整菜单动作时，我可以通过一个显式 dispatch registry 和覆盖测试确认每个菜单动作都有 runner handler，从而降低“菜单显示可选但实际执行落到 unknown 或漏 trace”的回归风险。
+- 当前代码 gap：`existing_harness_action_runner.py` 使用逐个 `if action == ...` 分支派发；`tests/unit/test_existing_harness_actions.py` 固定菜单，`test_existing_harness_action_boundaries.py` 固定模块边界，但没有菜单 action set 与 runner handler set 的一致性断言。
+- 关键决策 / 取舍：在 runner 内新增 `EXISTING_HARNESS_ACTION_HANDLERS` 和统一 handler 签名，用小 wrapper 适配各 action 参数；不把 handler 放入 `existing_harness_actions.py`，避免菜单定义模块依赖执行模块；不新增动作、不改编号、别名或 CLI 文案。
+- Assumptions / risks：假设外部调用者只依赖 `run_existing_harness_action()`，不依赖 runner 内部 if/elif 结构。风险是行为等价重构遗漏 trace 或返回值，因此用 unit registry coverage 和完整 guided init integration 覆盖。
+- 边界情况 / 失败模式及回应：`exit` 仍写 completed trace summary 并返回 `.ai`；`reinit` 仍只写 reinit intent event 并返回 `None`；未知 action 仍调用 `fail_existing_harness_action()` 写 `unknown_existing_harness_action`；所有 delegated action 仍保持正式资产 / Runtime 边界。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查 action 同步风险，当前环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只收紧菜单 action 与 runner dispatch 的工程契约，不拆 action implementation，不改变 LLM、schema、benchmark、writer、Sensor、Runtime 或用户可见菜单。
+- 可执行验收标准及验证方式：新增 unit 先 RED 证明缺少 handler registry；实现后 `tests/unit/test_existing_harness_action_boundaries.py` 和 `tests/unit/test_existing_harness_actions.py` 11 passed；`tests/integration/test_init_on_fixture_projects.py` 66 passed；提交前 fast regression 见本轮验证。
+- 完成内容：`existing_harness_action_runner.py` 新增 handler registry 和统一派发；新增 unit 覆盖菜单 action 集合与 handler registry 一致，并断言 runner 使用 registry lookup；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED unit 2 failed；实现后 targeted unit 11 passed；integration 66 passed；`git diff --check` 通过；提交前 `scripts/test-fast.sh` 514 passed。push 前 `scripts/test-full.sh` 的 fast 段 514 passed，但 acceptance 3 failed，原因是沙箱内无法解析 `api.deepseek.com`；已按规则申请非沙箱 full regression，因会向外部 DeepSeek 发送本地 fixture / benchmark 仓库 evidence 被策略拒绝，因此本轮不 push。
+- Self-Harness Gate：README / init workflow 无需更新，因为用户可见 action contract 未变；架构文档已描述 action runner、deterministic / intelligent / review 模块分工，本轮 registry 属于同一边界内 hardening，无需新增长期规则；当前 `docs/todos` 仍无 open todo。下一轮候选 gap 可重新评估 completion 资产概览压缩、首次 init 其他 CLI 视觉焦点，或在外部前置满足后处理 push/full regression。
+
 ## 2026-06-01 Init Completion 下一步动作去重
 
 - North Star 模块：Maturity-driven Init、CLI Experience、Maturity & Evolution、交付摘要可行动性。

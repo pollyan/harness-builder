@@ -6,6 +6,20 @@ from harness_builder_agent.tools import existing_harness_action_runner as runner
 from harness_builder_agent.tools import existing_harness_deterministic_actions as deterministic_actions
 from harness_builder_agent.tools import existing_harness_intelligent_actions as intelligent_actions
 from harness_builder_agent.tools import existing_harness_review_actions as review_actions
+from harness_builder_agent.tools.existing_harness_actions import EXISTING_HARNESS_ACTIONS
+
+
+def test_existing_harness_runner_handler_registry_matches_menu_actions() -> None:
+    menu_actions = {item.action for item in EXISTING_HARNESS_ACTIONS}
+
+    assert set(runner.EXISTING_HARNESS_ACTION_HANDLERS) == menu_actions
+
+
+def test_existing_harness_runner_uses_dispatch_registry() -> None:
+    source = inspect.getsource(runner.run_existing_harness_action)
+
+    assert "EXISTING_HARNESS_ACTION_HANDLERS.get(action)" in source
+    assert "if action ==" not in source
 
 
 def test_existing_harness_review_actions_have_dedicated_module() -> None:
