@@ -139,7 +139,15 @@ def run_non_interactive_init(repo: Path, context_paths: list[Path], trace: Gener
             {"error_type": type(exc).__name__, "error": error_message},
         )
         _show_non_interactive_scan_failed(exc, error_message)
-        trace.finish("failed", {"error_type": type(exc).__name__, "scan_error": error_message})
+        trace.finish(
+            "failed",
+            {
+                "error_type": type(exc).__name__,
+                "scan_error": error_message,
+                "scan_completed": False,
+                "formal_assets_written": False,
+            },
+        )
         raise typer.Exit(code=1) from None
     trace.event(
         "scan",
@@ -196,7 +204,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
             "Repository scan failed before writing formal Harness assets.",
             {"error_type": type(exc).__name__, "error": error_message},
         )
-        _show_scan_progress_failed(exc)
+        _show_scan_progress_failed(exc, error_message=error_message)
         summary = {
             "error_type": type(exc).__name__,
             "scan_error": error_message,

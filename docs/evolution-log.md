@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Init 扫描失败短错误与未写入审计
+
+- North Star 模块：Maturity-driven Init、CLI Experience、LLM-first 错误边界、生成审计。
+- init North Star 旅程阶段：阶段化扫描、错误与边界、自动化 / acceptance 入口。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 init scan failure CLI 使用短错误且 trace summary 统一记录未写入边界、full regression / push gate 受 DeepSeek 外部网络和审批限制、Existing Harness action runner 失败 summary helper 抽取。当前 guided trace event / summary 已使用短错误并记录 `scan_completed=false` / `formal_assets_written=false`，但 guided CLI 仍直接打印原始 exception，非交互 trace summary 只写 `error_type` 和 `scan_error`。本轮选择 scan failure message contract，因为它直接服务“错误信息包含原因、影响和下一步处理建议”，并让 guided 与自动化失败审计一致。
+- 用户故事：作为 Harness Maintainer 或 CI 维护者，当 `harness-builder-agent init` 在 guided 或 `--non-interactive` 扫描阶段因为 DeepSeek / LLM / schema 错误失败时，我可以看到短小、单行、阶段明确的错误摘要，并在 trace summary 中看到扫描未完成、正式资产未写入，从而能快速定位真实问题而不会被多行 Python / API 细节或模式间不一致的审计字段干扰。
+- 当前代码 gap：`guided_scan_presentation.show_scan_progress_failed()` 直接用 `{exc}` 输出原因；`run_non_interactive_init()` 的 failed summary 缺少 `scan_completed=false` 和 `formal_assets_written=false`。
+- 关键决策 / 取舍：guided scan failure renderer 增加可选 `error_message` 参数，由 `interactive_init.py` 传入 `_short_error_message()` 结果；非交互 summary 增加未写入布尔字段；不把短错误 helper 抽到公共模块，避免为了小切片扩大重构。
+- Assumptions / risks：短错误摘要会折叠多行底层响应，利于 CLI 可读和非敏感输出；若需要完整底层信息，应通过重跑和底层日志定位，而不是把长响应作为主要 CLI 输出。
+- 边界情况 / 失败模式及回应：guided 与非交互 scan failure 均不写正式 `.ai` 资产，不创建 `.ai/task-runs`，不额外写泛化 `init failed` event；reinit scan failure 继续保留 `existing_harness_action=reinit`。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查 scan failure 输出与 trace 一致性，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理 init scan failure 的错误展示和审计 summary，不混入 LLM retry、scanner、writer、benchmark、Runtime 或 action runner 重构。
+- 可执行验收标准及验证方式：增强 integration RED 先证明 guided CLI 原样展示多行错误、非交互 summary 缺少未写入字段；实现后断言 guided CLI 原因行使用折叠短错误，trace event / summary 一致，非交互 summary 记录 `scan_completed=false` 和 `formal_assets_written=false`。
+- 完成内容：`guided_scan_presentation.py` 支持短错误参数；`interactive_init.py` guided failure 传入短错误，非交互 failure summary 补齐未写入字段；README 和 `docs/engineering/init-workflow.md` 同步稳定规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED targeted 2 failed，失败点分别为 guided CLI 多行错误和非交互 summary 缺少 `scan_completed`；实现后 scan failure targeted 3 passed；`tests/integration/test_init_on_fixture_projects.py` 64 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 503 passed。`scripts/test-full.sh` 的 fast 段 503 passed，acceptance 3 条因 sandbox 内 DNS 解析 `api.deepseek.com` 失败而失败；按规则申请非 sandbox full gate，被审批系统拒绝，理由是会向外部 DeepSeek API 发送本地 fixture / benchmark 仓库内容。
+- Self-Harness Gate：长期事实源已同步 README 和 init workflow；新增行为有 integration 覆盖，未改变 `.ai` schema、LLM prompt、Sensor、benchmark 或 Runtime 契约。当前 `docs/todos` 仍无 open todo；full gate 未通过且非 sandbox 运行未获许可，因此本轮不 push。下一轮候选 gap 需重新从 Current State Gap Analysis 选择，push 仍依赖 full regression 外部前置或用户对外发 DeepSeek 验收的显式许可。
+
 ## 2026-06-01 Guided Reinit 扫描失败 Trace 审计
 
 - North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、LLM-first 错误边界、生成审计。

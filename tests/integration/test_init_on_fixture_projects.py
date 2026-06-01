@@ -777,7 +777,7 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
 
     def fail_scan(repo_path: Path):
         assert any("扫描仓库" in message for message in messages)
-        raise RuntimeError("synthetic scan failure")
+        raise RuntimeError("synthetic scan failure\nwith internal details")
 
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.typer.echo", record_echo)
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
@@ -790,7 +790,8 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
     assert "扫描阶段失败" in output
     assert "未写入正式 Harness 资产" in output
     assert "请检查 LLM 配置、网络或扫描错误后重试" in output
-    assert "synthetic scan failure" in output
+    assert "RuntimeError: synthetic scan failure with internal details" in output
+    assert "RuntimeError: synthetic scan failure\nwith internal details" not in output
     assert "Traceback" not in output
     assert not isinstance(result.exception, RuntimeError)
     assert output.index("扫描仓库") < output.index("扫描阶段失败")
@@ -799,7 +800,7 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
     trace = yaml.safe_load((run_dirs[0] / "trace.yaml").read_text(encoding="utf-8"))
     assert trace["status"] == "failed"
     assert trace["summary"]["error_type"] == "RuntimeError"
-    assert trace["summary"]["scan_error"] == "synthetic scan failure"
+    assert trace["summary"]["scan_error"] == "synthetic scan failure with internal details"
     assert trace["summary"]["scan_completed"] is False
     assert trace["summary"]["formal_assets_written"] is False
     events = [
@@ -810,7 +811,7 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
         event["stage"] == "scan"
         and event["event_type"] == "failed"
         and event["details"]["error_type"] == "RuntimeError"
-        and event["details"]["error"] == "synthetic scan failure"
+        and event["details"]["error"] == "synthetic scan failure with internal details"
         for event in events
     )
     assert not any(event["stage"] == "init" and event["event_type"] == "failed" for event in events)
@@ -852,6 +853,8 @@ def test_non_interactive_init_scan_failure_prints_short_message_and_trace(tmp_pa
     assert trace["status"] == "failed"
     assert trace["summary"]["error_type"] == "RuntimeError"
     assert trace["summary"]["scan_error"] == "synthetic noninteractive scan failure with internal details"
+    assert trace["summary"]["scan_completed"] is False
+    assert trace["summary"]["formal_assets_written"] is False
     events = [
         json.loads(line)
         for line in (run_dirs[0] / "events.jsonl").read_text(encoding="utf-8").splitlines()

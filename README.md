@@ -53,13 +53,15 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
 
 guided `init` 在启动确认或最终写入确认前取消时，会输出中文取消摘要并以 failed trace 结束。trace summary 会记录 `cancel_stage` 和 `scan_completed`；如果已经完成扫描并进入写入前预览，还会记录 `primary_stack` 和 `command_count`，便于审计这次未写入的会话已经走到哪一步。
 
+guided `init` 如果在扫描阶段因为 DeepSeek / LLM 配置、网络或 schema 失败而中断，会输出短错误摘要、说明未写入正式 Harness 资产，并以 failed trace 结束。trace summary 会记录 `scan_completed=false` 和 `formal_assets_written=false`，不会把多行底层错误或原始 Python traceback 当作主要 CLI 输出。
+
 自动化、测试、CI 或 acceptance 场景必须显式使用非交互模式：
 
 ```bash
 .venv/bin/harness-builder-agent init --non-interactive --repo tests/fixtures/mini-spring-boot
 ```
 
-`--non-interactive` 不展示 guided 扫描进度，但扫描阶段如果因为 DeepSeek / LLM 配置、网络或 schema 失败而中断，会输出短错误说明、标出 `scan` 阶段和错误类型，记录 failed trace，并明确未写入正式 Harness 资产，不会回退成确定性扫描成功结果。
+`--non-interactive` 不展示 guided 扫描进度，但扫描阶段如果因为 DeepSeek / LLM 配置、网络或 schema 失败而中断，会输出短错误说明、标出 `scan` 阶段和错误类型，记录 failed trace，并明确未写入正式 Harness 资产；trace summary 同样会记录 `scan_completed=false` 和 `formal_assets_written=false`，不会回退成确定性扫描成功结果。
 
 `init` 会在目标仓库生成 `.ai/`：
 

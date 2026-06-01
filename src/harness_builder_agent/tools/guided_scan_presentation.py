@@ -53,9 +53,10 @@ def show_scan_progress_completed(inventory: ProjectInventory, commands: CommandC
     typer.echo(f"- 初步识别验证命令数量：{len(commands.commands)}。")
 
 
-def show_scan_progress_failed(exc: Exception) -> None:
+def show_scan_progress_failed(exc: Exception, error_message: str | None = None) -> None:
+    reason = error_message if error_message is not None else str(exc)
     typer.echo("\n扫描阶段失败")
-    typer.echo(f"- 原因：{type(exc).__name__}: {exc}")
+    typer.echo(f"- 原因：{type(exc).__name__}: {reason}")
     typer.echo("- 未写入正式 Harness 资产。")
     typer.echo("- 请检查 LLM 配置、网络或扫描错误后重试。")
 
