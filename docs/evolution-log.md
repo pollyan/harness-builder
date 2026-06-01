@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 确定性维护动作模块抽取
+
+- North Star 模块：Maturity-driven Init、已有 Harness 维护入口、Maturity & Evolution、Benchmark 质量门禁、工程架构可维护性。
+- init North Star 旅程阶段：再次进入已有 Harness、维护动作选择、确定性维护动作执行与审计。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 Existing Harness 确定性维护动作抽取、首次 init completion summary 继续紧凑化、push / full regression 同步工作包。当前 entry、review actions、intelligent actions、failure helper 和 summaries 已拆出，但 `existing_harness_action_runner.py` 仍直接持有 `assess`、`improve`、`benchmark` 的业务调用、trace artifact、summary 和 `BenchmarkReport` 依赖。本轮选择确定性维护动作抽取，因为它让已有 Harness 入口进一步从“大动作实现函数”收敛为清晰路由层，保护后续 maturity / benchmark / improvement 维护动作迭代。
+- 用户故事 / 工程信任故事：作为 Harness Builder 维护者，当我继续演进已有 Harness 入口中的 `assess`、`improve` 和 `benchmark` 确定性维护动作时，我可以在独立 deterministic action 模块中维护 maturity refresh、improvement candidate generation、benchmark validation 的调用、trace artifact 和 summary 输出，从而让 action runner 保持清晰路由职责，并降低改确定性维护动作时影响 review / LLM actions 或 reinit 控制流的风险。
+- 当前代码 gap：`existing_harness_action_runner.py` 已委托 review 和 LLM / review-only actions，但仍混合 maturity refresh、improvement generation、benchmark validation 的实现细节；runner 继续直接依赖 `assess_maturity()`、`generate_improvements()`、`run_benchmark()` 和 `BenchmarkReport`。
+- 关键决策 / 取舍：新增 `existing_harness_deterministic_actions.py` 承接 `run_assess_action()`、`run_improve_action()` 和 `run_benchmark_action()`；runner 只保留 delegate、exit、reinit 和 unknown action；不改变 action 菜单、CLI 文案、trace summary、artifact kind、正式资产写入、benchmark 检查规则或 Runtime 分工。
+- Assumptions / risks：假设外部用户只通过 CLI 使用这些 guided action，不依赖 runner 内部导入符号。风险是行为保持型抽取遗漏 artifact 或 benchmark failed trace 语义，因此用 targeted integration 和完整 init integration 覆盖。
+- 边界情况 / 失败模式及回应：`assess` 仍只刷新 maturity / init summary；`improve` 仍刷新 experience index / maturity 并生成 review-only improvement candidates；`benchmark` failed 仍以 failed trace 结束并输出 failed checks，但不覆盖正式 Guides、Sensors、Workflow Skills、配置或 inventory；三者均不创建 `.ai/task-runs`。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查 runner 剩余职责，当前环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只抽取已有 Harness 中三个确定性维护动作，不修改 review governance、intelligent actions、首次 init、LLM prompt、benchmark check 或 Runtime。
+- 可执行验收标准及验证方式：新增 unit 边界测试证明 runner 委托 deterministic action 模块且不直接持有 maturity / benchmark / improvement 依赖；assess / improve / benchmark targeted integration 证明 CLI、trace、正式资产和 Runtime 边界保持；完整 init integration 回归维护入口主要路径。
+- 完成内容：新增 `src/harness_builder_agent/tools/existing_harness_deterministic_actions.py`；`existing_harness_action_runner.py` 删除 direct deterministic action 实现并降到委托；`docs/engineering/architecture.md` 记录新模块职责；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED unit 先因 `existing_harness_deterministic_actions` 模块不存在失败；实现后 `tests/unit/test_existing_harness_action_boundaries.py` 6 passed；assess / improve / benchmark targeted integration 5 passed；`tests/integration/test_init_on_fixture_projects.py` 66 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 512 passed。`scripts/test-full.sh` 的 fast 段 512 passed，但 acceptance 3 failed，原因是沙箱内无法解析 `api.deepseek.com`；已按规则申请非沙箱 full regression，因会向外部 DeepSeek 发送本地 fixture / benchmark 仓库 evidence 被策略拒绝，因此本轮不 push。
+- Self-Harness Gate：架构文档已同步新模块职责；README / init workflow 不需要更新，因为用户可见契约未变；未改变 `.ai` schema、LLM prompt、benchmark 检查规则、Sensor 或 Runtime。当前 `docs/todos` 仍无 open todo。下一轮候选 gap 继续从 Current State Gap Analysis 选择，可考虑首次 init completion 细节、runner dispatch table hardening，或在获得合规外部验收许可后处理 push 同步。
+
 ## 2026-06-01 Existing Harness 智能维护动作模块抽取
 
 - North Star 模块：Maturity-driven Init、已有 Harness 维护入口、Experience / Self-Improve、LLM / review-only 智能改进、工程架构可维护性。
