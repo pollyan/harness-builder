@@ -542,7 +542,8 @@ def test_guided_init_final_confirm_rejects_unknown_input_before_write(tmp_path: 
 
     assert result.exit_code == 0, result.output
     assert "未识别的最终确认输入" in result.output
-    assert "请输入 `confirm`/`确认`、`back`/`返回` 或 `cancel`/`取消`" in result.output
+    assert "请输入 `confirm`/`确认`、`back`/`返回`、`cancel`/`取消`" in result.output
+    assert "或直接输入 `scan`/`扫描`、`rules`/`团队规则`、`candidates`/`候选`、`workflow`/`工作流`" in result.output
     assert result.output.index("未识别的最终确认输入") < result.output.index("== 初始化完成 ==")
     _assert_init_outputs(repo, "java-spring")
 
@@ -594,6 +595,38 @@ def test_guided_init_final_summary_accepts_chinese_return_alias_to_team_rules(tm
     project_context = (repo / ".ai" / "guides" / "project-context.md").read_text(encoding="utf-8")
     assert "最终中文团队规则" in project_context
     assert "初始中文规则需要修改" not in project_context
+
+
+def test_guided_init_final_summary_accepts_direct_chinese_candidate_target(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "\n\n\n"
+            "\n\n\n\n"
+            "候选\n"
+            "a\n"
+            "r\n"
+            "e\n"
+            "直接返回候选后的备注。\n"
+            "确认\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "可直接输入 scan/扫描、rules/团队规则、candidates/候选、workflow/工作流 返回对应部分" in result.output
+    assert "返回修改" in result.output
+    assert result.output.count("逐项审查模型候选") == 2
+    decisions = yaml.safe_load((repo / ".ai" / "interaction-decisions.yaml").read_text(encoding="utf-8"))
+    by_id = {item["candidate_id"]: item for item in decisions["candidate_decisions"]}
+    assert by_id["llm-guide-architecture-001"]["decision"] == "accepted"
+    assert by_id["llm-guide-risk-001"]["decision"] == "rejected"
+    assert by_id["llm-sensor-command-001"]["decision"] == "edited"
+    assert by_id["llm-sensor-command-001"]["notes"] == "直接返回候选后的备注。"
 
 
 def test_guided_init_explains_python_flask_react_multistack(tmp_path: Path, monkeypatch):

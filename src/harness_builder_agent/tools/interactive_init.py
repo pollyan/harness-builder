@@ -550,7 +550,10 @@ def _confirm_summary(
     _show_supplement_impact_summary(scan_overrides, inline_contexts, workflow_confirmation)
     typer.echo("- 将写入：project inventory、command catalog、guides、sensors、workflow skills、review candidates、trace。")
     while True:
-        raw_choice = typer.prompt("输入 confirm/确认 写入，back/返回 修改，cancel/取消 取消", default="confirm")
+        raw_choice = typer.prompt(
+            "输入 confirm/确认 写入，back/返回 修改，cancel/取消 取消；可直接输入 scan/扫描、rules/团队规则、candidates/候选、workflow/工作流 返回对应部分",
+            default="confirm",
+        )
         choice = _normalize_final_confirmation_choice(raw_choice)
         if choice == "confirm":
             return "confirm"
@@ -568,8 +571,16 @@ def _confirm_summary(
             return "back"
         if choice == "cancel":
             return "cancel"
+        direct_stage = _normalize_final_back_stage(raw_choice)
+        if direct_stage in {"scan", "rules", "candidates", "workflow"}:
+            typer.echo("返回修改")
+            return direct_stage
         typer.echo(f"未识别的最终确认输入：{raw_choice.strip()}")
-        typer.echo("请输入 `confirm`/`确认`、`back`/`返回` 或 `cancel`/`取消`；直接回车等同于 `confirm`。")
+        typer.echo(
+            "请输入 `confirm`/`确认`、`back`/`返回`、`cancel`/`取消`，"
+            "或直接输入 `scan`/`扫描`、`rules`/`团队规则`、`candidates`/`候选`、`workflow`/`工作流`；"
+            "直接回车等同于 `confirm`。"
+        )
 
 
 def _candidate_decision_summary_line(candidate_decisions: list[CandidateDecision], candidate_count: int) -> str:

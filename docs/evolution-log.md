@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Final Direct Return Target
+
+- North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、写入前返回修改。
+- init North Star 旅程阶段：最终确认摘要、返回扫描 / 团队规则 / 候选 / Workflow 修改、正式 `.ai` 写入前错误恢复。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括最终确认直接输入返回目标、返回 scan 后自动重新进入候选审查、full regression / push 工作包。当前最终确认已支持 `back` / `返回` 后二次选择目标，但用户若直接输入 `候选` 或 `团队规则` 会触发未知输入。本轮选择直接返回目标，因为它降低最终确认修改成本，且不改变 schema、writer、LLM 或 Runtime 分工。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的最终确认摘要中发现扫描、团队规则、候选或 Workflow 需要修改时，我可以直接输入对应目标 `扫描`、`团队规则`、`候选` 或 `工作流` 返回该部分，从而不必先输入 `返回` 再选择目标，也不会因为直接输入目标而触发未知输入。
+- 当前代码 gap：`_confirm_summary()` 只把返回目标解析放在 `back` 分支内；非 confirm / back / cancel 输入会进入未知输入保护，无法直接跳转到目标阶段。
+- 关键决策 / 取舍：复用最终返回目标别名归一化；最终确认先解析 confirm / back / cancel，再解析直接 stage；命中后输出 `返回修改` 并返回目标阶段；未知输入保护继续等待，不恢复 silent confirm；不自动重新进入候选审查，不修改正式资产契约。
+- Assumptions / risks：最终确认 prompt 是控制输入，不是自由文本；`scan` / `rules` / `candidates` / `workflow` 及中文别名在该位置可安全视为返回目标。风险是 prompt 变长，因此仅在最终确认提示和未知输入提示中用紧凑文案列出目标。
+- 边界情况 / 失败模式及回应：直接输入 `候选` 后进入逐项候选复核并写入决策；旧 `back` / `返回` 二次选择路径保留；未知输入仍提示有效选项并在写入前等待；不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查最终确认直接返回目标，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理“最终确认阶段可直接返回目标”的独立交互价值；自动候选重审、远端 push 和更大 init 流程重排继续独立评估。
+- 可执行验收标准及验证方式：新增 integration RED 先证明直接输入 `候选` 无法进入候选复核；实现后断言 prompt 展示直接目标、直接 `候选` 触发第二次候选复核、`a/r/e` 决策写入 `interaction-decisions.yaml`，并回归中文确认、中文返回和未知输入保护。
+- 完成内容：`_confirm_summary()` 支持直接返回目标；最终确认 prompt 和未知输入提示同步直接目标；`docs/engineering/init-workflow.md` 沉淀稳定规则；新增本轮 spec / plan 和 integration test。
+- 验证结果：RED targeted integration 先 1 failed；实现后相关 targeted 5 passed；`tests/integration/test_init_on_fixture_projects.py` 54 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 493 passed。`scripts/test-full.sh` 仍需外部 DeepSeek 访问；当前环境对非 sandbox 外发仓库 / benchmark 内容的验收运行未获授权，因此本轮不 push。
+- Self-Harness Gate：init workflow、spec / plan 和演进记录已同步；README 无需为该交互细节扩展；未改变 schema、LLM、benchmark、writer、Sensor 或 Runtime。下一轮候选 gap 仍可评估是否需要自动重新审查 candidates；远端 push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 Guided Scan Back Candidate Summary
 
 - North Star 模块：Maturity-driven Init、CLI Experience、review-only 候选治理、写入前确认边界。

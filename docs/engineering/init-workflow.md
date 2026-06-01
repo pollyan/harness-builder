@@ -155,7 +155,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 写入前 Harness 设计预览必须展示 Workflow 补充约束；如果没有 Workflow 补充，也要说明当前按内置 bugfix / lightweight / standard routing 预览。
 - 最终确认阶段返回 Workflow 补充且上一版 Workflow 补充非空时，CLI 必须说明新输入会替换上一版 Workflow 补充，直接回车会清空上一版 Workflow 补充；如果用户直接回车清空旧补充，CLI 必须输出可见确认，说明后续预览和正式资产将不再保留这些 Workflow 补充。
 - 最终确认摘要不能只显示补充数量，必须展示具体补充内容的可读摘要，让用户在写入前确认系统理解了输入。
-- 最终确认阶段输入 `back` / `返回` 时，必须允许返回 scan / 扫描、rules / 团队规则、candidates / 候选或 workflow / 工作流补充；返回 rules / workflow 后重新输入的补充必须替换旧内存态，并触发对应即时复述和写入前 preview，最终只把最新补充写入正式 `.ai` 资产。
+- 最终确认阶段输入 `back` / `返回` 时，必须允许返回 scan / 扫描、rules / 团队规则、candidates / 候选或 workflow / 工作流补充；用户也可以在最终确认输入处直接输入这些返回目标，跳过二次目标选择。返回 rules / workflow 后重新输入的补充必须替换旧内存态，并触发对应即时复述和写入前 preview，最终只把最新补充写入正式 `.ai` 资产。
 - 最终确认阶段只有空回车默认确认或显式输入 `confirm` / `确认` 才能写入正式 `.ai` 资产；输入 `back` / `返回` 返回修改，输入 `cancel` / `取消` 取消。其他未知非空输入必须明确提示有效选项并继续等待，不得静默当作 `confirm`。
 
 ### 7. 资产写入
