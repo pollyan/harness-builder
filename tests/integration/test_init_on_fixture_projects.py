@@ -1062,11 +1062,18 @@ def test_guided_init_records_scan_notes_and_team_rules_in_assets(tmp_path: Path,
     )
 
     assert result.exit_code == 0, result.output
+    team_guidance_index = result.output.index("建议优先补充这些隐性约束")
     team_prompt_index = result.output.index("可以输入一段规则说明")
     team_understanding_index = result.output.index("团队规则理解")
     team_impact_index = result.output.index("团队规则影响")
     candidate_review_index = result.output.index("建议生成的规则")
-    assert team_prompt_index < team_understanding_index < team_impact_index < candidate_review_index
+    assert team_guidance_index < team_prompt_index < team_understanding_index < team_impact_index < candidate_review_index
+    team_prompt = result.output[team_guidance_index:team_prompt_index]
+    assert "架构边界 / 模块分层" in team_prompt
+    assert "测试策略 / 必跑验证" in team_prompt
+    assert "安全合规 / 数据权限" in team_prompt
+    assert "发布回滚 / 环境限制" in team_prompt
+    assert "禁止修改 / 只读区域" in team_prompt
     team_summary = result.output[team_understanding_index:candidate_review_index]
     assert "Controller 只能调用 Service" in team_summary
     assert "配置变更必须说明回滚方式" in team_summary

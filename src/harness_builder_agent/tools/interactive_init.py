@@ -93,6 +93,7 @@ from harness_builder_agent.tools.guided_supplement_presentation import (
     show_workflow_note_cleared_summary as _show_workflow_note_cleared_summary,
     show_workflow_note_immediate_summary as _show_workflow_note_immediate_summary,
 )
+from harness_builder_agent.tools.guided_team_rules import collect_team_rules as _collect_team_rules
 from harness_builder_agent.tools.interaction_decisions import accepted_interactive_decisions, default_non_interactive_decisions
 from harness_builder_agent.tools.llm_enhancement_candidates import build_llm_enhancement_candidates
 from harness_builder_agent.tools.maintenance_triage import (
@@ -441,14 +442,6 @@ def _collect_scan_supplement(inventory: ProjectInventory) -> GuidedScanOverrides
         ).strip()
 
     return parse_guided_scan_supplement(answer, current_stack=inventory.primary_stack, stack_resolver=resolve_stack)
-
-
-def _collect_team_rules() -> list[str]:
-    typer.echo("\n团队规则")
-    typer.echo("除了仓库本身能扫描出来的信息，你们团队是否还有需要 AI 遵守的规则？")
-    typer.echo("例如：团队代码规范、组织级架构约束、测试策略、安全合规要求、发布流程、禁止随意修改的目录。")
-    answer = typer.prompt("可以输入一段规则说明；暂时没有则直接回车", default="", show_default=False).strip()
-    return [answer] if answer else []
 
 
 def _show_workflows() -> WorkflowConfirmation:

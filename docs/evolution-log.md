@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided 团队规则输入引导增强
+
+- North Star 模块：Init CLI Experience、渐进式交互、用户上下文吸收、工程架构可维护性。
+- init North Star 旅程阶段：扫描理解对齐之后的团队规则补充、候选审查前的上下文确认、写入前团队规则约束预览。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；上一轮 Gate 候选包括团队规则输入体验增强、候选审查成熟度解释增强、push / 远端同步。当前代码已能把团队规则写入 `interaction-decisions.yaml`、`project-context.md`、`human-input-needed.md` 和 completion summary，但输入前提示仍是一句宽泛例子，Maintainer 需要自己想起哪些隐性约束值得补充。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的团队规则阶段准备补充组织约束时，我可以看到按架构边界、测试策略、安全合规、发布回滚和只读区域分组的输入引导，并继续用一段自然语言提交，从而更容易补充会影响 Guides 与 human-input-needed 的隐性团队规则。
+- 当前代码 gap：`_collect_team_rules()` 内联在 `interactive_init.py`，没有 direct unit；输入提示没有把团队规则拆成用户容易扫描的约束类别。
+- 关键决策 / 取舍：新增 `guided_team_rules.py` 承接团队规则阶段引导和 prompt；保持原 prompt 文案、单段自然语言输入和 `ContextConfirmation.inline_contexts` 契约，不把未审核团队规则拆成正式 policy 字段。
+- Assumptions / risks：分组提示能提升输入质量，但可能让终端略长；本轮保持短句和单 prompt，避免增加交互负担。
+- 边界情况 / 失败模式：空输入仍返回空列表；有输入仍返回单条团队规则；团队规则仍进入 review-only 上下文，不伪装成扫描事实或正式 routing policy；不执行 Runtime，不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动 explorer 做只读审查，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮是用户可见的 CLI 引导增强，同时顺手收窄主向导状态机边界；不混入 schema、writer 或候选治理语义变化。
+- 可执行验收标准及验证方式：unit 覆盖分组提示、有输入返回、空输入返回；guided integration 覆盖分组提示出现在团队规则理解前，并继续验证 context confirmation、project context、routing policy 不漂移；compileall、diff check 和 fast regression 作提交前验证。
+- 完成内容：新增 `src/harness_builder_agent/tools/guided_team_rules.py` 与 `tests/unit/test_guided_team_rules.py`；`interactive_init.py` 删除内联 `_collect_team_rules()` 实现；更新本轮 guided init integration、spec 和 plan。
+- 验证结果：RED unit 先因缺少模块失败，integration 先因缺少分组提示失败；实现后 new unit 2 passed，相关 guided integration 1 passed，compileall 通过，`git diff --check` 通过；`scripts/test-fast.sh` 452 passed。
+- Self-Harness Gate：README / init workflow 已覆盖团队规则、架构、测试、安全、发布等输入方向，本轮无需同步长期规则；未新增 schema 或 todo。下一轮候选 gap 包括候选审查成熟度解释增强，或在 acceptance 外部前置满足后统一 push。
+
 ## 2026-06-01 Guided 候选审查模块抽取
 
 - North Star 模块：Init CLI Experience、渐进式交互、候选资产审核、工程架构可维护性。
