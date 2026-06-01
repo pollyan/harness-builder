@@ -37,6 +37,7 @@ from harness_builder_agent.tools.evidence_sources import (
 from harness_builder_agent.tools.generate_improvements import generate_improvements
 from harness_builder_agent.tools.generation_trace import GenerationTrace
 from harness_builder_agent.tools.runtime_task_runs import RuntimeTaskRunError, summarize_runtime_task_runs
+from harness_builder_agent.tools.scan_followup_guidance import scan_followup_required_guidance_snippets
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.write_assets import write_initial_assets
 
@@ -274,17 +275,66 @@ def _human_confirmation_checks(ai: Path) -> list[dict[str, Any]]:
         checks.append({"id": "content:human-confirmation", "passed": False, "error": "questionnaire unavailable"})
         return checks
 
-    ids = {item.interaction_id for item in questions}
-    required_ids = {"confirm:team-context", "confirm:guide-candidates", "confirm:sensor-gates"}
     human_input = (ai / "human-input-needed.md").read_text(encoding="utf-8") if (ai / "human-input-needed.md").exists() else ""
+    missing = _missing_human_confirmation_content(human_input, questions)
     checks.append(
         {
             "id": "content:human-confirmation",
-            "passed": required_ids.issubset(ids) and "# Human Input Needed" in human_input,
-            "required_question_count": len(required_ids),
+            "passed": not missing,
+            "required_question_count": 3,
+            "missing": missing,
         }
     )
     return checks
+
+
+def _missing_human_confirmation_content(human_input: str, questions: list[Any]) -> list[str]:
+    missing: list[str] = []
+    ids = {item.interaction_id for item in questions}
+    required_ids = {"confirm:team-context", "confirm:guide-candidates", "confirm:sensor-gates"}
+    for interaction_id in sorted(required_ids - ids):
+        missing.append(f"missing_question:{interaction_id}")
+
+    required_markers = [
+        "# Human Input Needed",
+        "## 已提供上下文",
+        "## 扫描待确认摘要",
+        "## 待确认问题",
+        "## 处理方式",
+        "## 下一步建议",
+        "Harness Builder 不执行 Runtime",
+        "不创建 `.ai/task-runs`",
+    ]
+    for marker in required_markers:
+        if marker not in human_input:
+            missing.append(marker)
+
+    for item in questions:
+        interaction_id = item.interaction_id
+        if interaction_id not in human_input:
+            missing.append(f"missing_human_input_question:{interaction_id}")
+        if item.interaction_type != "scan_followup_confirmation":
+            continue
+        status = getattr(item, "response_status", "unaddressed")
+        if status == "reviewed_resolved_by_harness_maintainer":
+            if "已由 Harness Maintainer 标记为 resolved" not in human_input:
+                missing.append(f"missing_scan_followup_resolved_boundary:{interaction_id}")
+            if f"review-human-input --interaction-id {interaction_id} --decision reopened" not in human_input:
+                missing.append(f"missing_scan_followup_reopen_command:{interaction_id}")
+            continue
+        expected_command = f"review-human-input --interaction-id {interaction_id} --decision resolved"
+        if expected_command not in human_input:
+            missing.append(f"missing_scan_followup_review_command:{interaction_id}")
+        if "不会自动关闭追问" not in human_input:
+            missing.append(f"missing_scan_followup_no_auto_close_boundary:{interaction_id}")
+        if "不会被伪装成已验证扫描 evidence" not in human_input:
+            missing.append(f"missing_scan_followup_unverified_evidence_boundary:{interaction_id}")
+        question_payload = item.model_dump(mode="json") if hasattr(item, "model_dump") else dict(item)
+        for snippet in scan_followup_required_guidance_snippets(question_payload):
+            if snippet not in human_input:
+                missing.append(f"missing_scan_followup_guidance:{interaction_id}:{snippet}")
+
+    return list(dict.fromkeys(missing))
 
 
 def _llm_enhancement_checks(ai: Path) -> list[dict[str, Any]]:

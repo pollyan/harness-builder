@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Human Input 处理方式 Benchmark 深度校验
+
+- North Star 模块：Maturity-driven Init、渐进式交互、人工确认治理、Benchmark 质量门禁。
+- init North Star 旅程阶段：深度追问、写入后的交付摘要、会后维护入口。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；上一轮已把 scan follow-up 具体回答建议写入 `.ai/human-input-needed.md#处理方式`，但 `benchmark.py` 的 `content:human-confirmation` 仍只检查三个基础 `confirm:*` ID 和 Markdown 标题，不能发现处理方式章节、具体示例、`review-human-input` 命令或 Runtime 边界漂移。本轮候选包括 human-input benchmark 深度校验、self-check suggested action 结构化约束、full regression / push 工作包和 existing Harness action execution 抽模块；本轮选择 human-input benchmark，因为它直接保护刚交付的“动态追问 -> 会后处理 -> 显式复核”闭环。
+- 工程信任故事：作为 Harness Maintainer，当我运行 `benchmark` 验收首次 `init` 生成的人工确认材料时，我可以确认 `.ai/human-input-needed.md#处理方式` 保留了必要章节、scan follow-up 的具体回答示例、`review-human-input` 显式治理入口和 Runtime 边界；如果这些内容漂移，`benchmark-report.yaml` 会给出精确 missing detail。
+- 当前代码 gap：`_human_confirmation_checks()` 只校验 `required_ids.issubset(ids)` 和 `# Human Input Needed`，缺少 `.ai/human-input-needed.md` 稳定章节、per-id scan follow-up 示例、resolved / reopened 治理命令和不创建 `.ai/task-runs` 边界的断言。
+- 关键决策 / 取舍：新增 `scan_followup_required_guidance_snippets()` 作为 benchmark 可复用的稳定片段事实源；benchmark 只校验 marker / snippet / boundary，不锁死整段中文；resolved follow-up 不强制要求重新补充示例，只要求 resolved / reopened 边界。
+- Assumptions / risks：`Questionnaire` schema 不保留 follow-up trigger，因此 benchmark 通过稳定 interaction id fallback 推断示例类型；旧 Harness 如果人工删掉新章节会 benchmark failed，这是有意暴露质量漂移。
+- 边界情况 / 失败模式：缺 `## 处理方式`、缺 `module` / `risk` / `stack` / `command` 示例、缺 `review-human-input --interaction-id <id> --decision resolved`、缺“不自动关闭追问 / 不伪装成已验证 evidence / 不创建 task-runs”都会进入 `missing` detail；本轮不修改 LLM、schema、正式资产生成或 Runtime。
+- Sub agent 使用情况：尝试启动 explorer 做只读审查，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只增强 human-input 处理方式质量门禁，不混入 self-check schema、existing Harness action execution 抽取或 push 工作包。
+- 可执行验收标准及验证方式：integration 先 RED 证明当前 benchmark 看不出缺示例 / 缺章节；实现后新增 human-confirmation 正反测试和完整 `run_benchmark()` 漂移测试通过；benchmark integration 全文件通过。
+- 完成内容：`benchmark.py` 的 `content:human-confirmation` 新增稳定章节、Runtime 边界、scan follow-up per-id guidance 和 review command 校验；`scan_followup_guidance.py` 暴露 required snippet helper；README、init workflow、testing strategy、sensor/gate rules、本轮 spec / plan 同步。
+- 验证结果：RED targeted tests 先 3 failed；实现后 targeted 3 passed，benchmark / human-confirmation regression 17 passed，`tests/integration/test_benchmark_command.py` 86 passed。
+- Self-Harness Gate：长期文档已同步；无需新增 todo；本轮未触碰 LLM、正式资产 writer 或 Runtime。下一轮候选 gap：self-check suggested action 结构化约束，或 existing Harness action execution 抽模块；push 工作包仍需 full regression 前置。
+
 ## 2026-06-01 Human Input 深度追问处理建议
 
 - North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、人工确认治理。

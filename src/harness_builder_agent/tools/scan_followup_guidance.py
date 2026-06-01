@@ -50,6 +50,29 @@ def scan_followup_answer_guidance_text(question: dict[str, object]) -> str:
     )
 
 
+def scan_followup_required_guidance_snippets(question: dict[str, object]) -> list[str]:
+    trigger = _followup_trigger(question)
+    if trigger == "coverage_gap":
+        return [
+            "module=src/main/java|backend|核心模块",
+            "risk=src/main/java/payments|支付或权限高风险",
+        ]
+    if trigger in {"stack_claim_without_evidence", "unknown_stack"}:
+        return ["stack=java-spring"]
+    if trigger == "module_boundary_unclear":
+        return [
+            "module=src/main/java|backend|核心模块",
+            "risk=src/main/java/payments|支付或权限高风险",
+        ]
+    if trigger == "test_evidence_missing":
+        return ["command=unit_test|mvn test|test|hard|pom.xml|high"]
+    return [
+        "module=路径|类型|名称",
+        "command=ID|命令|类型|gate|来源|置信度",
+        "risk=路径|原因",
+    ]
+
+
 def _followup_trigger(question: dict[str, object]) -> str:
     trigger = str(question.get("trigger") or "").strip()
     if trigger:

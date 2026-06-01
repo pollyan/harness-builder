@@ -21,6 +21,7 @@ from harness_builder_agent.tools.benchmark import (
     run_benchmark,
 )
 from harness_builder_agent.tools.candidate_governance import review_candidate
+from harness_builder_agent.tools.human_confirmation import human_input_markdown
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.weapon_candidate_governance import review_weapon_candidate
 
@@ -585,6 +586,34 @@ def _prepare_passed_benchmark_repo(tmp_path: Path, monkeypatch, fixture_name: st
     return repo
 
 
+def _add_scan_followup_confirmation(
+    ai: Path,
+    *,
+    interaction_id: str = "confirm:scan-followup:coverage-source-java",
+    response_status: str = "unaddressed",
+) -> None:
+    questionnaire_path = ai / "questionnaire.yaml"
+    questionnaire = yaml.safe_load(questionnaire_path.read_text(encoding="utf-8"))
+    questionnaire["questions"].append(
+        {
+            "interaction_type": "scan_followup_confirmation",
+            "interaction_id": interaction_id,
+            "question": "源码采样被截断时，哪些目录最能代表真实模块边界？",
+            "options": ["补充或修正相关信息", "暂时接受当前不确定性"],
+            "confidence": "low",
+            "reason": "source sampling was truncated. 影响：guides",
+            "response_status": response_status,
+            "response_sources": [],
+        }
+    )
+    questionnaire_path.write_text(yaml.safe_dump(questionnaire, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    context_inputs = yaml.safe_load((ai / "context-inputs.yaml").read_text(encoding="utf-8"))
+    (ai / "human-input-needed.md").write_text(
+        human_input_markdown(context_inputs, questionnaire),
+        encoding="utf-8",
+    )
+
+
 def _add_consistent_risk_context(ai: Path, risk_path: str, reason: str = "核心控制器变更影响请求路径。") -> ProjectInventory:
     inventory_path = ai / "project-inventory.json"
     inventory_payload = json.loads(inventory_path.read_text(encoding="utf-8"))
@@ -906,6 +935,55 @@ def test_benchmark_fails_when_init_summary_missing_confirmation_entry(tmp_path: 
     assert report["status"] == "failed"
     assert "## 待人工确认" in check["missing"]
     assert ".ai/human-input-needed.md#处理方式" in check["missing"]
+
+
+def test_human_confirmation_check_preserves_scan_followup_action_guidance(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _add_scan_followup_confirmation(ai)
+
+    checks = _human_confirmation_checks(ai)
+    check = next(item for item in checks if item["id"] == "content:human-confirmation")
+
+    assert check["passed"] is True
+    assert check["missing"] == []
+
+
+def test_human_confirmation_check_fails_when_scan_followup_guidance_is_too_shallow(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _add_scan_followup_confirmation(ai)
+    human_input_path = ai / "human-input-needed.md"
+    text = human_input_path.read_text(encoding="utf-8")
+    text = text.replace("`module=src/main/java|backend|核心模块`", "`module=src`")
+    text = text.replace("review-human-input --interaction-id confirm:scan-followup:coverage-source-java --decision resolved", "review-human-input")
+    human_input_path.write_text(text, encoding="utf-8")
+
+    checks = _human_confirmation_checks(ai)
+    check = next(item for item in checks if item["id"] == "content:human-confirmation")
+
+    assert check["passed"] is False
+    assert "missing_scan_followup_guidance:confirm:scan-followup:coverage-source-java:module=src/main/java|backend|核心模块" in check["missing"]
+    assert "missing_scan_followup_review_command:confirm:scan-followup:coverage-source-java" in check["missing"]
+
+
+def test_benchmark_fails_when_human_input_action_section_drifts(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _add_scan_followup_confirmation(ai)
+    human_input_path = ai / "human-input-needed.md"
+    human_input_path.write_text(
+        human_input_path.read_text(encoding="utf-8").replace("## 处理方式", "## 处理建议", 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("harness_builder_agent.tools.benchmark.assess_maturity", lambda repo_path: repo_path / ".ai")
+
+    report = run_benchmark(repo)
+    check = next(item for item in report["checks"] if item["id"] == "content:human-confirmation")
+
+    assert report["status"] == "failed"
+    assert check["passed"] is False
+    assert "## 处理方式" in check["missing"]
 
 
 def test_benchmark_passes_when_init_summary_preserves_scan_evidence_audit(tmp_path: Path, monkeypatch):
