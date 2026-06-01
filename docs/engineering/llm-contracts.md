@@ -101,7 +101,7 @@ Evidence 是 LLM 的输入，也是调和阶段的审计依据。
 - 如果 LLM evidence planner 返回低置信度，调和阶段必须保留 warning 和 human confirmation 信号；不能把低置信度规划伪装成完全可信的扫描结果。
 - coverage gap、LLM stack claim 缺少 evidence、primary stack unknown、模块边界不清或测试 evidence 缺失时，调和阶段必须生成结构化 follow-up questions，并写入 `ScanMetadata.followup_questions`。这些问题用于驱动 guided CLI 的 targeted 追问、二次自检和后续人工确认；它们不能自动修正 LLM proposal。
 - 当 scan follow-up 存在时，LLM scan self-check 可以基于当前 `EvidenceBundle` 与 `ScanMetadata.followup_questions` 输出结构化 `ScanSelfCheckReport`，并写入 `ScanMetadata.self_check`。该报告必须保持 `pending_harness_maintainer_review`，只能说明每个追问是当前 evidence 已支持、仍需人工确认、需要 targeted scan，还是存在冲突；它不能声称已修改 inventory、command catalog、Guides、Sensors、Workflow 或正式 Harness 资产。每条 resolution 必须显式返回 `suggested_action_type`，且只能是 `provide_stack`、`provide_module`、`provide_command`、`provide_risk`、`review_current_evidence`、`run_targeted_scan` 或 `maintainer_review`；`suggested_next_action` 只是人类说明，不能替代结构化动作类型。self-check LLM 不可用、返回空响应、schema 错误、缺少 `suggested_action_type`、未知 interaction id 或未知 evidence source 时必须显式失败，不能 silently skip 或 fallback。
-- `ScanSelfCheckReport.resolutions[].evidence_sources` 只能引用 Builder 提供给 self-check 的仓库 evidence、follow-up evidence、scan warning evidence、scan warning code 或 evidence expansion 路径 / 关注点。scan warning code 例如 `source_sampling_truncated` 是稳定扫描审计来源，可以作为 review-only evidence source；任意未出现过的路径或字符串仍必须显式失败。
+- `ScanSelfCheckReport.resolutions[].evidence_sources` 只能引用 Builder 提供给 self-check 的仓库 evidence、非空 evidence collection 名称、follow-up evidence、scan warning evidence、scan warning code 或 evidence expansion 路径 / 关注点。scan warning code 例如 `source_sampling_truncated` 是稳定扫描审计来源，可以作为 review-only evidence source；`llm_requested_files` 等非空集合名可以作为对一组已提供 evidence 的审计引用；任意未出现过的路径、空集合名或字符串仍必须显式失败。
 - LLM evidence planner 如果第一次返回 schema 或 allowlist 校验失败，可以带着校验错误进行一次契约修正重试；重试仍失败时必须显式失败。该重试只能要求 LLM 从已提供 `files[].path` 中逐字复制路径或返回空列表，不能由 Python 近似匹配、自动纠正或放宽 allowlist。
 - Prompt 应向 LLM 提供足够 evidence，而不是只给文件名。
 - LLM proposal 应保留 reasoning summary。
@@ -147,6 +147,7 @@ LLM schema 应表达稳定业务契约。
 - 新增字段要说明下游用途。
 - 不要为了临时 prompt 方便加入含义模糊的字段。
 - 对 command candidate 必须保留 command、type、gate、source、confidence。
+- LLM 可以提出 `gate=hard`，但调和阶段必须验证 source evidence 和 confidence；`confidence=low` 或 source 无证据时必须降级为 soft gate，并留下 scan warning / human confirmation 信号。
 - 对 human confirmation 必须有明确标记，而不是藏在自然语言里。
 - 对 maturity review 必须保留 candidate_id、decision、rationale、risks、suggested_acceptance_checks 和 evidence_sources，并拒绝未知 candidate_id；真实 LLM 输出必须保持短小，summary、rationale、risks、suggested_acceptance_checks、missing_candidates 和 global_risks 都要有明确长度或条数上限，不能复制大段 evidence。
 - 对 asset candidate 必须保留 kind、source_candidate_id、suggested_path、draft_content、review_status、acceptance_checks 和 evidence_sources；`suggested_path` 必须限制在安全的 `.ai/` 相对路径下，不能包含空路径段、`.` 或 `..`；`workflow_policy` candidate 的 `suggested_path` 必须精确等于 `.ai/harness-config.yaml`；真实 LLM 输出必须偏短，最多 3 个候选，`draft_content` 和 rationale 要有明确长度约束，避免长 JSON 被截断成不可解析响应。

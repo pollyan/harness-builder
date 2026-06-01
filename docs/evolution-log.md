@@ -1,5 +1,18 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Hard Gate 置信度降级
+
+- North Star 模块：Maturity-driven Init、Sensor / Benchmark 质量门禁、CLI Experience、工程信任。
+- init North Star 旅程阶段：扫描调和、写入前验证命令治理、首次 init 后 benchmark 验收。
+- Gap Analysis 摘要：真实 DeepSeek smoke 显示 `init --non-interactive` 可以生成完整 `.ai` 资产，但新生成的 Java Spring Harness 会因 `content:hard-gate-command-evidence` 失败；失败原因是 LLM 输出了 `gate=hard`、source 存在但 `confidence=low` 的测试命令，生成阶段保留为 hard gate，而 benchmark 正确拒绝 low-confidence hard gate。本轮选择修复生成阶段 gate eligibility，而不是放宽 benchmark。
+- 用户故事：作为 Harness Maintainer，当我运行 `init` 生成第一版 Harness 后，低置信度验证命令不会被写成 hard gate 造成随后 benchmark 自相矛盾地失败；我可以在 scan warning / human-input 中看到需要补充证据或确认命令稳定性的提示。
+- 当前代码 gap：`scan_reconciler._command_from_candidate()` 只在 source 无 evidence 时降级 hard gate，没有处理 `confidence=low` 且 source 有 evidence 的命令。
+- 关键决策 / 取舍：在调和阶段把 low-confidence hard gate 降级为 `soft`，保留 `confidence=low` 并新增 `command_low_confidence_hard_gate` warning；benchmark 仍保持严格，遗留或手工引入的 low-confidence hard gate 继续失败。
+- Assumptions / risks：`medium` / `high` 且 source 有 evidence 的命令仍可成为初始 hard gate；`low` 命令被降级后可能导致没有 hard gate，此时成熟度和 benchmark 会通过缺失 hard gate / 质量评分提示真实风险，而不是把弱命令伪装成硬门禁。
+- 可执行验收标准及验证方式：新增 unit RED 证明 low-confidence hard gate 原先保留为 hard；实现后 `tests/unit/test_scan_reconciler.py` 13 passed；benchmark 低置信度 hard gate 失败测试继续通过。
+- 完成内容：`scan_reconciler.py` 增加 low-confidence hard gate 降级；`human_confirmation.py` 增加 warning 处理提示；README、LLM 契约和 Sensor/Gate 规则同步稳定规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- Self-Harness Gate：本轮未放宽 benchmark，修复点位于生成阶段；后续仍需用真实 DeepSeek smoke 确认 freshly generated Java fixture 不再因为 low-confidence hard gate 失败。
+
 ## 2026-06-01 Existing Harness Action Dispatch Registry
 
 - North Star 模块：Maturity-driven Init、已有 Harness 维护入口、CLI Experience、工程架构可维护性。

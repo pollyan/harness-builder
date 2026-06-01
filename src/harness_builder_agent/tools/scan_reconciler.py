@@ -286,16 +286,26 @@ def _command_from_candidate(
 ) -> CommandDefinition:
     gate = candidate.gate
     confidence = candidate.confidence
-    if candidate.gate == "hard" and not _command_has_evidence(candidate, evidence):
-        gate = "soft"
-        confidence = "low"
-        warnings.append(
-            ScanWarning(
-                code="command_without_evidence",
-                message=f"Command `{candidate.command}` was downgraded because `{candidate.source}` is without evidence.",
-                evidence=[candidate.source],
+    if candidate.gate == "hard":
+        if not _command_has_evidence(candidate, evidence):
+            gate = "soft"
+            confidence = "low"
+            warnings.append(
+                ScanWarning(
+                    code="command_without_evidence",
+                    message=f"Command `{candidate.command}` was downgraded because `{candidate.source}` is without evidence.",
+                    evidence=[candidate.source],
+                )
             )
-        )
+        elif candidate.confidence == "low":
+            gate = "soft"
+            warnings.append(
+                ScanWarning(
+                    code="command_low_confidence_hard_gate",
+                    message=f"Command `{candidate.command}` was downgraded because low confidence cannot support a hard gate.",
+                    evidence=[candidate.source],
+                )
+            )
     return CommandDefinition(
         id=candidate.id,
         command=candidate.command,

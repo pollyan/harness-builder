@@ -11,7 +11,7 @@
 - `resolutions[].interaction_id` 必须逐字来自输入中的 `scan_metadata.followup_questions[].interaction_id`。
 - `resolutions[].trigger` 必须逐字来自对应 follow-up 的 `trigger`。
 - `resolutions[].suggested_action_type` 必须是允许枚举之一，不能只给自由文本建议。
-- `resolutions[].evidence_sources` 只能引用输入中的 repository paths、follow-up evidence、scan warning evidence、scan warning code 或 scan metadata 中已经出现的 evidence 字符串。
+- `resolutions[].evidence_sources` 只能引用输入中的 repository paths、非空 evidence collection 名称、follow-up evidence、scan warning evidence、scan warning code 或 scan metadata 中已经出现的 evidence 字符串。
 - 不能发明路径、不能引用仓库外路径、不能引用 `.ai/` 产物作为扫描 evidence。
 - 如果 evidence 不足，使用 `needs_human_confirmation` 或 `needs_targeted_scan`，不要猜测。
 - 如果发现 LLM claim 与 evidence 冲突，使用 `conflict_detected`。
@@ -71,4 +71,4 @@
 - `rationale` 最多 1 句，说明为什么给出该 status。
 - `suggested_action_type` 必须来自上方枚举，表达下一步动作类型；不要省略该字段。
 - `suggested_next_action` 最多 1 句，给 Harness Maintainer 可执行下一步。
-- `evidence_sources` 最多 8 项，只能使用输入中已经存在的 evidence 字符串或 scan warning code。
+- `evidence_sources` 最多 8 项，只能使用输入中已经存在的 evidence 字符串、非空 evidence collection 名称或 scan warning code。

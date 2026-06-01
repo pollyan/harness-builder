@@ -64,6 +64,23 @@ def test_reconcile_downgrades_hard_gate_without_evidence():
     assert any("without evidence" in warning.message for warning in metadata.warnings)
 
 
+def test_reconcile_downgrades_low_confidence_hard_gate_even_with_source_evidence():
+    evidence = EvidenceBundle(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        files=[],
+        key_files=[EvidenceFile(path="pom.xml", kind="build", summary="maven")],
+    )
+    proposal = _proposal()
+    proposal.command_candidates[0].confidence = "low"
+
+    _inventory, commands, metadata = reconcile_scan(evidence, proposal)
+
+    assert commands.commands[0].gate == "soft"
+    assert commands.commands[0].confidence == "low"
+    assert any(warning.code == "command_low_confidence_hard_gate" for warning in metadata.warnings)
+
+
 def test_reconcile_persists_evidence_coverage_and_warnings():
     evidence = EvidenceBundle(
         repo_name="demo",

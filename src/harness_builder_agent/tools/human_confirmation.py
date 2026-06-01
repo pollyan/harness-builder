@@ -374,6 +374,7 @@ def scan_warning_action_hint(code: str) -> str:
     hints = {
         "test_evidence_not_found": "补充测试命令：`command=ID|命令|test|hard|来源|置信度`，或用 `--context <file>` 补充测试策略。",
         "command_without_evidence": "补充带真实 source 的验证命令，例如 `command=ID|命令|test|hard|docs/testing.md|high`。",
+        "command_low_confidence_hard_gate": "低置信度命令已降级为 soft gate；如要作为 hard gate，请补充 medium/high 置信度和真实 source。",
         "llm_stack_claim_without_evidence": "补充 `stack=<value>` 或通过 `--context <file>` 说明技术栈判断依据。",
         "source_sampling_truncated": "查看 `.ai/scan-report.md` / `.ai/scan-metadata.yaml`，必要时补充 `module=路径|类型|名称` 或 `risk=路径|原因`。",
         "llm_evidence_plan_low_confidence": "复核 `.ai/scan-metadata.yaml` 中的 evidence expansion，并补充关键模块、风险路径或团队上下文。",

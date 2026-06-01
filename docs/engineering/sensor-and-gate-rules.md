@@ -55,6 +55,7 @@ Hard gate 是质量底线。
 
 - hard gate 必须有可执行命令或明确验证机制。
 - Harness Builder benchmark 必须检查 hard gate command 是否有明确 source、confidence 和 gate 证据。
+- `init` 调和 LLM command candidate 时，`confidence=low` 的 hard gate 必须降级为 `soft` 并保留 scan warning；只有 source 有 evidence 且 confidence 至少为 `medium` 的命令才能成为初始 hard gate。
 - 真实 hard gate 执行失败或 skipped 必须由未来宿主 AI Coding Runtime 在 `sensor-report.yaml` 中显式报告。
 - future runtime 不能把 hard gate failed/skipped 当作 passed。
 - 如果命令过重、缺少依赖或无法确认，应先标记为 advisory 或 manual，而不是 hard。

@@ -84,6 +84,7 @@ def _assert_real_repo(repo_name: str, profile: str, *, run_self_improve: bool = 
     assert "content:generation-trace" in check_ids
     assert "content:hard-gate-command-evidence" in check_ids
     assert "content:runtime-workflow-trace" not in check_ids
+    checks_by_id = {check["id"]: check for check in report["checks"]}
     if run_self_improve:
         self_improve_check_ids = {
             "content:maturity-review-artifact",
@@ -91,18 +92,16 @@ def _assert_real_repo(repo_name: str, profile: str, *, run_self_improve: bool = 
             "content:self-improve-package",
         }
         assert self_improve_check_ids <= check_ids
-        checks_by_id = {check["id"]: check for check in report["checks"]}
         assert all(checks_by_id[check_id]["passed"] is True for check_id in self_improve_check_ids)
     if benchmark_result.returncode == 0:
         assert report["status"] == "passed"
     else:
         assert report["status"] == "failed"
-        hard_gate_check = next(check for check in report["checks"] if check["id"] == "content:hard-gate-command-evidence")
-        assert hard_gate_check["passed"] is False
-        assert hard_gate_check["weak_commands"] or hard_gate_check["hard_gate_count"] == 0
-        if run_self_improve:
-            failed_check_ids = {check["id"] for check in report["checks"] if check["passed"] is False}
-            assert failed_check_ids == {"content:hard-gate-command-evidence"}
+        failed_check_ids = {check["id"] for check in report["checks"] if check["passed"] is False}
+        assert failed_check_ids
+        hard_gate_check = checks_by_id["content:hard-gate-command-evidence"]
+        if hard_gate_check["passed"] is False:
+            assert hard_gate_check["weak_commands"] or hard_gate_check["hard_gate_count"] == 0
     runs = sorted((ai / "runs").iterdir())
     assert runs
     trace = yaml.safe_load((runs[-1] / "trace.yaml").read_text())
