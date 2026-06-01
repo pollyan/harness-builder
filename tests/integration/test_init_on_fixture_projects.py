@@ -2500,6 +2500,36 @@ def test_guided_init_existing_harness_can_recommend_workflow_without_overwriting
     assert recommendation_check["passed"] is True
 
 
+def test_guided_init_existing_harness_recommend_workflow_empty_task_preserves_action_failure(
+    tmp_path: Path, monkeypatch
+):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.interactive_init.scan_repository",
+        lambda repo_path: _fake_scan(repo_path, "java-spring"),
+    )
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness recommend-workflow failure must not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="recommend-workflow\n\n")
+
+    assert result.exit_code != 0
+    assert "recommend-workflow" in result.output
+    assert "empty_task_brief" in result.output
+    trace = _latest_init_trace(repo)
+    assert trace["status"] == "failed"
+    assert "existing-harness" in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "recommend-workflow"
+    assert trace["summary"]["error"] == "empty_task_brief"
+    assert not (repo / ".ai" / "task-runs").exists()
+
+
 def test_guided_init_existing_harness_can_record_candidate_governance_without_applying_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
@@ -2744,6 +2774,37 @@ def test_guided_init_existing_harness_can_review_initial_candidate_without_overw
     assert ".ai/review/weapon-candidate-governance.yaml" in artifact_paths
     assert ".ai/review/weapon-candidate-governance.md" in artifact_paths
     assert ".ai/review/llm-enhancement-candidates.md" in artifact_paths
+
+
+def test_guided_init_existing_harness_review_initial_candidate_missing_report_preserves_action_failure(
+    tmp_path: Path, monkeypatch
+):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.interactive_init.scan_repository",
+        lambda repo_path: _fake_scan(repo_path, "java-spring"),
+    )
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    (repo / ".ai" / "experience" / "weapon-library-candidates.yaml").unlink()
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided initial candidate failure must reuse existing Harness state, not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="review-initial-candidate\n")
+
+    assert result.exit_code != 0
+    assert "review-initial-candidate" in result.output
+    assert "weapon-library-candidates.yaml" in result.output
+    trace = _latest_init_trace(repo)
+    assert trace["status"] == "failed"
+    assert "existing-harness" in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "review-initial-candidate"
+    assert "weapon-library-candidates.yaml" in trace["summary"]["error"]
+    assert not (repo / ".ai" / "task-runs").exists()
 
 
 def test_guided_init_existing_harness_can_apply_guide_candidate_with_review_boundary(tmp_path: Path, monkeypatch):
@@ -3005,6 +3066,49 @@ def test_guided_init_existing_harness_rejects_workflow_policy_apply(tmp_path: Pa
     assert "workflow_policy" in result.output
     assert "expert command" in result.output
     assert not (review_dir / "candidate-governance.yaml").exists()
+    trace = _latest_init_trace(repo)
+    assert trace["status"] == "failed"
+    assert "existing-harness" in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "review-candidate"
+    assert trace["summary"]["candidate_id"] == "workflow-standard-domain-policy"
+    assert trace["summary"]["error"] == "workflow_policy_applied_requires_expert_command"
+    assert not (repo / ".ai" / "task-runs").exists()
+
+
+def test_guided_init_existing_harness_review_human_input_unknown_id_preserves_action_failure(
+    tmp_path: Path, monkeypatch
+):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.interactive_init.scan_repository",
+        lambda repo_path: _fake_scan(repo_path, "java-spring"),
+    )
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness review-human-input failure must not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="review-human-input\nmissing-interaction\nresolved\nReviewed manually.\nlead-reviewer\n",
+    )
+
+    assert result.exit_code != 0
+    assert "review-human-input" in result.output
+    assert "missing-interaction" in result.output
+    trace = _latest_init_trace(repo)
+    assert trace["status"] == "failed"
+    assert "existing-harness" in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "review-human-input"
+    assert trace["summary"]["interaction_id"] == "missing-interaction"
+    assert trace["summary"]["decision"] == "resolved"
+    assert trace["summary"]["error"]
+    assert not (repo / ".ai" / "task-runs").exists()
 
 
 def test_guided_init_existing_harness_can_self_improve_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):

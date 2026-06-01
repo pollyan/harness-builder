@@ -38,6 +38,30 @@ from harness_builder_agent.tools.self_improve import run_self_improve
 from harness_builder_agent.tools.weapon_candidate_governance import review_weapon_candidate
 
 
+def _fail_existing_harness_action(
+    trace,
+    inventory: ProjectInventory | Any,
+    action: str,
+    message: str,
+    error: str,
+    details: dict[str, Any] | None = None,
+) -> None:
+    event_details = {"primary_stack": inventory.primary_stack, "action": action, "error": error}
+    if details:
+        event_details.update(details)
+    trace.event("existing-harness", "failed", message, event_details)
+    summary = {
+        "primary_stack": inventory.primary_stack,
+        "existing_harness_action": action,
+        "error": error,
+    }
+    if details:
+        summary.update(details)
+    trace.finish("failed", summary)
+    typer.echo(f"{action} 失败：{error}")
+    raise typer.Exit(code=1)
+
+
 def run_existing_harness_action(
     repo: Path,
     ai: Path,
@@ -182,21 +206,13 @@ def run_existing_harness_action(
     if action == "recommend-workflow":
         task_brief = typer.prompt("任务说明", default="", show_default=False).strip()
         if not task_brief:
-            trace.event(
-                "existing-harness",
-                "failed",
+            _fail_existing_harness_action(
+                trace,
+                inventory,
+                "recommend-workflow",
                 "Workflow recommendation requires a task brief.",
-                {"primary_stack": inventory.primary_stack, "action": "recommend-workflow"},
+                "empty_task_brief",
             )
-            trace.finish(
-                "failed",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "existing_harness_action": "recommend-workflow",
-                    "error": "empty_task_brief",
-                },
-            )
-            raise typer.BadParameter("recommend-workflow requires a non-empty task brief.")
         task_id = typer.prompt("任务 ID", default="manual-task").strip() or "manual-task"
         typer.echo("正在生成 review-only Workflow 推荐...")
         trace.event(
@@ -256,66 +272,35 @@ def run_existing_harness_action(
             candidate_id = typer.prompt("候选 ID", default="", show_default=False).strip()
             candidate = find_asset_candidate(candidate_report, candidate_id)
         except Exception as exc:
-            trace.event(
-                "existing-harness",
-                "failed",
+            _fail_existing_harness_action(
+                trace,
+                inventory,
+                "review-candidate",
                 "Existing Harness candidate governance precheck failed.",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "action": "review-candidate",
-                    "candidate_id": candidate_id,
-                    "error": str(exc),
-                },
+                str(exc),
+                {"candidate_id": candidate_id},
             )
-            trace.finish(
-                "failed",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "existing_harness_action": "review-candidate",
-                    "candidate_id": candidate_id,
-                    "error": str(exc),
-                },
-            )
-            typer.echo(f"review-candidate 失败：{exc}")
-            raise typer.Exit(code=1) from exc
         typer.echo(asset_candidate_detail(candidate))
         typer.echo(asset_candidate_apply_preview(repo, candidate))
         decision = typer.prompt("决策 accepted/deferred/rejected/applied", default="deferred").strip().lower()
         if decision == "applied" and candidate.kind == "workflow_policy":
-            trace.event(
-                "existing-harness",
-                "failed",
+            _fail_existing_harness_action(
+                trace,
+                inventory,
+                "review-candidate",
                 "Guided candidate governance does not apply workflow policy candidates.",
-                {"primary_stack": inventory.primary_stack, "action": "review-candidate", "candidate_id": candidate_id},
+                "workflow_policy_applied_requires_expert_command",
+                {"candidate_id": candidate_id},
             )
-            trace.finish(
-                "failed",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "existing_harness_action": "review-candidate",
-                    "candidate_id": candidate_id,
-                    "error": "workflow_policy_applied_requires_expert_command",
-                },
-            )
-            raise typer.BadParameter("guided workflow_policy applied requires the expert command with structured patch review.")
         if decision not in {"accepted", "deferred", "rejected", "applied"}:
-            trace.event(
-                "existing-harness",
-                "failed",
+            _fail_existing_harness_action(
+                trace,
+                inventory,
+                "review-candidate",
                 "Unsupported guided candidate governance decision.",
-                {"primary_stack": inventory.primary_stack, "action": "review-candidate", "candidate_id": candidate_id, "decision": decision},
+                "unsupported_decision",
+                {"candidate_id": candidate_id, "decision": decision},
             )
-            trace.finish(
-                "failed",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "existing_harness_action": "review-candidate",
-                    "candidate_id": candidate_id,
-                    "decision": decision,
-                    "error": "unsupported_decision",
-                },
-            )
-            raise typer.BadParameter("decision must be accepted, deferred, rejected, or applied.")
         rationale = typer.prompt("决策理由", default="", show_default=False).strip()
         reviewer = typer.prompt("Reviewer", default="harness-maintainer").strip() or "harness-maintainer"
         typer.echo("正在记录候选治理决策...")
@@ -328,29 +313,14 @@ def run_existing_harness_action(
         try:
             output_dir = review_candidate(repo, candidate_id, decision, rationale, reviewer)
         except (FileNotFoundError, ValueError) as exc:
-            trace.event(
-                "existing-harness",
-                "failed",
+            _fail_existing_harness_action(
+                trace,
+                inventory,
+                "review-candidate",
                 "Existing Harness candidate governance failed.",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "action": "review-candidate",
-                    "candidate_id": candidate_id,
-                    "decision": decision,
-                    "error": str(exc),
-                },
+                str(exc),
+                {"candidate_id": candidate_id, "decision": decision},
             )
-            trace.finish(
-                "failed",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "existing_harness_action": "review-candidate",
-                    "candidate_id": candidate_id,
-                    "decision": decision,
-                    "error": str(exc),
-                },
-            )
-            raise typer.BadParameter(str(exc)) from exc
         governance = CandidateGovernanceLog.model_validate(
             yaml.safe_load((output_dir / "review" / "candidate-governance.yaml").read_text(encoding="utf-8"))
         )
@@ -403,29 +373,14 @@ def run_existing_harness_action(
         try:
             output_dir = review_human_input(repo, interaction_id, decision, rationale, reviewer)
         except (FileNotFoundError, ValueError) as exc:
-            trace.event(
-                "existing-harness",
-                "failed",
+            _fail_existing_harness_action(
+                trace,
+                inventory,
+                "review-human-input",
                 "Existing Harness human input governance failed.",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "action": "review-human-input",
-                    "interaction_id": interaction_id,
-                    "decision": decision,
-                    "error": str(exc),
-                },
+                str(exc),
+                {"interaction_id": interaction_id, "decision": decision},
             )
-            trace.finish(
-                "failed",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "existing_harness_action": "review-human-input",
-                    "interaction_id": interaction_id,
-                    "decision": decision,
-                    "error": str(exc),
-                },
-            )
-            raise typer.BadParameter(str(exc)) from exc
         governance = HumanInputGovernanceLog.model_validate(
             yaml.safe_load((output_dir / "review" / "human-input-governance.yaml").read_text(encoding="utf-8"))
         )
@@ -463,21 +418,13 @@ def run_existing_harness_action(
         try:
             show_weapon_candidate_summary(ai / "experience" / "weapon-library-candidates.yaml")
         except (FileNotFoundError, ValueError) as exc:
-            trace.event(
-                "existing-harness",
-                "failed",
+            _fail_existing_harness_action(
+                trace,
+                inventory,
+                "review-initial-candidate",
                 "Initial LLM candidate report is unavailable.",
-                {"primary_stack": inventory.primary_stack, "action": "review-initial-candidate", "error": str(exc)},
+                str(exc),
             )
-            trace.finish(
-                "failed",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "existing_harness_action": "review-initial-candidate",
-                    "error": str(exc),
-                },
-            )
-            raise typer.BadParameter(str(exc)) from exc
         candidate_id = typer.prompt("初始候选 ID", default="", show_default=False).strip()
         decision = typer.prompt("决策 accepted/rejected/kept", default="kept").strip().lower()
         rationale = typer.prompt("决策理由", default="", show_default=False).strip()
@@ -497,29 +444,14 @@ def run_existing_harness_action(
         try:
             output_dir = review_weapon_candidate(repo, candidate_id, decision, rationale, reviewer)
         except (FileNotFoundError, ValueError) as exc:
-            trace.event(
-                "existing-harness",
-                "failed",
+            _fail_existing_harness_action(
+                trace,
+                inventory,
+                "review-initial-candidate",
                 "Existing Harness initial LLM candidate governance failed.",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "action": "review-initial-candidate",
-                    "candidate_id": candidate_id,
-                    "decision": decision,
-                    "error": str(exc),
-                },
+                str(exc),
+                {"candidate_id": candidate_id, "decision": decision},
             )
-            trace.finish(
-                "failed",
-                {
-                    "primary_stack": inventory.primary_stack,
-                    "existing_harness_action": "review-initial-candidate",
-                    "candidate_id": candidate_id,
-                    "decision": decision,
-                    "error": str(exc),
-                },
-            )
-            raise typer.BadParameter(str(exc)) from exc
         governance = WeaponCandidateGovernanceLog.model_validate(
             yaml.safe_load((output_dir / "review" / "weapon-candidate-governance.yaml").read_text(encoding="utf-8"))
         )

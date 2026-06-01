@@ -283,6 +283,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - LLM 返回无法解析的 JSON。
 - LLM 输出不符合 schema。
 - 必须写入的机器消费产物无法序列化。
+- 已有 Harness guided 维护动作失败时，trace summary 必须保留 `existing_harness_action`、相关 candidate / interaction id、decision 和 error，不能被顶层 `init` 异常处理覆盖成只有 `error_type=BadParameter` 的泛化失败。
 
 可以成功但必须记录风险的情况：
 

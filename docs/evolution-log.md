@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 维护动作失败 Trace 保真
+
+- North Star 模块：Maturity-driven Init、Existing Harness 维护入口、可观测性与审计。
+- init North Star 旅程阶段：再次进入已有 Harness、维护动作失败后的可解释交接。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 Existing Harness 维护动作失败 trace 保真、action runner 模块拆分、full regression / push 工作包。上一轮已修复 `review-candidate` 缺 report / unknown id 的早期失败，但 `recommend-workflow` 空任务说明、`review-human-input` unknown id、`review-initial-candidate` 缺候选报告、workflow policy guided apply 禁止等路径仍会在写完 action-specific failed trace 后抛 `BadParameter`，被顶层 `init` 泛化覆盖。本轮选择该 gap，因为它直接保护已有 Harness 维护入口的审计可信度。
+- 工程信任故事：作为 Harness Maintainer，当我在已有 Harness guided 维护入口执行 `recommend-workflow`、`review-human-input`、`review-candidate` 或 `review-initial-candidate` 等动作但输入缺失、候选不适用或治理失败时，我可以获得明确失败，并且 generation trace 保留所选维护动作、相关 id / decision 和错误原因，从而后续排查不需要猜测这是普通 init 失败还是具体维护动作失败。
+- 当前代码 gap：`existing_harness_action_runner.py` 多处 `trace.finish("failed", ...)` 后继续 `raise typer.BadParameter(...)`；`cli.py:init_command` 的泛化 `except Exception` 会再次 `trace.finish("failed", {"error_type": ...})`，覆盖维护动作上下文。
+- 关键决策 / 取舍：新增 `_fail_existing_harness_action()` 统一失败出口，写 action-specific failed event / summary、输出简短失败说明并 `raise typer.Exit(code=1)`；不改变 standalone 专家命令、成功路径、schema、benchmark、LLM 或 Runtime 分工。
+- Assumptions / risks：guided maintenance action 失败是用户可修复的动作失败，应以非零退出结束但保留 action trace；`typer.Exit` 输出比 `BadParameter` 短，因此 helper 先 echo action 和 error。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 runner 失败路径，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只统一 guided existing Harness maintenance action 的失败 trace，不混入 action runner 大拆分或 push 工作包。
+- 可执行验收标准及验证方式：新增 integration RED tests 覆盖 `recommend-workflow` 空 brief、`review-human-input` unknown id、`review-initial-candidate` 缺 report 和 workflow policy guided apply 禁止；实现后检查 trace summary、stages、无 scan、无 `.ai/task-runs`。
+- 完成内容：`existing_harness_action_runner.py` 新增统一失败 helper 并替换已知 `BadParameter` 失败出口；`docs/engineering/init-workflow.md` 沉淀维护动作失败 trace 规则；新增本轮 spec / plan 和 integration tests。
+- 验证结果：RED targeted tests 先 4 failed；实现后 targeted 4 passed，`tests/integration/test_init_on_fixture_projects.py` 49 passed，`compileall` 通过，`git diff --check` 通过；`scripts/test-fast.sh` 485 passed。
+- Self-Harness Gate：长期失败 trace 规则已写入 init workflow；无需新增 open todo。下一轮候选 gap：Existing Harness action runner 按动作拆模块，或在补齐 DeepSeek key 与 `.benchmarks` 后重新执行 full regression 并 push。
+
 ## 2026-06-01 Todo 索引状态对齐
 
 - North Star 模块：目标模式运行治理、文档事实源、Maturity-driven Init 迭代节奏。
