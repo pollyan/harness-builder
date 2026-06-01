@@ -188,6 +188,8 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 
 `recommend-workflow` 写出最新 `.ai/review/workflow-routing-recommendation.*` 后，还必须写出不可覆盖的 `.ai/review/workflow-routing-recommendations/<recommendation_id>.*`、`.ai/review/workflow-routing-recommendations/index.yaml` 和 `.ai/review/workflow-routing-recommendations.md`，再刷新 `.ai/experience/experience-index.yaml`、`.ai/maturity-score.yaml` 和 `.ai/maturity-evidence.yaml`，让多次推荐证据立即进入后续 maturity / improve 链路；该刷新不能生成 `.ai/task-runs`，也不能应用正式 routing policy 变更。
 
+`review-initial-candidate` 写出 `.ai/review/weapon-candidate-governance.yaml` 和 `.ai/review/weapon-candidate-governance.md` 后，benchmark 必须把它们作为可选 review-only治理产物校验：不存在时不失败，存在时校验 schema、Markdown 配对章节、candidate id / type、source report、decision 到 new status 的一致性、candidate report 当前 status / human confirmation required 同步，以及 `review_only_no_formal_asset_change` 边界。`.ai/experience/weapon-library-candidates.yaml` 中的初始候选在治理后可以是 `confirmed` 或 `rejected`，不能再被 benchmark 固定要求为全部 `candidate`。
+
 必须生成的语义上下文产物：
 
 - `.ai/scan-report.md`

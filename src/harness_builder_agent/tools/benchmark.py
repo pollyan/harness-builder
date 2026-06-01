@@ -21,6 +21,7 @@ from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.scan import LLMScanProposal, ScanMetadata
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
+from harness_builder_agent.schemas.weapon_candidate_governance import WeaponCandidateGovernanceLog
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
@@ -303,11 +304,40 @@ def _llm_enhancement_checks(ai: Path) -> list[dict[str, Any]]:
         if (ai / "review" / "llm-enhancement-candidates.md").exists()
         else ""
     )
+    guide_text = (
+        (ai / "review" / "candidate-guides.md").read_text(encoding="utf-8")
+        if (ai / "review" / "candidate-guides.md").exists()
+        else ""
+    )
+    sensor_text = (
+        (ai / "review" / "candidate-sensors.md").read_text(encoding="utf-8")
+        if (ai / "review" / "candidate-sensors.md").exists()
+        else ""
+    )
+    missing: list[str] = []
+    for item in candidates:
+        expected_confirmation = item.status == "candidate"
+        if item.human_confirmation_required is not expected_confirmation:
+            missing.append(f"status_confirmation_mismatch:{item.id}:{item.status}")
+        if f"`{item.id}`" not in review_text:
+            missing.append(f"missing_summary_candidate:{item.id}")
+        if f"status=`{item.status}`" not in review_text:
+            missing.append(f"missing_summary_status:{item.id}:{item.status}")
+        if item.review_boundary not in review_text:
+            missing.append(f"missing_summary_boundary:{item.id}")
+        kind_text = guide_text if item.candidate_type == "guide" else sensor_text
+        if f"`{item.id}`" not in kind_text:
+            missing.append(f"missing_{item.candidate_type}_candidate:{item.id}")
+        if f"status=`{item.status}`" not in kind_text:
+            missing.append(f"missing_{item.candidate_type}_status:{item.id}:{item.status}")
+        if item.review_boundary not in kind_text:
+            missing.append(f"missing_{item.candidate_type}_boundary:{item.id}")
     checks.append(
         {
             "id": "content:llm-enhancement-candidates",
-            "passed": all(item.status == "candidate" and item.human_confirmation_required is True for item in candidates)
-            and "candidate" in review_text.lower(),
+            "passed": not missing,
+            "candidate_count": len(candidates),
+            "missing": missing,
         }
     )
     return checks
@@ -324,6 +354,7 @@ def _content_checks(ai: Path, inventory: ProjectInventory) -> list[dict[str, Any
         _maturity_review_artifact_check(ai),
         _asset_candidate_review_check(ai),
         _candidate_governance_check(ai),
+        _weapon_candidate_governance_check(ai),
         _self_improve_package_check(ai),
         _experience_summary_artifact_check(ai),
         _runtime_task_run_artifacts_check(ai),
@@ -1158,6 +1189,84 @@ def _candidate_governance_check(ai: Path) -> dict[str, Any]:
 
     return {
         "id": "content:candidate-governance",
+        "passed": not errors,
+        "present": True,
+        "decision_count": len(log.decisions),
+        "errors": sorted(set(errors)),
+    }
+
+
+def _weapon_candidate_governance_check(ai: Path) -> dict[str, Any]:
+    yaml_path = ai / "review" / "weapon-candidate-governance.yaml"
+    markdown_path = ai / "review" / "weapon-candidate-governance.md"
+    if not yaml_path.exists() and not markdown_path.exists():
+        return {"id": "content:weapon-candidate-governance", "passed": True, "present": False}
+
+    errors: list[str] = []
+    if not yaml_path.exists() or not markdown_path.exists():
+        errors.append("incomplete_weapon_candidate_governance_pair")
+    if not yaml_path.exists():
+        return {"id": "content:weapon-candidate-governance", "passed": False, "present": True, "errors": sorted(set(errors))}
+
+    try:
+        log = WeaponCandidateGovernanceLog.model_validate(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+        report = WeaponLibraryCandidateReport.model_validate(
+            yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
+        )
+    except Exception as exc:  # pragma: no cover - captured in benchmark report
+        return {"id": "content:weapon-candidate-governance", "passed": False, "present": True, "errors": [*errors, str(exc)]}
+
+    candidates_by_id = {candidate.id: candidate for candidate in report.candidates}
+    expected_status_by_decision = {
+        "accepted": "confirmed",
+        "rejected": "rejected",
+        "kept": "candidate",
+    }
+    expected_confirmation_by_decision = {
+        "accepted": False,
+        "rejected": False,
+        "kept": True,
+    }
+    for decision in log.decisions:
+        source = candidates_by_id.get(decision.candidate_id)
+        expected_status = expected_status_by_decision[decision.decision]
+        expected_confirmation = expected_confirmation_by_decision[decision.decision]
+        if decision.source_report != ".ai/experience/weapon-library-candidates.yaml":
+            errors.append("unexpected_source_report")
+        if decision.new_status != expected_status:
+            errors.append("decision_status_mismatch")
+        if decision.review_boundary != "review_only_no_formal_asset_change":
+            errors.append("review_boundary_mismatch")
+        if source is None:
+            errors.append("unknown_candidate_id")
+            continue
+        if source.candidate_type != decision.candidate_type:
+            errors.append("candidate_type_mismatch")
+        if source.status != decision.new_status:
+            errors.append("candidate_status_mismatch")
+        if source.human_confirmation_required is not expected_confirmation:
+            errors.append("candidate_confirmation_mismatch")
+        if source.review_boundary != decision.review_boundary:
+            errors.append("candidate_review_boundary_mismatch")
+        if source.maturity_dimensions != decision.maturity_dimensions:
+            errors.append("candidate_maturity_dimensions_mismatch")
+
+    markdown = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
+    required_sections = ["# Weapon Candidate Governance", "## Decisions", "## Review Boundary"]
+    if any(section not in markdown for section in required_sections):
+        errors.append("missing_markdown_sections")
+    if "review_only_no_formal_asset_change" not in markdown:
+        errors.append("missing_review_boundary")
+    for decision in log.decisions:
+        if decision.candidate_id not in markdown:
+            errors.append(f"missing_markdown_candidate:{decision.candidate_id}")
+        if f"new_status=`{decision.new_status}`" not in markdown and f"new status: `{decision.new_status}`" not in markdown:
+            errors.append(f"missing_markdown_status:{decision.candidate_id}:{decision.new_status}")
+        if decision.source_report not in markdown:
+            errors.append(f"missing_markdown_source_report:{decision.candidate_id}")
+
+    return {
+        "id": "content:weapon-candidate-governance",
         "passed": not errors,
         "present": True,
         "decision_count": len(log.decisions),

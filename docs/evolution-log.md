@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 初始候选治理 Benchmark 契约
+
+- North Star 模块：Maturity-driven Init、Experience / review 维护入口、候选资产审核、schema / 数据契约、Benchmark 质量门禁。
+- init North Star 旅程阶段：再次进入已有 Harness、初始 LLM Guide / Sensor candidate 接管、质量门禁复验。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；上一轮已新增 guided `review-initial-candidate`，但 `benchmark.py` 的 `_llm_enhancement_checks()` 仍要求所有初始候选永远保持 `status=candidate` 和 `human_confirmation_required=true`，并且没有校验 `.ai/review/weapon-candidate-governance.*`。这会导致 Maintainer 完成 accepted / rejected / kept 治理后，benchmark 可能误报或漏报治理日志漂移。
+- 工程信任故事：作为 Harness Maintainer，当我在已有 Harness 入口对初始 LLM Guide / Sensor 候选执行 accepted / rejected / kept 后再运行 benchmark，我可以得到一个校验 candidate report、governance log 和 Markdown 审查材料一致性的质量门禁结果，从而信任候选治理债已经被正确接管，而且 Builder 没有越界修改正式 Harness 资产或 Runtime 产物。
+- 当前代码 gap：`content:llm-enhancement-candidates` 只检查 pending candidate，不理解 `confirmed` / `rejected`；`_content_checks()` 中缺少独立 `content:weapon-candidate-governance`；README / engineering docs 没有沉淀该可选 artifact benchmark 规则。
+- 关键决策 / 取舍：初始 LLM candidate governance 继续独立于 `.ai/review/asset-candidates.yaml`；缺失 `.ai/review/weapon-candidate-governance.*` 不失败，但一旦存在必须严格校验 YAML / Markdown 配对、source report、candidate id / type、decision -> new status -> 当前 report 的一致性和 `review_only_no_formal_asset_change` 边界；accepted 仍不代表正式资产已应用。
+- Assumptions / risks：当前 report 只保存最终状态，benchmark 不能重建所有历史状态，因此只校验 governance log 声明的 `new_status` 与当前 report 一致；`previous_status` 由 schema 约束为合法历史状态，不作为正式资产应用证据。
+- 边界情况 / 失败模式：unknown candidate id、candidate type mismatch、decision status mismatch、candidate status / confirmation mismatch、Markdown 缺章节或缺 status/source detail 均显式失败；未审查初始候选仍保持合法 pending 状态；本轮不修改 LLM、scanner、正式资产 writer、Runtime 或 `.ai/task-runs`。
+- Sub agent 使用情况：按 playbook 尝试启动只读 explorer 审 benchmark 风险，当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮承接上一轮用户可见治理动作，把“能记录治理决策”推进到“质量门禁能证明治理决策没有漂移”；不混入 existing Harness raw signals 瘦身或 push 工作包。
+- 可执行验收标准及验证方式：integration 覆盖 governed candidate status 被 `content:llm-enhancement-candidates` 接受、Markdown status drift 被报告、absent governance optional、valid governance pass、unknown candidate / status mismatch / missing Markdown sections fail、完整 `run_benchmark()` 在治理后通过且不创建 `.ai/task-runs`；文档 diff 覆盖 README、init workflow 和 sensor/gate rules。
+- 完成内容：`benchmark.py` 新增 `WeaponCandidateGovernanceLog` 校验和 `content:weapon-candidate-governance`；`content:llm-enhancement-candidates` 改为校验合法状态、human confirmation、summary / type-specific Markdown id、status 和 boundary；新增 benchmark integration tests；更新 README、工程规则和本轮 spec / plan。
+- 验证结果：targeted RED 先因缺少 `_weapon_candidate_governance_check` 失败；实现后 targeted candidate governance tests 13 passed；benchmark command + weapon governance regression 87 passed；guided `review-initial-candidate` integration 1 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 473 passed。
+- Self-Harness Gate：长期 benchmark 规则已沉淀；无 open todo 需要更新。下一轮候选 gap 包括 Existing Harness raw signals 瘦身、full regression / push 工作包，或继续围绕 init North Star 做新的 Gap Analysis。
+
 ## 2026-06-01 Guided 初始 LLM 候选治理
 
 - North Star 模块：Maturity-driven Init、CLI Experience、候选资产审核、Experience / review 维护入口。

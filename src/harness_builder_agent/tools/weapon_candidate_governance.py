@@ -115,6 +115,7 @@ def _governance_markdown(log: WeaponCandidateGovernanceLog) -> str:
         f"{decisions}\n\n"
         "## Review Boundary\n\n"
         "- Initial LLM Guide / Sensor candidates stay review-only.\n"
+        "- boundary: `review_only_no_formal_asset_change`\n"
         "- `accepted` confirms the candidate direction but does not write formal Guides or Sensors.\n"
         "- `rejected` closes the candidate without applying it.\n"
         "- `kept` leaves the candidate pending for later Harness Maintainer review.\n"

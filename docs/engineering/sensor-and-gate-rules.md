@@ -93,6 +93,7 @@ Benchmark 应检查：
 - `.ai/review/maturity-review.yaml` 和 `.ai/review/maturity-review.md` 属于可选 LLM review artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、candidate id 引用、`.ai/` evidence 边界、evidence source allowlist 和 `pending_harness_maintainer_review` 状态。
 - `.ai/review/asset-candidates.yaml` 和配套 `asset-candidate-*.md` 属于可选 review-only artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配套章节、source candidate 引用、`.ai/` evidence/suggested path 边界、evidence source allowlist 和 `pending_harness_maintainer_review` 状态。
 - `.ai/review/candidate-governance.yaml` 和 `.ai/review/candidate-governance.md` 属于可选候选治理 artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、candidate id 引用、安全 `.ai/` evidence/suggested/applied path 边界，以及 applied path 是否存在。对已应用的 `workflow_policy` candidate，还必须校验源候选存在结构化 `workflow_policy_patch`，源候选 `source_review_decision` 必须是 `support` 或 `revise`，候选 `suggested_path` 必须精确等于 `.ai/harness-config.yaml`，且 `.ai/harness-config.yaml` 中对应 routing rule 与 patch 一致。
+- `.ai/review/weapon-candidate-governance.yaml` 和 `.ai/review/weapon-candidate-governance.md` 属于可选初始 LLM Guide / Sensor 候选治理 artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、candidate id / type 引用、source report、decision 到 new status 的一致性、当前 `.ai/experience/weapon-library-candidates.yaml` 中 status / human confirmation required 是否同步，以及 `review_only_no_formal_asset_change` 边界。`content:llm-enhancement-candidates` 不应要求所有初始候选永远保持 pending；它必须接受合法的 `candidate`、`confirmed` 和 `rejected` 状态，并校验候选 Markdown 中的 id、status 和 review-only 边界。
 - `.ai/review/self-improve-package.yaml` 和 `.ai/review/self-improve-package.md` 属于可选 self-improve review package；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配套章节、generated artifact 路径边界和 `pending_harness_maintainer_review` 状态。
 - `.ai/experience/experience-summary.yaml` 和 `.ai/experience/experience-summary.md` 属于可选 review-only Experience artifacts；不存在时 benchmark 不应失败，存在时必须校验 schema、Markdown 配对章节、`.ai/` evidence 边界、evidence source allowlist 和 `pending_harness_maintainer_review` 状态。
 - `.ai/review/workflow-routing-recommendation.yaml`、`.ai/review/workflow-routing-recommendation.md` 和 `.ai/review/workflow-routing-recommendations/` 历史产物属于可选 workflow recommendation artifacts；不存在时 benchmark 不应失败，存在时必须校验 workflow/rule 引用、Markdown 配对章节、history index schema、每条 history YAML schema、review-only 状态、`.ai/` evidence 边界和 evidence source allowlist。
@@ -157,6 +158,7 @@ Sensor 不是孤立文件。它应该和以下产物一致：
 - Guide、Sensor、Workflow Skill 或 stack-specific Guide 内容质量失败时 benchmark 失败并列出具体 missing detail。
 - scan risk path 缺少 Guide、Sensor 或 routing 任一环时 benchmark 失败并列出具体路径。
 - hard gate command source 缺失、source path 不存在、source path 逃出仓库或 low confidence 时 benchmark 失败并列出失败摘要。
+- 初始 LLM Guide / Sensor candidate 被 accepted / rejected / kept 治理后，benchmark 继续接受合法的 governed status，并在治理日志、candidate report 或 Markdown 漂移时通过 `content:weapon-candidate-governance` 或 `content:llm-enhancement-candidates` 报告具体 detail。
 - future runtime 中 skipped 不被当作 passed。
 - command catalog 与 sensor 内容有关联。
 

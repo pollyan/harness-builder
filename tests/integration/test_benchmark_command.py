@@ -17,10 +17,12 @@ from harness_builder_agent.tools.benchmark import (
     _llm_enhancement_checks,
     _quality_scores,
     _schema_checks,
+    _weapon_candidate_governance_check,
     run_benchmark,
 )
 from harness_builder_agent.tools.candidate_governance import review_candidate
 from harness_builder_agent.tools.scan_repo import scan_repository
+from harness_builder_agent.tools.weapon_candidate_governance import review_weapon_candidate
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -391,6 +393,81 @@ def _write_valid_experience_summary(ai: Path) -> None:
     )
 
 
+def _write_valid_weapon_candidate_governance(ai: Path, candidate_id: str | None = None) -> str:
+    report_path = ai / "experience" / "weapon-library-candidates.yaml"
+    report = yaml.safe_load(report_path.read_text(encoding="utf-8"))
+    candidate = (
+        next(item for item in report["candidates"] if item["id"] == candidate_id)
+        if candidate_id
+        else next((item for item in report["candidates"] if item["candidate_type"] == "guide"), report["candidates"][0])
+    )
+    candidate_id = candidate["id"]
+    candidate["status"] = "confirmed"
+    candidate["human_confirmation_required"] = False
+    candidate["decision_notes"] = "Maintainer confirmed this initial candidate."
+    report_path.write_text(yaml.safe_dump(report, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    review = ai / "review"
+    review.mkdir(parents=True, exist_ok=True)
+    (review / "weapon-candidate-governance.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "decisions": [
+                    {
+                        "candidate_id": candidate_id,
+                        "candidate_type": candidate["candidate_type"],
+                        "source_report": ".ai/experience/weapon-library-candidates.yaml",
+                        "decision": "accepted",
+                        "rationale": "Maintainer confirmed this initial candidate.",
+                        "reviewer": "harness-maintainer",
+                        "decided_at": "2026-06-01T12:00:00Z",
+                        "previous_status": "candidate",
+                        "new_status": "confirmed",
+                        "maturity_dimensions": candidate.get("maturity_dimensions", []),
+                        "review_boundary": "review_only_no_formal_asset_change",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (review / "weapon-candidate-governance.md").write_text(
+        "# Weapon Candidate Governance\n\n"
+        "## Decisions\n\n"
+        f"- `{candidate_id}` decision=`accepted` new_status=`confirmed` "
+        "source=`.ai/experience/weapon-library-candidates.yaml`\n\n"
+        "## Review Boundary\n\n"
+        "review_only_no_formal_asset_change\n",
+        encoding="utf-8",
+    )
+    _refresh_weapon_candidate_markdown(ai)
+    return candidate_id
+
+
+def _refresh_weapon_candidate_markdown(ai: Path) -> None:
+    report = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
+    lines = ["# LLM Enhancement Candidates", "", "## Review Boundary", "", "review_only_no_formal_asset_change", "", "## Candidates", ""]
+    guide_lines = ["# Candidate Guides", "", "## Review Boundary", "", "review_only_no_formal_asset_change", "", "## Candidates", ""]
+    sensor_lines = ["# Candidate Sensors", "", "## Review Boundary", "", "review_only_no_formal_asset_change", "", "## Candidates", ""]
+    for candidate in report["candidates"]:
+        line = (
+            f"- `{candidate['id']}` status=`{candidate['status']}` "
+            f"type=`{candidate['candidate_type']}` boundary=`{candidate['review_boundary']}`"
+        )
+        lines.append(line)
+        if candidate["candidate_type"] == "guide":
+            guide_lines.append(line)
+        if candidate["candidate_type"] == "sensor":
+            sensor_lines.append(line)
+    review = ai / "review"
+    (review / "llm-enhancement-candidates.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (review / "candidate-guides.md").write_text("\n".join(guide_lines) + "\n", encoding="utf-8")
+    (review / "candidate-sensors.md").write_text("\n".join(sensor_lines) + "\n", encoding="utf-8")
+
+
 def _write_valid_self_improve_package(ai: Path) -> None:
     review = ai / "review"
     review.mkdir(parents=True, exist_ok=True)
@@ -743,6 +820,7 @@ def test_benchmark_generates_report_for_java_fixture(tmp_path: Path, monkeypatch
     assert "content:maturity-review-artifact" in check_ids
     assert "content:asset-candidate-review" in check_ids
     assert "content:candidate-governance" in check_ids
+    assert "content:weapon-candidate-governance" in check_ids
     assert "content:self-improve-package" in check_ids
     assert "content:experience-summary-artifact" in check_ids
     assert "content:runtime-task-run-artifacts" in check_ids
@@ -1225,6 +1303,32 @@ def test_benchmark_fails_weapon_library_candidates_with_invalid_status(tmp_path:
     assert schema["passed"] is False
 
 
+def test_benchmark_accepts_reviewed_initial_weapon_candidate_status(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_weapon_candidate_governance(ai)
+
+    checks = _llm_enhancement_checks(ai)
+
+    content = next(check for check in checks if check["id"] == "content:llm-enhancement-candidates")
+    assert content["passed"] is True
+    assert content["candidate_count"] >= 1
+
+
+def test_benchmark_fails_initial_weapon_candidate_markdown_status_drift(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    candidate_id = _write_valid_weapon_candidate_governance(ai)
+    summary = ai / "review" / "llm-enhancement-candidates.md"
+    summary.write_text(summary.read_text(encoding="utf-8").replace("status=`confirmed`", "status=`candidate`"), encoding="utf-8")
+
+    checks = _llm_enhancement_checks(ai)
+
+    content = next(check for check in checks if check["id"] == "content:llm-enhancement-candidates")
+    assert content["passed"] is False
+    assert f"missing_summary_status:{candidate_id}:confirmed" in content["missing"]
+
+
 def test_benchmark_fails_invalid_questionnaire_schema(tmp_path: Path, monkeypatch):
     repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
     ai = repo / ".ai"
@@ -1572,6 +1676,107 @@ def test_benchmark_accepts_valid_candidate_governance_artifacts(tmp_path: Path, 
     assert check["passed"] is True
     assert check["present"] is True
     assert check["decision_count"] == 1
+
+
+def test_benchmark_records_absent_weapon_candidate_governance_as_optional(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+
+    check = _weapon_candidate_governance_check(ai)
+
+    assert check["passed"] is True
+    assert check["present"] is False
+
+
+def test_benchmark_accepts_valid_weapon_candidate_governance_artifacts(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_weapon_candidate_governance(ai)
+
+    check = _weapon_candidate_governance_check(ai)
+
+    assert check["passed"] is True
+    assert check["present"] is True
+    assert check["decision_count"] == 1
+
+
+def test_benchmark_accepts_weapon_candidate_governance_written_by_review_tool(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    report = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
+    candidate_id = report["candidates"][0]["id"]
+
+    review_weapon_candidate(
+        repo,
+        candidate_id=candidate_id,
+        decision="accepted",
+        rationale="Maintainer confirmed the initial candidate direction.",
+        reviewer="harness-maintainer",
+    )
+
+    check = _weapon_candidate_governance_check(ai)
+
+    assert check["passed"] is True
+    assert check["present"] is True
+    assert check["decision_count"] == 1
+
+
+def test_benchmark_fails_weapon_candidate_governance_with_unknown_candidate(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_weapon_candidate_governance(ai)
+    path = ai / "review" / "weapon-candidate-governance.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["decisions"][0]["candidate_id"] = "missing-candidate"
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    check = _weapon_candidate_governance_check(ai)
+
+    assert check["passed"] is False
+    assert "unknown_candidate_id" in check["errors"]
+
+
+def test_benchmark_fails_weapon_candidate_governance_with_status_mismatch(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    candidate_id = _write_valid_weapon_candidate_governance(ai)
+    path = ai / "experience" / "weapon-library-candidates.yaml"
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    candidate = next(item for item in payload["candidates"] if item["id"] == candidate_id)
+    candidate["status"] = "candidate"
+    candidate["human_confirmation_required"] = True
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    check = _weapon_candidate_governance_check(ai)
+
+    assert check["passed"] is False
+    assert "candidate_status_mismatch" in check["errors"]
+
+
+def test_benchmark_fails_weapon_candidate_governance_with_missing_markdown_sections(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_weapon_candidate_governance(ai)
+    (ai / "review" / "weapon-candidate-governance.md").write_text("# Weapon Candidate Governance\n", encoding="utf-8")
+
+    check = _weapon_candidate_governance_check(ai)
+
+    assert check["passed"] is False
+    assert "missing_markdown_sections" in check["errors"]
+
+
+def test_benchmark_passes_after_initial_weapon_candidate_governance(tmp_path: Path, monkeypatch):
+    repo = _prepare_passed_benchmark_repo(tmp_path, monkeypatch)
+    ai = repo / ".ai"
+    _write_valid_weapon_candidate_governance(ai)
+
+    report = run_benchmark(repo, "java-spring")
+
+    check_by_id = {check["id"]: check for check in report["checks"]}
+    assert report["status"] == "passed"
+    assert check_by_id["content:llm-enhancement-candidates"]["passed"] is True
+    assert check_by_id["content:weapon-candidate-governance"]["passed"] is True
+    assert not (ai / "task-runs").exists()
 
 
 def test_benchmark_preserves_applied_workflow_policy_candidate(tmp_path: Path, monkeypatch):

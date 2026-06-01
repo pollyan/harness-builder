@@ -93,7 +93,9 @@ def test_review_weapon_candidate_records_accepted_decision_and_refreshes_markdow
     assert "llm-guide-risk-001" in summary
     assert "status=`confirmed`" in summary
     assert "status=`confirmed`" in guides
-    assert "## Review Boundary" in (ai / "review" / "weapon-candidate-governance.md").read_text(encoding="utf-8")
+    governance_markdown = (ai / "review" / "weapon-candidate-governance.md").read_text(encoding="utf-8")
+    assert "## Review Boundary" in governance_markdown
+    assert "review_only_no_formal_asset_change" in governance_markdown
 
 
 @pytest.mark.parametrize(
