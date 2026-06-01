@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness 状态读取失败保护
+
+- North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、工程可信度。
+- init North Star 旅程阶段：再次进入已有 Harness、维护状态读取、错误边界与正式资产保护。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括已有 Harness 核心状态损坏时友好失败、guided scan 失败输出去 traceback 化复核、full regression / push 工作包。当前 `_handle_existing_harness_entry()` 直接内联读取 `.ai/project-inventory.json`、`.ai/harness-config.yaml` 和可选 `.ai/maturity-score.yaml`，YAML / JSON / schema 错误会冒泡为泛化 `init failed`，用户只能看到底层异常而不是维护入口可行动说明。本轮选择修复状态读取失败，因为它保护再次进入已有 Harness 的可信度，并直接符合 no silent fallback。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 进入已有 Harness，但核心 `.ai` 状态文件已经损坏或不符合 schema 时，我可以看到明确、中文、可行动的读取失败说明，并确认 Builder 没有重新扫描或覆盖正式资产，从而能先修复 Harness 状态再继续维护。
+- 当前代码 gap：已有 Harness 正常路径已经有维护摘要、triage 和 action 菜单，但状态文件损坏时还未进入这些 UI 就抛出底层解析异常；可选 maturity-score 存在但损坏时也没有稳定失败语义。
+- 关键决策 / 取舍：新增 `_load_existing_harness_state()` 统一读取并校验 inventory / config / score；任一文件损坏时输出“已有 Harness 读取失败”、具体文件、原因摘要和未扫描 / 未覆盖 / 未创建 Runtime 边界；trace 以 `existing_harness_action=load-state` 和 `existing_harness_state_invalid` 结束；不 fallback 到重新扫描、只读退出或忽略损坏 maturity-score。
+- Assumptions / risks：核心状态损坏时继续维护动作不可信，显式失败优先于自动 reinit。用户如果希望重新初始化，应先修复或备份 `.ai/` 后显式重新生成，避免自动覆盖正式资产。
+- 边界情况 / 失败模式及回应：损坏 `harness-config.yaml` 和损坏已存在的 `maturity-score.yaml` 都显式失败；缺少 `maturity-score.yaml` 仍按旧语义展示“建议先运行 assess”；缺少 core inventory/config 仍不进入已有 Harness 维护入口；不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 existing Harness 读取失败边界，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理已有 Harness 状态读取的失败边界，不混入扫描失败复核、菜单默认动作、schema 迁移或 push 工作包。
+- 可执行验收标准及验证方式：新增 integration RED 先证明损坏 config / score 缺少友好提示；实现后断言 CLI 输出读取失败、具体文件、未扫描 / 未覆盖 / 未创建 Runtime 产物，不进入启动说明、初始化完成或维护菜单，scan mock 不被调用，正式资产不被覆盖，trace summary 记录稳定错误。
+- 完成内容：`interactive_init.py` 增加 existing Harness 状态读取辅助、短错误摘要和友好失败输出；`docs/engineering/init-workflow.md` 和 README 同步稳定用户边界；新增本轮 spec / plan。
+- 验证结果：RED targeted integration 先 2 failed；实现后新增 targeted 2 passed；existing Harness 相关 targeted 5 passed；`tests/integration/test_init_on_fixture_projects.py` 57 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 496 passed。push gate 在提交后按规则执行 `scripts/test-full.sh` 评估。
+- Self-Harness Gate：init workflow、README、spec / plan 和演进记录已同步；未改变 LLM、benchmark、writer、Sensor、Runtime 或 `.ai` schema。下一轮候选 gap 需重新从 Current State Gap Analysis 选择；远端 push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 Existing Harness 维护动作未知输入保护
 
 - North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、工程可信度。

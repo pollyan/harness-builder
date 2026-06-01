@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
+from pydantic import ValidationError
 import typer
 import yaml
 
@@ -115,6 +116,15 @@ from harness_builder_agent.tools.prewrite_preview import (
 from harness_builder_agent.tools.scan_repo import scan_repository
 from harness_builder_agent.tools.weapon_library import select_weapon_library
 from harness_builder_agent.tools.write_assets import write_initial_assets
+
+
+class ExistingHarnessStateLoadError(Exception):
+    def __init__(self, source: str, error_type: str, message: str) -> None:
+        super().__init__(message)
+        self.source = source
+        self.error_type = error_type
+        self.message = message
+
 
 def run_non_interactive_init(repo: Path, context_paths: list[Path], trace: GenerationTrace) -> Path:
     trace.event("scan", "started", "Repository scan started.")
@@ -322,11 +332,33 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
     if not (ai / "project-inventory.json").exists() or not (ai / "harness-config.yaml").exists():
         return None
 
-    inventory = ProjectInventory.model_validate_json((ai / "project-inventory.json").read_text(encoding="utf-8"))
-    config = HarnessConfig.model_validate(yaml.safe_load((ai / "harness-config.yaml").read_text(encoding="utf-8")))
-    score = None
-    if (ai / "maturity-score.yaml").exists():
-        score = MaturityReport.model_validate(yaml.safe_load((ai / "maturity-score.yaml").read_text(encoding="utf-8")))
+    try:
+        inventory, config, score = _load_existing_harness_state(ai)
+    except ExistingHarnessStateLoadError as exc:
+        _show_existing_harness_state_load_failed(exc)
+        trace.event(
+            "existing-harness",
+            "failed",
+            "Existing Harness state could not be loaded.",
+            {
+                "action": "load-state",
+                "error": "existing_harness_state_invalid",
+                "source": exc.source,
+                "error_type": exc.error_type,
+                "message": exc.message,
+            },
+        )
+        trace.finish(
+            "failed",
+            {
+                "existing_harness_action": "load-state",
+                "error": "existing_harness_state_invalid",
+                "source": exc.source,
+                "error_type": exc.error_type,
+                "message": exc.message,
+            },
+        )
+        raise typer.Exit(code=1)
     benchmark = read_benchmark_status(ai)
     experience_lines = experience_status_lines(ai)
     maintenance_actions = build_maintenance_triage(ai, score)
@@ -375,6 +407,60 @@ def _handle_existing_harness_entry(repo: Path, trace: GenerationTrace) -> Path |
         typer.echo(f"未识别的维护动作：{raw_action}")
         typer.echo("请输入菜单编号、英文命令或中文别名；直接回车等同于 `1` 只读退出。")
     return run_existing_harness_action(repo, ai, inventory, action, trace, maintenance_actions)
+
+
+def _load_existing_harness_state(ai: Path) -> tuple[ProjectInventory, HarnessConfig, MaturityReport | None]:
+    inventory = _read_existing_harness_json(
+        ai,
+        "project-inventory.json",
+        lambda content: ProjectInventory.model_validate_json(content),
+    )
+    config = _read_existing_harness_yaml(
+        ai,
+        "harness-config.yaml",
+        lambda payload: HarnessConfig.model_validate(payload),
+    )
+    score = None
+    if (ai / "maturity-score.yaml").exists():
+        score = _read_existing_harness_yaml(
+            ai,
+            "maturity-score.yaml",
+            lambda payload: MaturityReport.model_validate(payload),
+        )
+    return inventory, config, score
+
+
+def _read_existing_harness_json(ai: Path, filename: str, validator):
+    path = ai / filename
+    source = f".ai/{filename}"
+    try:
+        return validator(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, ValidationError) as exc:
+        raise ExistingHarnessStateLoadError(source, type(exc).__name__, _short_error_message(exc)) from exc
+
+
+def _read_existing_harness_yaml(ai: Path, filename: str, validator):
+    path = ai / filename
+    source = f".ai/{filename}"
+    try:
+        return validator(yaml.safe_load(path.read_text(encoding="utf-8")))
+    except (OSError, TypeError, ValueError, yaml.YAMLError, ValidationError) as exc:
+        raise ExistingHarnessStateLoadError(source, type(exc).__name__, _short_error_message(exc)) from exc
+
+
+def _short_error_message(exc: Exception, limit: int = 240) -> str:
+    message = " ".join(str(exc).split())
+    if len(message) <= limit:
+        return message
+    return f"{message[: limit - 1]}..."
+
+
+def _show_existing_harness_state_load_failed(error: ExistingHarnessStateLoadError) -> None:
+    typer.echo("\n已有 Harness 读取失败。")
+    typer.echo(f"- 文件：`{error.source}`")
+    typer.echo(f"- 原因：{error.error_type}: {error.message}")
+    typer.echo("- 未重新扫描，未覆盖正式 Harness 资产，未创建 Runtime 产物。")
+    typer.echo("- 请修复该文件后重试；如果需要重新初始化，请先备份 `.ai/` 后再显式选择重新生成。")
 
 
 def _existing_harness_action_menu_lines() -> list[str]:

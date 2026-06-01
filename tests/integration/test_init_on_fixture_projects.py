@@ -2295,6 +2295,79 @@ def test_guided_init_existing_harness_rejects_unknown_action_before_exit(tmp_pat
     assert trace["summary"]["existing_harness_action"] == "exit"
 
 
+def test_guided_init_existing_harness_reports_invalid_config_without_rescan(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    ai = repo / ".ai"
+    config_path = ai / "harness-config.yaml"
+    config_path.write_text("version: [\n", encoding="utf-8")
+    inventory_before = (ai / "project-inventory.json").read_text(encoding="utf-8")
+    summary_before = (ai / "init-summary.md").read_text(encoding="utf-8")
+
+    def fail_scan(_repo_path):
+        raise AssertionError("invalid existing Harness state must not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="1\n")
+
+    assert result.exit_code == 1, result.output
+    assert "已有 Harness 读取失败" in result.output
+    assert "文件：`.ai/harness-config.yaml`" in result.output
+    assert "未重新扫描，未覆盖正式 Harness 资产，未创建 Runtime 产物" in result.output
+    assert "修复该文件后重试" in result.output
+    assert "可选动作" not in result.output
+    assert "== 启动说明 ==" not in result.output
+    assert "== 初始化完成 ==" not in result.output
+    assert (ai / "project-inventory.json").read_text(encoding="utf-8") == inventory_before
+    assert (ai / "init-summary.md").read_text(encoding="utf-8") == summary_before
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "failed"
+    assert trace["summary"]["existing_harness_action"] == "load-state"
+    assert trace["summary"]["error"] == "existing_harness_state_invalid"
+    assert trace["summary"]["source"] == ".ai/harness-config.yaml"
+    assert trace["summary"]["error_type"]
+
+
+def test_guided_init_existing_harness_reports_invalid_maturity_score_without_ignoring_it(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    ai = repo / ".ai"
+    (ai / "maturity-score.yaml").write_text("overall_level: [\n", encoding="utf-8")
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("invalid maturity state must not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="1\n")
+
+    assert result.exit_code == 1, result.output
+    assert "已有 Harness 读取失败" in result.output
+    assert "文件：`.ai/maturity-score.yaml`" in result.output
+    assert "未重新扫描，未覆盖正式 Harness 资产，未创建 Runtime 产物" in result.output
+    assert "当前成熟度：未发现 `.ai/maturity-score.yaml`" not in result.output
+    assert "可选动作" not in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    trace = _latest_init_trace(repo)
+    assert trace["status"] == "failed"
+    assert trace["summary"]["existing_harness_action"] == "load-state"
+    assert trace["summary"]["error"] == "existing_harness_state_invalid"
+    assert trace["summary"]["source"] == ".ai/maturity-score.yaml"
+
+
 def test_guided_init_existing_harness_shows_latest_workflow_recommendation_history(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))

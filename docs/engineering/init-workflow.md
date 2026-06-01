@@ -31,6 +31,8 @@
 
 已有 Harness 维护入口的 action prompt 遇到未知输入时，必须明确提示有效动作并重新等待输入，不能把未知输入静默当作 `exit`。内部 action runner 如果收到绕过 prompt 的未知 action，也必须显式失败并记录 `unknown_existing_harness_action`，不能伪装成用户主动只读退出。
 
+已有 Harness 维护入口读取 `.ai/project-inventory.json`、`.ai/harness-config.yaml` 和已存在的 `.ai/maturity-score.yaml` 时，必须执行 schema / YAML / JSON 校验。任一核心状态文件损坏、格式非法或 schema 不匹配时，必须在 CLI 中明确说明“已有 Harness 读取失败”、指出具体文件、说明未重新扫描、未覆盖正式 Harness 资产且未创建 Runtime 产物，并以 `existing_harness_state_invalid` 失败 trace 结束。不得把损坏状态静默当成缺失成熟度、只读退出或重新初始化，也不得 fallback 到扫描生成。
+
 如果 `review-human-input` 是由 human-input triage 推荐的动作，并且 triage detail 中存在首个待处理 scan follow-up interaction id，guided action 的 interaction id prompt 应把该 id 作为默认值，允许 Maintainer 直接回车处理推荐项；Maintainer 仍可输入其他 id 覆盖。没有默认 id 时不得猜测或 silent fallback，空 id 继续由 `review-human-input` 显式失败。
 
 ## 主流程
