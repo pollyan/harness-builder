@@ -519,7 +519,8 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert decisions["mode"] == "interactive"
     assert decisions["repo"]["confirmed"] is True
     assert decisions["scan_confirmation"]["status"] == "accepted"
-    assert decisions["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix"]
+    assert "- standard：适合复杂、高风险、跨模块、安全 / 数据或影响不清任务" in result.output
+    assert decisions["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix", "standard"]
     assert decisions["workflow_confirmation"]["confirmed"] is True
     assert decisions["final_confirmation"]["status"] == "confirmed"
 

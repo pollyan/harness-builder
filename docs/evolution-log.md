@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init Standard Workflow 确认
+
+- North Star 模块：Maturity-driven Init、CLI Experience、Workflow Toolkit、渐进式交互。
+- init North Star 旅程阶段：首次初始化、推荐 Workflow、用户补充 Workflow 说明、写入前设计预览。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 guided init Workflow 确认阶段补齐 `standard`、completion summary 后续细化、full regression / push 工作包。当前正式 `harness-config.yaml`、Workflow Skill 和写入前 preview 都已有 `standard` 与 `standard-escalation`，但 `_show_workflows()` 在用户输入 Workflow 补充前只展示 `lightweight` / `bugfix`，`interaction-decisions.yaml` 也只记录这两类 shown workflow。本轮选择该 gap，因为用户补充 Workflow 约束前应先看到完整三类工作流模型。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 中进入“推荐工作流”阶段并准备补充 Workflow 说明时，我可以同时看到 `lightweight`、`bugfix` 和 `standard` 三类工作流及 standard 的高风险升级边界，从而基于完整的工作流模型补充团队约束，而不是只围绕低风险和缺陷修复两个路径作答。
+- 当前代码 gap：`interactive_init._show_workflows()` 没有输出 `standard`，返回的 `WorkflowConfirmation.shown_workflows` 缺少 `standard`；后续 project context / init summary 只能证明用户看过两类工作流。
+- 关键决策 / 取舍：只补 Workflow 确认阶段的 CLI 说明和 `shown_workflows` 记录；不修改 schema、`HarnessConfig.default()`、routing rule、Workflow Skill 模板、benchmark、LLM 或 Runtime 分工；用户自由文本 Workflow 补充仍保持 review-only。
+- Assumptions / risks：`standard` 是当前默认 Harness 固定工作流和风险升级主路径，应在用户补充前展示；测试中固定两类 workflow 的断言需要更新为三类。
+- 边界情况 / 失败模式及回应：没有 Workflow 补充时 `routing_policy_effect` 仍为 `not_applicable`；存在 Workflow 补充时仍写入 review-only interaction decisions，不直接修改正式 routing policy、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 Workflow 阶段缺口，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理首次 guided init 的 Workflow 确认时序，不混入 prewrite preview、routing policy、LLM workflow router 或已有 Harness 维护入口。
+- 可执行验收标准及验证方式：新增 unit RED test 先证明 `_show_workflows()` 缺少 `standard`；实现后 unit 覆盖输出和返回值；guided integration 覆盖 transcript 和 `interaction-decisions.yaml`；相关 interaction decisions、improvement、init summary、guide writer 回归覆盖下游消费。
+- 完成内容：`_show_workflows()` 增加 `standard` 高风险 / 跨模块 / 安全数据升级说明，并把 `shown_workflows` 扩展为三类；更新 README、`docs/engineering/init-workflow.md`、本轮 spec / plan 和测试。
+- 验证结果：RED unit 先 1 failed；实现后 workflow / interaction / improvement / init summary / guide writer targeted 28 passed，`tests/integration/test_init_on_fixture_projects.py` 49 passed，`compileall` 通过，`git diff --check` 通过，`scripts/test-fast.sh` 488 passed。
+- Self-Harness Gate：长期 init workflow 与 README 已同步；无需新增 open todo；未改变 schema、LLM、benchmark 或 Runtime。下一轮候选 gap：继续从 init North Star 选择首次 init 用户可见 gap，或在满足 `scripts/test-full.sh` 外部前置后 push 远端。
+
 ## 2026-06-01 Existing Harness Review Action 边界拆分
 
 - North Star 模块：Maturity-driven Init、Existing Harness 维护入口、工程架构、可观测性与审计。

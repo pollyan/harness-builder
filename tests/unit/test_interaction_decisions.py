@@ -45,7 +45,7 @@ def test_interaction_decisions_schema_accepts_interactive_confirmation():
             CandidateDecision(candidate_id="llm-sensor-command-001", decision="edited", notes="先保持候选，后续确认稳定性"),
         ],
         workflow_confirmation=WorkflowConfirmation(
-            shown_workflows=["lightweight", "bugfix"],
+            shown_workflows=["lightweight", "bugfix", "standard"],
             confirmed=True,
             notes=["轻量任务和缺陷修复两个工作流符合当前团队习惯"],
             impact_scopes=[
@@ -79,7 +79,7 @@ def test_interaction_decisions_schema_accepts_interactive_confirmation():
     assert payload["context_confirmation"]["policy_effect"] == "context_only_no_direct_policy_change"
     assert payload["candidate_decisions"][0]["decision"] == "accepted"
     assert payload["candidate_decisions"][1]["decision"] == "edited"
-    assert payload["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix"]
+    assert payload["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix", "standard"]
     assert payload["workflow_confirmation"]["confirmed"] is True
     assert payload["workflow_confirmation"]["impact_scopes"] == [
         "interaction_decisions",

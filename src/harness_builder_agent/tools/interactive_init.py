@@ -449,10 +449,11 @@ def _show_workflows() -> WorkflowConfirmation:
     typer.echo("\n推荐工作流")
     typer.echo("- lightweight：适合低风险文案、配置或小功能调整，步骤包括理解需求、映射 Guide、实现或建议、执行 Sensor、交接摘要。")
     typer.echo("- bugfix：适合缺陷修复，步骤包括观察现象、定位原因、映射 Harness、最小修复、执行相关 Sensor、交接摘要。")
+    typer.echo("- standard：适合复杂、高风险、跨模块、安全 / 数据或影响不清任务，会升级到更完整的计划、验证、人工确认和交接流程。")
     note = typer.prompt("如果工作流还有补充说明，可以输入；没有则直接回车", default="", show_default=False).strip()
     if note:
         return WorkflowConfirmation(
-            shown_workflows=["lightweight", "bugfix"],
+            shown_workflows=["lightweight", "bugfix", "standard"],
             confirmed=True,
             notes=[note],
             impact_scopes=[
@@ -465,7 +466,7 @@ def _show_workflows() -> WorkflowConfirmation:
             routing_policy_effect="review_only_no_direct_policy_change",
         )
     return WorkflowConfirmation(
-        shown_workflows=["lightweight", "bugfix"],
+        shown_workflows=["lightweight", "bugfix", "standard"],
         confirmed=True,
     )
 

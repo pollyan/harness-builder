@@ -147,6 +147,7 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 写入前 Harness 设计预览必须展示团队规则约束；如果没有团队规则输入，也要说明当前按扫描证据和内置 Harness 基线生成。
 - 最终确认阶段返回团队规则且上一版团队规则非空时，CLI 必须说明新输入会替换上一版团队规则，直接回车会清空上一版团队规则；如果用户直接回车清空旧规则，CLI 必须输出可见确认，说明后续预览和正式资产将不再保留这些团队规则。
 - Workflow 补充必须说明会进入 Workflow 说明和人工确认记录；除非经过候选治理或结构化 policy patch，不能直接修改正式 routing policy。
+- 首次 guided `init` 的推荐 Workflow 阶段必须在收集 Workflow 补充前同时展示 `lightweight`、`bugfix` 和 `standard` 三类工作流；`standard` 说明必须覆盖复杂、高风险、跨模块、安全 / 数据或影响不清任务会升级到更完整流程。`interaction-decisions.yaml` 的 `workflow_confirmation.shown_workflows` 应记录这三类已展示工作流。
 - 首次 guided `init` 收到 Workflow 补充后，必须在进入写入前 preview / 最终确认前立即复述这些补充，并说明它们会进入 `interaction-decisions.yaml`、`project-context.md` 和 `human-input-needed.md`；CLI 必须明确 Workflow 补充是 review-only 的人工说明，不直接修改正式 workflow routing policy。
 - `interaction-decisions.yaml` 中的 `workflow_confirmation` 必须在存在 Workflow 补充时记录机器可读的 `impact_scopes`、`review_status=pending_harness_maintainer_review` 和 `routing_policy_effect=review_only_no_direct_policy_change`；无 Workflow 补充时必须保持 `review_status=not_required` 和 `routing_policy_effect=not_applicable`，避免后续 self-improve 或人工审计把自由文本误判为已应用的正式 routing policy。
 - 写入前 Harness 设计预览必须展示 Workflow 补充约束；如果没有 Workflow 补充，也要说明当前按内置 bugfix / lightweight / standard routing 预览。
