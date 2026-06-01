@@ -128,7 +128,19 @@ class ExistingHarnessStateLoadError(Exception):
 
 def run_non_interactive_init(repo: Path, context_paths: list[Path], trace: GenerationTrace) -> Path:
     trace.event("scan", "started", "Repository scan started.")
-    inventory, commands = scan_repository(repo)
+    try:
+        inventory, commands = scan_repository(repo)
+    except Exception as exc:
+        error_message = _short_error_message(exc)
+        trace.event(
+            "scan",
+            "failed",
+            "Repository scan failed before writing formal Harness assets.",
+            {"error_type": type(exc).__name__, "error": error_message},
+        )
+        _show_non_interactive_scan_failed(exc, error_message)
+        trace.finish("failed", {"error_type": type(exc).__name__, "scan_error": error_message})
+        raise typer.Exit(code=1) from None
     trace.event(
         "scan",
         "completed",
@@ -146,6 +158,14 @@ def run_non_interactive_init(repo: Path, context_paths: list[Path], trace: Gener
     )
     trace.finish("completed", {"primary_stack": inventory.primary_stack, "command_count": len(commands.commands)})
     return output_dir
+
+
+def _show_non_interactive_scan_failed(exc: Exception, error_message: str) -> None:
+    typer.echo("\ninit --non-interactive 扫描失败。")
+    typer.echo("- 阶段：scan")
+    typer.echo(f"- 原因：{type(exc).__name__}: {error_message}")
+    typer.echo("- 未写入正式 Harness 资产。")
+    typer.echo("- 请检查 DeepSeek / LLM 配置、网络或扫描错误后重试。")
 
 
 def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrace) -> Path:

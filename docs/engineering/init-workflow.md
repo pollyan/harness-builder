@@ -75,7 +75,7 @@ Evidence 收集负责从目标仓库抽取事实，例如：
 - 首次 guided `init` 必须通过 `scan_repository()` 的 progress callback 展示内部扫描阶段：收集仓库 evidence、请求 LLM 规划补充 evidence、读取 LLM 请求的补充 evidence、请求最终 LLM 结构化扫描、调和扫描结果。内部事件 id 保持英文稳定，CLI 文案负责中文翻译；该进度只用于用户可见状态和测试观察，不改变扫描决策。
 - guided 扫描成功后，必须在“扫描发现”之前输出“扫描完成”，说明 evidence 收集、LLM 结构化分析和扫描调和已经完成。
 - guided 扫描失败时，必须说明失败发生在扫描阶段、原因摘要、未写入正式 Harness 资产，以及建议检查 LLM 配置、网络或扫描错误；随后继续显式失败，不能吞异常或使用确定性 fallback。失败 trace 必须以 `scan` 阶段记录错误类型和短错误消息，并把 `trace.yaml` 标记为 `failed`；CLI 应以失败退出码结束，但不向用户展示原始 Python traceback，也不额外写入会混淆阶段定位的外层 `init failed` 事件。
-- `--non-interactive` 自动化路径不承担 guided CLI 进度展示契约，避免改变 CI、脚本和 acceptance 的输出语义。
+- `--non-interactive` 自动化路径不承担 guided CLI 进度展示契约，避免改变 CI、脚本和 acceptance 的输出语义；但如果扫描阶段失败，也必须输出短错误说明、标出 `scan` 阶段、错误类型、未写入正式 Harness 资产和检查 LLM / 网络 / 扫描错误的建议，并以 `scan` failed trace 结束，不额外写入会混淆阶段定位的外层 `init failed` 事件。
 
 ### 2. LLM 结构化扫描
 

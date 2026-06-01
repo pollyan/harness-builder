@@ -795,6 +795,52 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
     assert not (repo / ".ai" / "skills").exists()
 
 
+def test_non_interactive_init_scan_failure_prints_short_message_and_trace(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+
+    def fail_scan(repo_path: Path):
+        assert repo_path == repo.resolve()
+        raise RuntimeError("synthetic noninteractive scan failure\nwith internal details")
+
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    output = _strip_ansi(result.output)
+
+    assert result.exit_code == 1
+    assert "init --non-interactive 扫描失败" in output
+    assert "阶段：scan" in output
+    assert "RuntimeError" in output
+    assert "synthetic noninteractive scan failure" in output
+    assert "未写入正式 Harness 资产" in output
+    assert "请检查 DeepSeek / LLM 配置、网络或扫描错误后重试" in output
+    assert "Traceback" not in output
+    assert not isinstance(result.exception, RuntimeError)
+    assert not (repo / ".ai" / "project-inventory.json").exists()
+    assert not (repo / ".ai" / "harness-config.yaml").exists()
+    assert not (repo / ".ai" / "init-summary.md").exists()
+
+    run_dirs = sorted((repo / ".ai" / "runs").iterdir())
+    assert len(run_dirs) == 1
+    trace = yaml.safe_load((run_dirs[0] / "trace.yaml").read_text(encoding="utf-8"))
+    assert trace["status"] == "failed"
+    assert trace["summary"]["error_type"] == "RuntimeError"
+    assert trace["summary"]["scan_error"] == "synthetic noninteractive scan failure with internal details"
+    events = [
+        json.loads(line)
+        for line in (run_dirs[0] / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(event["stage"] == "scan" and event["event_type"] == "started" for event in events)
+    assert any(
+        event["stage"] == "scan"
+        and event["event_type"] == "failed"
+        and event["details"]["error_type"] == "RuntimeError"
+        and event["details"]["error"] == "synthetic noninteractive scan failure with internal details"
+        for event in events
+    )
+    assert not any(event["stage"] == "init" and event["event_type"] == "failed" for event in events)
+
+
 def test_guided_init_groups_scan_risks_uncertainties_and_validation_gaps(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

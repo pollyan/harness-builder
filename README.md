@@ -57,6 +57,8 @@ HARNESS_BUILDER_LLM_MODEL=deepseek-v4-pro
 .venv/bin/harness-builder-agent init --non-interactive --repo tests/fixtures/mini-spring-boot
 ```
 
+`--non-interactive` 不展示 guided 扫描进度，但扫描阶段如果因为 DeepSeek / LLM 配置、网络或 schema 失败而中断，会输出短错误说明、标出 `scan` 阶段和错误类型，记录 failed trace，并明确未写入正式 Harness 资产，不会回退成确定性扫描成功结果。
+
 `init` 会在目标仓库生成 `.ai/`：
 
 ```text

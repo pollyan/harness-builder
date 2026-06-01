@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 非交互 Init 扫描失败边界
+
+- North Star 模块：Maturity-driven Init、CLI Experience、自动化信任、LLM-first 错误边界。
+- init North Star 旅程阶段：阶段化扫描、错误与边界、自动化 / acceptance 入口。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 `--non-interactive` 扫描失败应有短错误和 scan trace、full regression / push gate 的 DeepSeek DNS 外部阻塞、partial core 后续 repair / reinit 边界。guided scan 失败已有友好输出和 trace；非交互路径仍让 `scan_repository()` 异常冒到 `cli.py`，会记录泛化 `init failed` 并可能在真实 CLI 展示 Python/Rich traceback。本轮选择非交互 scan failure，因为它直接降低 CI、acceptance 和目标模式自动化定位成本，且可用 mock scan failure 精确验收。
+- 用户故事：作为 CI / acceptance 维护者，当我运行 `harness-builder-agent init --non-interactive` 且 LLM 扫描、网络或 schema 阶段失败时，我可以看到简短、中文、阶段明确的 scan 失败说明，并在 generation trace 中看到 `scan failed` 和错误类型，同时确认没有写入正式 Harness 资产，从而能快速定位外部服务或扫描契约问题。
+- 当前代码 gap：`run_non_interactive_init()` 直接调用 `scan_repository()`；异常由 `cli.py` 外层记录成 `init failed` 后 re-raise，缺少非交互 scan 阶段的稳定 CLI/trace 边界。
+- 关键决策 / 取舍：只在非交互 scan 阶段捕获异常，输出短错误、记录 `scan failed`、finish failed trace 后 `typer.Exit(1)`；写资产阶段仍由外层命令处理；不为非交互模式增加 guided 进度契约，不 fallback 到确定性扫描。
+- Assumptions / risks：自动化不需要 guided 进度，但失败必须可定位。短错误会折叠多行细节，完整定位仍可重跑或查底层日志。
+- 边界情况 / 失败模式及回应：LLM / 网络 / schema scan failure 不写正式 `.ai` 资产，只留下 trace；CLI 不展示 Python traceback；events 不再额外出现外层 `init failed`；不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查非交互 scan failure，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理非交互扫描失败这一条工程信任故事，不混入外部 DeepSeek 网络修复、guided 进度、writer failure 或 partial core repair。
+- 可执行验收标准及验证方式：新增 integration RED 先证明当前非交互失败输出为空；实现后断言短错误输出、exit code、无原始 RuntimeError、无 traceback、无正式资产、trace summary 和 events 记录 scan failure 且没有外层 init failed。
+- 完成内容：`run_non_interactive_init()` 增加 scan failure 边界和 `_show_non_interactive_scan_failed()`；`docs/engineering/init-workflow.md` 和 README 同步稳定规则；新增本轮 spec / plan 和 integration test。
+- 验证结果：RED targeted integration 先 1 failed；实现后新增 targeted 1 passed；guided + non-interactive scan failure targeted 2 passed；`tests/integration/test_init_on_fixture_projects.py` 59 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 498 passed。提交后 `scripts/test-full.sh` 在 fast 498 passed 后进入 acceptance，3 条真实 DeepSeek / 真实仓库验收因 sandbox 内 DNS 解析 `api.deepseek.com` 失败而失败；按规则尝试申请非 sandbox full gate，被审批系统拒绝，理由是会向外部 DeepSeek API 发送本地 fixture / benchmark 仓库内容。
+- Self-Harness Gate：init workflow、README、spec / plan 和演进记录已同步；未改变 LLM prompt、schema、writer、Sensor、benchmark 或 Runtime 契约。full gate 未通过且非 sandbox 运行未获许可，因此本轮不 push。下一轮候选 gap 需重新从 Current State Gap Analysis 选择；远端 push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 Guided Init 不完整 Harness 启动边界
 
 - North Star 模块：Maturity-driven Init、CLI Experience、启动边界、已有 Harness 识别。
