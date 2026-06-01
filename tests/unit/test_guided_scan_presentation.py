@@ -5,6 +5,7 @@ from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.tools.guided_scan_presentation import (
     guided_scan_progress,
     risk_attention_lines,
+    show_scan_attention_summary,
     show_llm_evidence_expansion,
     show_scan_maturity_snapshot,
     uncertainty_attention_lines,
@@ -97,3 +98,71 @@ def test_guided_scan_progress_renders_started_and_completed(capsys):
     output = capsys.readouterr().out
     assert "- 当前阶段：收集仓库 evidence" in output
     assert "  已完成：收集仓库 evidence" in output
+
+
+def test_scan_attention_summary_turns_followups_into_answer_guidance(capsys):
+    inventory = ProjectInventory(
+        repo_name="demo",
+        root_path="/tmp/demo",
+        primary_stack="unknown",
+        modules=[],
+        stack_extensions={
+            "scan_metadata": {
+                "followup_questions": [
+                    {
+                        "interaction_id": "confirm:scan-followup:coverage-source-java",
+                        "trigger": "coverage_gap",
+                        "question": "哪些 Java 目录需要补充扫描？",
+                        "reason": "抽样不足。",
+                        "confidence": "low",
+                        "affects": ["guides"],
+                    },
+                    {
+                        "interaction_id": "confirm:scan-followup:stack-node",
+                        "trigger": "stack_claim_without_evidence",
+                        "question": "是否存在 Node 子模块？",
+                        "reason": "缺少 stack evidence。",
+                        "confidence": "low",
+                        "affects": ["workflow"],
+                    },
+                    {
+                        "interaction_id": "confirm:scan-followup:unknown-stack",
+                        "trigger": "unknown_stack",
+                        "question": "真实主技术栈是什么？",
+                        "reason": "primary stack unknown。",
+                        "confidence": "low",
+                        "affects": ["maturity"],
+                    },
+                    {
+                        "interaction_id": "confirm:scan-followup:module-boundary",
+                        "trigger": "module_boundary_unclear",
+                        "question": "主要模块路径和职责是什么？",
+                        "reason": "模块边界不清。",
+                        "confidence": "low",
+                        "affects": ["guides"],
+                    },
+                    {
+                        "interaction_id": "confirm:scan-followup:test-evidence",
+                        "trigger": "test_evidence_missing",
+                        "question": "真实测试入口是什么？",
+                        "reason": "缺少测试 evidence。",
+                        "confidence": "low",
+                        "affects": ["sensors"],
+                    },
+                ]
+            }
+        },
+    )
+
+    show_scan_attention_summary(inventory, CommandCatalog(commands=[]))
+
+    output = capsys.readouterr().out
+    assert "深度追问回答建议" in output
+    assert "`confirm:scan-followup:coverage-source-java`" in output
+    assert "module=src/main/java|backend|核心模块" in output
+    assert "risk=src/main/java/payments|支付或权限高风险" in output
+    assert "`confirm:scan-followup:stack-node`" in output
+    assert "stack=java-spring" in output
+    assert "`confirm:scan-followup:test-evidence`" in output
+    assert "command=unit_test|mvn test|test|hard|pom.xml|high" in output
+    assert "不会自动关闭追问" in output

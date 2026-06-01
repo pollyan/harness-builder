@@ -931,6 +931,15 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
     assert "pending_harness_maintainer_review" in result.output
     assert "needs_targeted_scan" in result.output
     assert "请补充核心 Java 模块路径" in result.output
+    assert "深度追问回答建议" in result.output
+    assert "`confirm:scan-followup:coverage-source-java`" in result.output
+    assert "module=src/main/java|backend|核心模块" in result.output
+    assert "risk=src/main/java/payments|支付或权限高风险" in result.output
+    assert "`confirm:scan-followup:stack-node`" in result.output
+    assert "stack=java-spring" in result.output
+    assert "`confirm:scan-followup:test-evidence`" in result.output
+    assert "command=unit_test|mvn test|test|hard|pom.xml|high" in result.output
+    assert "不会自动关闭追问" in result.output
 
     questionnaire = yaml.safe_load((repo / ".ai" / "questionnaire.yaml").read_text(encoding="utf-8"))
     Questionnaire.model_validate(questionnaire)

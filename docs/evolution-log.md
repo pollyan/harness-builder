@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 深度追问回答建议
+
+- North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、仓库理解深度。
+- init North Star 旅程阶段：扫描结果友好呈现、深度追问、与用户对齐扫描理解和成熟度判断。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；已有 guided `init` 能在 scan supplement 前展示“深度追问”和“LLM 二次自检”，并把 follow-up 写入 questionnaire / human-input，但 CLI 没有把每个追问翻译成用户马上可输入的回答建议。候选包括深度追问回答建议、human-input 文档端建议增强、self-check action 结构化绑定和 push / full regression 工作包；本轮选择 CLI 即时回答建议，因为它直接降低首次 init 输入成本，且不扩大 schema / LLM / benchmark 契约。
+- 用户故事：作为 Harness Maintainer，当我首次 guided `init` 一个存在扫描深度追问和二次自检的仓库时，我可以在输入 scan supplement 前看到每个追问对应的低负担回答建议和可复制结构化示例，从而知道该用自然语言、`stack=`、`module=`、`command=` 或 `risk=` 补充什么，并理解这些补充只会部分回应追问、不会自动关闭人工复核。
+- 当前代码 gap：`show_scan_followup_questions()` 和 `show_scan_self_check()` 只展示问题、自检状态和建议动作；`_collect_scan_supplement()` 的通用提示列出格式，但缺少 follow-up trigger 到具体回答示例的逐项映射。
+- 关键决策 / 取舍：新增确定性 `trigger -> guidance` renderer，放在“LLM 二次自检”之后、“风险区域”之前；示例只作为输入帮助，不声称路径真实存在；不修改 `ScanMetadata`、`Questionnaire`、`interaction-decisions.yaml`、LLM prompt、benchmark、writer 或 Runtime 分工。
+- Assumptions / risks：输出只在存在 follow-up questions 时增加，终端略长但发生在用户最需要输入帮助的阶段；本轮不把建议写入 `.ai/human-input-needed.md`，文档端增强留作后续候选。
+- 边界情况 / 失败模式：coverage gap 映射到 `module` / `risk` 示例；stack claim / unknown stack 映射到 `stack` 示例；module boundary 映射到 `module` / `risk` 示例；test evidence 映射到 `command` 示例；未知 trigger 保留自然语言和通用结构化格式。补充不会自动关闭追问，仍需 `review-human-input` 复核。
+- Sub agent 使用情况：按 playbook 尝试启动只读 explorer 审查 follow-up / self-check 展示链路，当前环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只做首次 init scan supplement 前的 CLI 即时帮助，服务同一条“动态追问 -> 用户补充 -> pending review”的用户故事；不混入 human-input Markdown 契约、self-check schema 或远端同步工作包。
+- 可执行验收标准及验证方式：unit renderer 覆盖 `深度追问回答建议`、coverage / stack / test 示例和不自动关闭边界；guided integration transcript 覆盖首次 init 输出；human confirmation / partial response regression 确认 questionnaire 链路不漂移；README 与 init workflow 同步稳定行为。
+- 完成内容：`guided_scan_presentation.py` 新增 `show_scan_followup_answer_guidance()` 和 trigger 映射；扩展 unit / integration 测试；更新 README、`docs/engineering/init-workflow.md` 和本轮 spec / plan。
+- 验证结果：RED targeted tests 先因缺少 `深度追问回答建议` 失败；实现后 renderer + guided follow-up 6 passed，human confirmation + partial follow-up regression 10 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 474 passed。
+- Self-Harness Gate：长期文档已同步；无需新增 todo；未触碰 schema / benchmark / Runtime。下一轮候选 gap：把 follow-up 回答建议复用到 `.ai/human-input-needed.md#处理方式`，或审查 self-check suggested action 是否需要结构化约束；push 工作包仍需单独 full regression 前置。
+
 ## 2026-06-01 已有 Harness 维护焦点前置
 
 - North Star 模块：Maturity-driven Init、CLI Experience、Existing Harness 维护入口、Experience / review。
