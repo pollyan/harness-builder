@@ -14,7 +14,6 @@ from harness_builder_agent.schemas.interaction_decision import CandidateDecision
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
-from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.existing_harness_actions import (
     existing_harness_action_menu_lines,
@@ -46,6 +45,7 @@ from harness_builder_agent.tools.existing_harness_signals import (
 )
 from harness_builder_agent.tools.existing_harness_status import render_existing_harness_status_overview_lines
 from harness_builder_agent.tools.generation_trace import GenerationTrace
+from harness_builder_agent.tools.guided_candidate_review import review_candidates as _review_candidates
 from harness_builder_agent.tools.guided_scan_presentation import (
     SCAN_PROGRESS_LABELS as _SCAN_PROGRESS_LABELS,
     evidence_expansion as _evidence_expansion,
@@ -449,50 +449,6 @@ def _collect_team_rules() -> list[str]:
     typer.echo("例如：团队代码规范、组织级架构约束、测试策略、安全合规要求、发布流程、禁止随意修改的目录。")
     answer = typer.prompt("可以输入一段规则说明；暂时没有则直接回车", default="", show_default=False).strip()
     return [answer] if answer else []
-
-
-def _review_candidates(
-    report,
-    weapon_selection: WeaponLibrarySelection,
-    commands: CommandCatalog,
-) -> list[CandidateDecision]:
-    typer.echo("\n建议生成的规则")
-    typer.echo("这些规则会进入 Guide，影响后续 AI 如何理解项目边界和编码约束。")
-    for weapon in weapon_selection.guide_weapons:
-        typer.echo(f"- {weapon.title}：{weapon.guidance} 来源线索：{', '.join(weapon.evidence_hints) or '通用基线'}")
-
-    typer.echo("\n建议生成的传感器")
-    typer.echo("Sensor 用来描述验证活动。hard gate 失败时不应该声明任务完成，soft gate 则作为风险提示。")
-    for weapon in weapon_selection.sensor_weapons:
-        typer.echo(f"- {weapon.title}：{weapon.guidance} 建议 gate=`{weapon.gate}`")
-    for command in commands.commands:
-        typer.echo(f"- 现有命令 `{command.command}`：来自 `{command.source}`，当前 gate=`{command.gate}`")
-
-    decisions: list[CandidateDecision] = []
-    candidates = report.model_dump(mode="json")["candidates"]
-    if not candidates:
-        typer.echo("\n模型没有提出额外候选项。")
-        return decisions
-
-    typer.echo("\n逐项审查模型候选")
-    typer.echo("选项：a=接受为确认项，r=拒绝，k=保持候选，e=补充备注后保持候选。直接回车等同于 k。")
-    for item in candidates:
-        typer.echo(f"\n- `{item['id']}`：{item['title']}")
-        typer.echo(f"  类型：{'规则 Guide' if item['candidate_type'] == 'guide' else '传感器 Sensor'}")
-        typer.echo(f"  作用：{item['rationale']}")
-        typer.echo(f"  依据：{', '.join(str(value) for value in item.get('evidence', [])) or '暂无'}")
-        choice = typer.prompt("你的选择", default="k").strip().lower()
-        if choice == "a":
-            decisions.append(CandidateDecision(candidate_id=item["id"], decision="accepted", notes="用户在 guided init 中接受。"))
-        elif choice == "r":
-            note = "用户在 guided init 中拒绝。"
-            decisions.append(CandidateDecision(candidate_id=item["id"], decision="rejected", notes=note))
-        elif choice == "e":
-            note = typer.prompt("请输入备注", default="", show_default=False).strip()
-            decisions.append(CandidateDecision(candidate_id=item["id"], decision="edited", notes=note))
-        else:
-            decisions.append(CandidateDecision(candidate_id=item["id"], decision="kept", notes="保持候选，等待后续确认。"))
-    return decisions
 
 
 def _show_workflows() -> WorkflowConfirmation:

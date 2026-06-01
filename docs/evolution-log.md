@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided 候选审查模块抽取
+
+- North Star 模块：Init CLI Experience、渐进式交互、候选资产审核、工程架构可维护性。
+- init North Star 旅程阶段：Guide / Sensor 候选审查、写入前确认、review-only 候选治理。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，`local-unique-capability-migration.md` 已归档为 implemented。本轮候选包括 guided 候选审查边界抽取、团队规则输入体验增强、push / 远端同步。`interactive_init.py` 在 scan / supplement / prewrite / existing Harness action 多轮抽取后仍内联 `_review_candidates()`，同时负责基线呈现、LLM candidate 渲染、Typer prompt 和 `CandidateDecision` 构造。
+- 工程信任故事：作为 Harness Builder 维护者，当我继续打磨首次 guided `init` 中 Guide / Sensor 候选审查体验时，我可以在独立候选审查模块中渲染候选、读取用户选择并构造 `CandidateDecision`，从而让主向导状态机只负责编排阶段，并降低后续调整候选治理体验时误伤 scan、团队规则、Workflow 或写入流程的风险。
+- 当前代码 gap：候选审查四种选择和 no-candidate 分支只能通过大型 guided integration 间接覆盖；后续如果要增强候选说明、成熟度关联或分组审查，需要继续改主向导文件。
+- 关键决策 / 取舍：新增 `guided_candidate_review.py` 承接候选审查呈现与决策构造；`interactive_init.py` 通过 `review_candidates as _review_candidates` 保留兼容入口；不改变候选文案、选项、schema、LLM candidate generation、writer、benchmark 或 Runtime 分工。
+- Assumptions / risks：本轮是行为保持型抽取，用户 transcript 不应变化；prompt 注入只用于单元测试，默认路径仍使用 `typer.prompt`。
+- 边界情况 / 失败模式：覆盖 no-candidate 无 prompt、`a` 接受、`r` 拒绝、`e` 备注、默认保持候选，以及 empty evidence 显示“暂无”；不执行 Runtime，不创建 `.ai/task-runs`。
+- Sub agent 使用情况：按 playbook 尝试启动 explorer 做只读审查，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮不新增用户可见能力，而是保护“LLM 候选保持 review-only -> Maintainer 逐项决策 -> 写入 interaction decisions / candidate report 状态”的治理链路，为后续候选审查体验增强降低成本。
+- 可执行验收标准及验证方式：unit 覆盖 baseline 呈现、no-candidate、四种 candidate decision；guided integration 覆盖真实 `init` transcript 和 `interaction-decisions.yaml` / candidate report 状态不漂移；compileall、diff check 和 fast regression 作提交前验证。
+- 完成内容：新增 `src/harness_builder_agent/tools/guided_candidate_review.py` 与 `tests/unit/test_guided_candidate_review.py`；`interactive_init.py` 删除内联 `_review_candidates()` 实现；新增本轮 spec / plan。
+- 验证结果：RED unit 先因缺少模块失败；实现后 new unit 2 passed，相关 guided integration 1 passed，compileall 通过，`git diff --check` 通过；`scripts/test-fast.sh` 450 passed。
+- Self-Harness Gate：长期文档事实源无需更新；未新增 schema 或 todo；下一轮候选 gap 包括团队规则输入体验增强，或在 acceptance 外部前置满足后统一 push。
+
 ## 2026-06-01 Guided 补充呈现模块抽取
 
 - North Star 模块：Init CLI Experience、渐进式交互、工程架构可维护性。
