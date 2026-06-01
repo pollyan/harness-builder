@@ -106,6 +106,36 @@ def _write_questionnaire(ai: Path, count: int) -> None:
     )
 
 
+def _write_weapon_library_candidates(ai: Path) -> None:
+    (ai / "experience").mkdir(parents=True, exist_ok=True)
+    (ai / "experience" / "weapon-library-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_scan_proposal",
+                "candidates": [
+                    {
+                        "id": "llm-guide-risk-001",
+                        "candidate_type": "guide",
+                        "status": "candidate",
+                        "title": "支付风险 Guide",
+                        "rationale": "支付模块需要额外上下文。",
+                        "evidence": ["src/payments/CheckoutService.java"],
+                        "human_confirmation_required": True,
+                        "maturity_dimensions": ["guides", "risk_control"],
+                        "maturity_impact_summary": "补齐 Guides 上下文、Risk Control 风险控制。",
+                        "next_stage_contribution": "把风险区域留给 Maintainer 审查。",
+                        "review_boundary": "review_only_no_formal_asset_change",
+                    }
+                ],
+            },
+            allow_unicode=True,
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_existing_harness_status_overview_explains_not_run_benchmark_and_top_action(tmp_path: Path):
     ai = tmp_path / ".ai"
     ai.mkdir()
@@ -144,6 +174,38 @@ def test_existing_harness_status_overview_summarizes_failed_benchmark_and_review
     assert "质量门禁：未通过，failed checks=2；先查看 `.ai/benchmark-report.yaml`。" in lines
     assert "Experience / review：2 个 asset candidates 待治理；1 个 pending improvement；2 条 workflow recommendation；human-input 待确认 2 项；runtime task-run 证据 1 条。" in lines
     assert "优先动作：输入 `6` 运行 `review-candidate`（reason=asset_candidates_pending，source=.ai/review/asset-candidates.yaml，count=2）。" in lines
+
+
+def test_existing_harness_status_overview_mentions_initial_llm_candidates(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_benchmark(ai, status="passed")
+    _write_experience_index(ai)
+    _write_weapon_library_candidates(ai)
+
+    lines = render_existing_harness_status_overview_lines(
+        ai,
+        HarnessConfig.default(),
+        _score(),
+        [
+            MaintenanceAction(
+                priority=28,
+                action="manual-review",
+                reason="weapon_library_candidates_pending",
+                source=".ai/experience/weapon-library-candidates.yaml",
+                next_action="manual-review",
+                count=1,
+                detail="llm-guide-risk-001:guides,risk_control",
+            )
+        ],
+    )
+
+    assert "Experience / review：1 个初始 LLM Guide/Sensor 候选待确认。" in lines
+    assert (
+        "优先动作：`manual-review` 暂无维护菜单编号；请用专家命令处理 "
+        "reason=weapon_library_candidates_pending，source=.ai/experience/weapon-library-candidates.yaml，"
+        "count=1，detail=llm-guide-risk-001:guides,risk_control。"
+    ) in lines
 
 
 def test_existing_harness_status_overview_explains_healthy_state_without_pending_work(tmp_path: Path):

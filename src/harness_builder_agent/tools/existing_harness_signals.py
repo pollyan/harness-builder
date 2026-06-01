@@ -12,6 +12,7 @@ from harness_builder_agent.schemas.self_improve_package import SelfImprovePackag
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
 from harness_builder_agent.tools.human_confirmation import SCAN_CONFIRMATION_TYPES
+from harness_builder_agent.tools.weapon_candidate_status import read_weapon_candidate_status
 
 
 def read_benchmark_status(ai: Path) -> str:
@@ -67,10 +68,12 @@ def workflow_routing_status_lines(config: HarnessConfig) -> list[str]:
 
 
 def experience_status_lines(ai: Path) -> list[str]:
+    weapon_candidate_lines = _weapon_candidate_status_lines(ai)
     path = ai / "experience" / "experience-index.yaml"
     if not path.exists():
         return [
             "experience_index=missing",
+            *weapon_candidate_lines,
             *_workflow_recommendation_status_lines(ai),
             f"self_improve_package={_self_improve_package_status(ai)}",
             *_human_input_needed_status_lines(ai),
@@ -84,6 +87,7 @@ def experience_status_lines(ai: Path) -> list[str]:
         f"candidate_governance={index.candidate_governance_decision_count}",
         f"maturity_reviews={index.maturity_review_count}",
         f"workflow_recommendations={index.workflow_recommendation_count}",
+        *weapon_candidate_lines,
         *_workflow_recommendation_status_lines(ai),
         f"runtime_task_runs={index.runtime_task_run_count}",
         f"self_improve_package={_self_improve_package_status(ai)}",
@@ -190,6 +194,27 @@ def _workflow_recommendation_status_lines(ai: Path) -> list[str]:
         ]
 
     return []
+
+
+def _weapon_candidate_status_lines(ai: Path) -> list[str]:
+    status = read_weapon_candidate_status(ai)
+    if status is None:
+        return ["weapon_library_candidates=missing"]
+    dimensions = ",".join(status.pending_dimensions) or "none"
+    lines = [
+        f"weapon_library_candidates={status.total_count}",
+        f"weapon_library_candidates_pending={status.pending_count}",
+        f"weapon_candidate_maturity_dimensions={dimensions}",
+    ]
+    if status.top_candidate_id:
+        top_dimensions = ",".join(status.top_candidate_dimensions) or "none"
+        lines.append(
+            f"weapon_candidate_top={status.top_candidate_id} "
+            f"type={status.top_candidate_type} "
+            f"dimensions={top_dimensions} "
+            f"boundary={status.top_review_boundary}"
+        )
+    return lines
 
 
 def _self_improve_package_status(ai: Path) -> str:

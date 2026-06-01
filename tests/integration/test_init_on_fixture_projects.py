@@ -1993,6 +1993,10 @@ def test_guided_init_existing_harness_can_exit_without_overwriting_assets(tmp_pa
     assert "next=benchmark" in result.output
     assert "pending_improvements=" in result.output
     assert "asset_candidates=" in result.output
+    assert "weapon_library_candidates=" in result.output
+    assert "weapon_library_candidates_pending=" in result.output
+    assert "weapon_candidate_maturity_dimensions=" in result.output
+    assert "weapon_candidate_top=" in result.output
     assert "candidate_governance=" in result.output
     assert "maturity_reviews=" in result.output
     assert "workflow_recommendations=" in result.output

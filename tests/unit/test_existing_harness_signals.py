@@ -47,6 +47,49 @@ def _write_benchmark_report(ai: Path) -> None:
     )
 
 
+def _write_weapon_library_candidates(ai: Path) -> None:
+    (ai / "experience").mkdir(parents=True, exist_ok=True)
+    (ai / "experience" / "weapon-library-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_scan_proposal",
+                "candidates": [
+                    {
+                        "id": "llm-guide-risk-001",
+                        "candidate_type": "guide",
+                        "status": "candidate",
+                        "title": "支付风险 Guide",
+                        "rationale": "支付模块需要额外上下文。",
+                        "evidence": ["src/payments/CheckoutService.java"],
+                        "human_confirmation_required": True,
+                        "maturity_dimensions": ["guides", "risk_control"],
+                        "maturity_impact_summary": "补齐 Guides 上下文、Risk Control 风险控制。",
+                        "next_stage_contribution": "把风险区域留给 Maintainer 审查。",
+                        "review_boundary": "review_only_no_formal_asset_change",
+                    },
+                    {
+                        "id": "llm-sensor-command-001",
+                        "candidate_type": "sensor",
+                        "status": "confirmed",
+                        "title": "测试命令 Sensor",
+                        "rationale": "已有验证命令。",
+                        "evidence": ["pom.xml"],
+                        "human_confirmation_required": False,
+                        "maturity_dimensions": ["sensors", "verification_sophistication"],
+                        "maturity_impact_summary": "补齐 Sensors 验证。",
+                        "next_stage_contribution": "保留验证审查线索。",
+                        "review_boundary": "review_only_no_formal_asset_change",
+                    },
+                ],
+            },
+            allow_unicode=True,
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_existing_harness_benchmark_signals_explain_missing_and_failed_report(tmp_path: Path):
     ai = tmp_path / ".ai"
     ai.mkdir()
@@ -167,3 +210,40 @@ def test_existing_harness_experience_signals_include_review_history_and_human_in
     assert "human_input_questionnaire=present" in lines
     assert "human_input_scan_followups_partially_addressed=1" in lines
     assert "human_input_action_entry=.ai/human-input-needed.md#处理方式" in lines
+
+
+def test_existing_harness_experience_signals_include_initial_candidate_maturity_impact(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    (ai / "experience").mkdir(parents=True)
+    (ai / "experience" / "experience-index.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "repo_name": "demo",
+                "experience_files": {},
+                "pending_improvement_count": 0,
+                "asset_candidate_count": 0,
+                "candidate_governance_decision_count": 0,
+                "maturity_review_count": 0,
+                "workflow_recommendation_count": 0,
+                "runtime_task_run_count": 0,
+                "sources": [],
+                "warnings": [],
+            },
+            allow_unicode=True,
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    _write_weapon_library_candidates(ai)
+
+    lines = experience_status_lines(ai)
+
+    assert "weapon_library_candidates=2" in lines
+    assert "weapon_library_candidates_pending=1" in lines
+    assert "weapon_candidate_maturity_dimensions=guides,risk_control" in lines
+    assert (
+        "weapon_candidate_top=llm-guide-risk-001 "
+        "type=guide dimensions=guides,risk_control "
+        "boundary=review_only_no_formal_asset_change"
+    ) in lines

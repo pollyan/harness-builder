@@ -104,6 +104,49 @@ def _write_questionnaire(ai: Path, questions: list[dict[str, object]]) -> None:
     )
 
 
+def _write_weapon_library_candidates(ai: Path) -> None:
+    (ai / "experience").mkdir(parents=True, exist_ok=True)
+    (ai / "experience" / "weapon-library-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_scan_proposal",
+                "candidates": [
+                    {
+                        "id": "llm-guide-risk-001",
+                        "candidate_type": "guide",
+                        "status": "candidate",
+                        "title": "支付风险 Guide",
+                        "rationale": "支付模块需要额外上下文。",
+                        "evidence": ["src/payments/CheckoutService.java"],
+                        "human_confirmation_required": True,
+                        "maturity_dimensions": ["guides", "risk_control"],
+                        "maturity_impact_summary": "补齐 Guides 上下文、Risk Control 风险控制。",
+                        "next_stage_contribution": "把风险区域留给 Maintainer 审查。",
+                        "review_boundary": "review_only_no_formal_asset_change",
+                    },
+                    {
+                        "id": "llm-sensor-command-001",
+                        "candidate_type": "sensor",
+                        "status": "rejected",
+                        "title": "测试命令 Sensor",
+                        "rationale": "已有验证命令。",
+                        "evidence": ["pom.xml"],
+                        "human_confirmation_required": False,
+                        "maturity_dimensions": ["sensors", "verification_sophistication"],
+                        "maturity_impact_summary": "补齐 Sensors 验证。",
+                        "next_stage_contribution": "保留验证审查线索。",
+                        "review_boundary": "review_only_no_formal_asset_change",
+                    },
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+
 def _scan_followup_question(interaction_id: str, response_status: str) -> dict[str, object]:
     return {
         "interaction_type": "scan_followup_confirmation",
@@ -273,6 +316,30 @@ def test_maintenance_triage_keeps_candidate_governance_before_human_input_review
     assert [action.action for action in actions[:2]] == ["review-candidate", "review-human-input"]
     assert actions[0].reason == "asset_candidates_pending"
     assert actions[1].reason == "human_input_scan_followups_pending"
+
+
+def test_maintenance_triage_surfaces_pending_initial_candidate_maturity_impact(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    _write_benchmark(ai)
+    _write_experience_index(ai)
+    _write_weapon_library_candidates(ai)
+
+    actions = build_maintenance_triage(ai, score=_score())
+    lines = render_maintenance_triage_lines(actions)
+    guidance = render_maintenance_triage_guidance_lines(actions)
+    menu_hints = render_maintenance_triage_menu_hint_lines(actions)
+
+    assert actions[0].action == "manual-review"
+    assert actions[0].reason == "weapon_library_candidates_pending"
+    assert actions[0].source == ".ai/experience/weapon-library-candidates.yaml"
+    assert actions[0].count == 1
+    assert actions[0].detail == "llm-guide-risk-001:guides,risk_control"
+    assert "reason=weapon_library_candidates_pending" in lines[0]
+    assert "detail=llm-guide-risk-001:guides,risk_control" in lines[0]
+    assert "查看 `.ai/review/llm-enhancement-candidates.md`" in guidance[0]
+    assert "review-only" in guidance[0]
+    assert "当前没有维护菜单编号" in menu_hints[0]
 
 
 def test_maintenance_triage_ignores_resolved_scan_followups(tmp_path: Path):

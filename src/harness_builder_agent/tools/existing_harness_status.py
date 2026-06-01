@@ -11,6 +11,7 @@ from harness_builder_agent.schemas.human_confirmation import Questionnaire
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.tools.existing_harness_actions import existing_harness_action_number
 from harness_builder_agent.tools.maintenance_triage import MaintenanceAction
+from harness_builder_agent.tools.weapon_candidate_status import read_weapon_candidate_status
 
 
 def render_existing_harness_status_overview_lines(
@@ -67,10 +68,13 @@ def _experience_review_overview(ai: Path) -> str:
 
     index = ExperienceIndex.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
     pending_asset_candidates = max(index.asset_candidate_count - index.candidate_governance_decision_count, 0)
+    weapon_candidates = read_weapon_candidate_status(ai)
     human_input_pending = _human_input_pending_count(ai)
     parts: list[str] = []
     if pending_asset_candidates:
         parts.append(f"{pending_asset_candidates} 个 asset candidates 待治理")
+    if weapon_candidates and weapon_candidates.pending_count:
+        parts.append(f"{weapon_candidates.pending_count} 个初始 LLM Guide/Sensor 候选待确认")
     if index.pending_improvement_count:
         parts.append(f"{index.pending_improvement_count} 个 pending improvement")
     if index.workflow_recommendation_count:

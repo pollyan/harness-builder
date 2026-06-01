@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 已有 Harness 初始候选成熟度信号
+
+- North Star 模块：Maturity-driven Init、CLI Experience、候选资产审核、Experience / review 维护入口。
+- init North Star 旅程阶段：再次进入已有 Harness、维护状态摘要、Experience / review signals、Maintenance triage。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；上一轮 Gate 候选包括 existing Harness triage 消费 candidate maturity impact、candidate maturity impact benchmark hardening 和 push / 远端同步。上一轮已把 `.ai/experience/weapon-library-candidates.yaml` 增强为带 maturity impact 的机器契约，但已有 Harness 维护入口仍只展示 asset candidates / self-improve candidates，不读初始 LLM Guide / Sensor 候选。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 进入已有 Harness 维护入口时，我可以看到初始 LLM Guide / Sensor 候选是否仍待确认、它们影响哪些成熟度维度、最优先候选是什么以及它仍是 review-only 边界，从而不会把首次初始化留下的候选审查债误认为已经进入后续自改进闭环。
+- 当前代码 gap：`experience_status_lines()`、`render_existing_harness_status_overview_lines()` 和 `build_maintenance_triage()` 不读取 `WeaponLibraryCandidateReport`；非交互 init 生成的 pending 初始候选在维护入口不可见。
+- 关键决策 / 取舍：新增只读 `weapon_candidate_status.py` helper；pending 只按 candidate report 的 `status=candidate` 或 `human_confirmation_required=true` 判断；triage 使用 `manual-review`，不伪造菜单编号，不复用 `.ai/review/asset-candidates.yaml` 的 `review-candidate` 治理语义。
+- Assumptions / risks：初始 LLM candidates 的后续治理动作仍未设计，本轮只让审查债可见；旧 report 缺少 maturity impact 字段时 schema 默认值会让维度显示为 `none`，不把旧资产转成失败。
+- 边界情况 / 失败模式：缺少 candidate report 显示 `weapon_library_candidates=missing`；confirmed / rejected 不计入 pending；存在更高优先级 benchmark 失败时，triage 仍先处理质量门禁；本轮不写正式 Guide / Sensor，不执行 Runtime，不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审计该 gap，当前会话返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只把上一轮机器契约接入已有 Harness 维护入口，形成用户可见的只读状态闭环；不把治理动作、benchmark hardening 或 schema 迁移混入同一切片。
+- 可执行验收标准及验证方式：unit 覆盖 Experience signals、overview 和 triage；integration 覆盖 guided existing Harness exit transcript；compileall、diff check 和 fast regression 作提交前验证。
+- 完成内容：新增 `src/harness_builder_agent/tools/weapon_candidate_status.py`；existing Harness Experience / review signals 显示 `weapon_library_candidates*` 与 `weapon_candidate_top`；维护状态摘要显示初始 LLM candidate 待确认数量；Maintenance triage 显示 `reason=weapon_library_candidates_pending` 和 review-only guidance；README 与 init workflow 同步。
+- 验证结果：RED targeted tests 先出现 4 个预期失败；实现后 targeted tests 23 passed；排序回归曾让初始候选 triage 抢到 scan follow-up 前面，修正为 human-input 之后并通过 targeted regression；`scripts/test-fast.sh` 458 passed。
+- Self-Harness Gate：长期 README / init workflow 已更新；无需新增 todo。下一轮候选 gap 包括初始 LLM candidates 的后续治理动作设计、candidate maturity impact benchmark soft/hard 检查策略，或在外部 full regression 前置满足后统一 push。
+
 ## 2026-06-01 LLM 候选成熟度影响机器契约
 
 - North Star 模块：Maturity-driven Init、候选资产审核、Experience / Self-Improve、schema / 数据契约。

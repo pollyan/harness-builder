@@ -10,6 +10,7 @@ from harness_builder_agent.schemas.experience_index import ExperienceIndex
 from harness_builder_agent.schemas.human_confirmation import Questionnaire
 from harness_builder_agent.schemas.maturity_report import MaturityReport
 from harness_builder_agent.tools.existing_harness_actions import existing_harness_action_number
+from harness_builder_agent.tools.weapon_candidate_status import read_weapon_candidate_status, weapon_candidate_action_detail
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,7 @@ def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> l
             )
 
     index = _read_experience_index(ai)
+    weapon_candidates = read_weapon_candidate_status(ai)
     if index is None:
         actions.append(
             MaintenanceAction(
@@ -148,6 +150,18 @@ def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> l
                     source=".ai/review/asset-candidates.yaml",
                     next_action="review-candidate",
                     count=pending_asset_candidates,
+                )
+            )
+        if weapon_candidates and weapon_candidates.pending_count:
+            actions.append(
+                MaintenanceAction(
+                    priority=28,
+                    action="manual-review",
+                    reason="weapon_library_candidates_pending",
+                    source=".ai/experience/weapon-library-candidates.yaml",
+                    next_action="manual-review",
+                    count=weapon_candidates.pending_count,
+                    detail=weapon_candidate_action_detail(weapon_candidates),
                 )
             )
         if index.workflow_recommendation_count:
@@ -269,6 +283,14 @@ def _maintenance_action_guidance(index: int, action: MaintenanceAction) -> str:
     if action.reason == "asset_candidates_pending":
         count = f"{action.count} 个 " if action.count else ""
         return f"{prefix}运行 `review-candidate` 处理 {count}review-only 候选，确认 accepted / deferred / rejected。"
+    if action.reason == "weapon_library_candidates_pending":
+        count = f"{action.count} 个 " if action.count else ""
+        detail = f"；优先查看 `{action.detail}`" if action.detail else ""
+        return (
+            f"{prefix}查看 `.ai/review/llm-enhancement-candidates.md` 和 "
+            f"`.ai/experience/weapon-library-candidates.yaml` 中的 {count}初始 LLM Guide/Sensor 候选，"
+            f"确认 maturity impact 与 review-only 边界{detail}。"
+        )
     if action.reason == "human_input_scan_followups_pending":
         count = f"{action.count} 个 " if action.count else ""
         detail = f"；先处理 `{action.detail}`" if action.detail else ""
