@@ -94,6 +94,8 @@ guided `init` 在启动确认或最终写入确认前取消时，会输出中文
 
 `reinit` 在继续扫描前取消时，trace summary 会记录 `cancel_stage=startup_confirmation` 和 `scan_completed=false`；在扫描和写入前预览之后取消时，会记录 `cancel_stage=prewrite_confirmation`、`scan_completed=true`、`primary_stack` 和 `command_count`，同时保留 `existing_harness_action=reinit`。
 
+`reinit` 在继续扫描后如果因为 DeepSeek / LLM 配置、网络或 schema 失败而中断，会按扫描阶段失败处理：CLI 会说明未写入正式 Harness 资产，trace summary 会保留 `existing_harness_action=reinit`、`scan_completed=false`、`formal_assets_written=false`、`error_type` 和 `scan_error`，正式 Guides、Sensors、Workflow Skills、配置和 inventory 不会被覆盖，也不会创建 Runtime 产物。
+
 如果已有 Harness 的 `.ai/project-inventory.json`、`.ai/harness-config.yaml` 或已存在的 `.ai/maturity-score.yaml` 损坏，guided `init` 会在进入维护菜单前明确报告读取失败和具体文件，并说明未重新扫描、未覆盖正式资产、未创建 Runtime 产物。
 
 guided `review-human-input` 如果来自 human-input triage，会默认填入首个待处理 scan follow-up interaction id，Maintainer 仍可输入其他 id 覆盖；该默认值只是降低复制成本，不会自动关闭追问或修改正式 Harness 资产。

@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Reinit 扫描失败 Trace 审计
+
+- North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、LLM-first 错误边界、生成审计。
+- init North Star 旅程阶段：再次进入已有 Harness、显式重新生成、阶段化扫描、错误与边界。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 guided `reinit` 扫描失败应保留维护动作与未写入审计、full regression / push gate 受 DeepSeek 外部网络和审批限制、Existing Harness action runner 进一步拆分错误边界 helper。当前 guided scan failure 已有友好输出，reinit 启动取消、写入前取消和成功完成都已保留 `existing_harness_action=reinit`，但 reinit 后扫描失败的 summary 只写 `error_type` 和 `scan_error`，丢失 reinit 来源，也没有 `scan_completed=false` / `formal_assets_written=false`。本轮选择 reinit scan failure，因为它保护已有 Harness 重新生成这一条高信任失败路径，范围小且可独立验收。
+- 用户故事：作为 Harness Maintainer，当我在已有 Harness 维护入口选择 `reinit` 后重新扫描失败时，我可以在 CLI 中看到扫描阶段失败且未写入正式 Harness 资产，并在 trace summary 中看到这是 `existing_harness_action=reinit` 的扫描失败、`scan_completed=false`、`formal_assets_written=false`，从而能安全定位 DeepSeek / 网络 / schema 问题而不误判为普通首次 init 失败或覆盖失败。
+- 当前代码 gap：`run_guided_init()` 的 scan exception 分支用 `str(exc)` 写 scan failed event 和 summary，summary 没有 `scan_completed`、`formal_assets_written`，也没有在 reinit 来源下保留 `existing_harness_action=reinit`。
+- 关键决策 / 取舍：guided scan failure 复用 `_short_error_message()`；failed summary 统一加入 `scan_completed=false` 和 `formal_assets_written=false`；如果 trace events 表明来自 existing Harness `reinit`，summary 追加 `existing_harness_action=reinit`。不修改 `scan_repository()`、LLM、schema、writer、benchmark、Sensor 或 Runtime。
+- Assumptions / risks：`GenerationTrace.summary` 是审计摘要而非严格 schema 产物，新增字段向后兼容。`formal_assets_written=false` 需要测试用正式资产 snapshot 证明，不能只依赖 summary 文案。
+- 边界情况 / 失败模式及回应：普通 guided scan failure 也获得同类 summary 字段；reinit scan failure 不覆盖既有 `.ai` 正式资产，不显示 `== 初始化完成 ==`，不创建 `.ai/task-runs`；events 仍只定位到 scan failed，不额外写泛化 `init failed`。
+- Sub agent 使用情况：按目标模式尝试启动只读 explorer 审查本轮候选，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理 guided reinit 扫描失败这一条共享数据流，不混入 reinit 备份 / rollback、action runner 重构、真实 DeepSeek 网络修复或 push 工作包。
+- 可执行验收标准及验证方式：新增 integration RED 先证明普通 guided scan failure 缺 `scan_completed`，reinit scan failure 缺 `existing_harness_action`；实现后断言 CLI 输出 reinit 边界和扫描失败，正式资产 snapshot 不变，trace summary / events 保留 action、扫描未完成、未写入和 scan failed 定位。
+- 完成内容：`interactive_init.py` 补齐 guided scan failure summary；新增 reinit scan failure integration test 并增强普通 guided scan failure 断言；README 和 `docs/engineering/init-workflow.md` 同步稳定规则；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED targeted 2 failed，失败点为 `KeyError: scan_completed` 和 `KeyError: existing_harness_action`；实现后 targeted 2 passed；reinit cancel / scan failure / completion targeted 5 passed；`tests/integration/test_init_on_fixture_projects.py` 64 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 503 passed。`scripts/test-full.sh` 的 fast 段 503 passed，acceptance 3 条因 sandbox 内 DNS 解析 `api.deepseek.com` 失败而失败；按规则申请非 sandbox full gate，被审批系统拒绝，理由是会向外部 DeepSeek API 发送本地 fixture / benchmark 仓库内容。
+- Self-Harness Gate：长期事实源已同步 README 和 init workflow；新增行为有 integration 覆盖，未改变 `.ai` schema、LLM prompt、Sensor、benchmark 或 Runtime 契约。当前 `docs/todos` 仍无 open todo；full gate 未通过且非 sandbox 运行未获许可，因此本轮不 push。下一轮候选 gap 需重新从 Current State Gap Analysis 选择，push 仍依赖 full regression 外部前置或用户对外发 DeepSeek 验收的显式许可。
+
 ## 2026-06-01 Guided Init 写入前取消 Trace 审计
 
 - North Star 模块：Maturity-driven Init、CLI Experience、渐进式协作、生成审计。

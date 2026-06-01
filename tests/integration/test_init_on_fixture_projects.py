@@ -800,6 +800,8 @@ def test_guided_init_scan_failure_prints_progress_and_no_formal_assets(tmp_path:
     assert trace["status"] == "failed"
     assert trace["summary"]["error_type"] == "RuntimeError"
     assert trace["summary"]["scan_error"] == "synthetic scan failure"
+    assert trace["summary"]["scan_completed"] is False
+    assert trace["summary"]["formal_assets_written"] is False
     events = [
         json.loads(line)
         for line in (run_dirs[0] / "events.jsonl").read_text(encoding="utf-8").splitlines()
@@ -2457,6 +2459,65 @@ def test_guided_init_existing_harness_reinit_final_cancel_keeps_trace_audit_and_
     assert trace["summary"]["primary_stack"] == "java-spring"
     assert trace["summary"]["command_count"] == 1
     assert trace["summary"]["existing_harness_action"] == "reinit"
+
+
+def test_guided_init_existing_harness_reinit_scan_failure_keeps_action_and_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise RuntimeError("synthetic reinit scan failure")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="9\n\n")
+    output = _strip_ansi(result.output)
+
+    assert result.exit_code == 1
+    assert "已选择重新生成现有 Harness" in output
+    assert "接下来会重新扫描这个仓库" in output
+    assert "扫描阶段失败" in output
+    assert "RuntimeError: synthetic reinit scan failure" in output
+    assert "未写入正式 Harness 资产" in output
+    assert "== 初始化完成 ==" not in output
+    assert "本次已生成" not in output
+    assert "Traceback" not in output
+    assert not isinstance(result.exception, RuntimeError)
+    _assert_formal_assets_unchanged(repo, formal_before)
+
+    run_dirs = sorted((repo / ".ai" / "runs").iterdir())
+    trace = yaml.safe_load((run_dirs[-1] / "trace.yaml").read_text(encoding="utf-8"))
+    assert trace["command"] == "init"
+    assert trace["status"] == "failed"
+    assert trace["summary"]["existing_harness_action"] == "reinit"
+    assert trace["summary"]["scan_completed"] is False
+    assert trace["summary"]["formal_assets_written"] is False
+    assert trace["summary"]["error_type"] == "RuntimeError"
+    assert trace["summary"]["scan_error"] == "synthetic reinit scan failure"
+
+    events = [
+        json.loads(line)
+        for line in (run_dirs[-1] / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(
+        event["stage"] == "existing-harness"
+        and event["event_type"] == "completed"
+        and event["details"]["action"] == "reinit"
+        for event in events
+    )
+    assert any(
+        event["stage"] == "scan"
+        and event["event_type"] == "failed"
+        and event["details"]["error_type"] == "RuntimeError"
+        and event["details"]["error"] == "synthetic reinit scan failure"
+        for event in events
+    )
+    assert not any(event["stage"] == "init" and event["event_type"] == "failed" for event in events)
 
 
 def test_guided_init_existing_harness_reinit_completion_keeps_audit_and_summary(tmp_path: Path, monkeypatch):
