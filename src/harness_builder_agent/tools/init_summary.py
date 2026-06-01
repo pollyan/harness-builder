@@ -200,20 +200,68 @@ def _completion_supplement_summary_line(label: str, items: list[str]) -> str | N
 
 
 def _generated_asset_summary(ai: Path) -> str:
-    checks = [
-        ("项目清单", ai / "project-inventory.json"),
-        ("命令目录", ai / "command-catalog.yaml"),
-        ("Guides", ai / "guides"),
-        ("Sensors", ai / "sensors"),
-        ("Workflow Skills", ai / "skills"),
-        ("成熟度报告", ai / "maturity-report.md"),
-        ("待确认项", ai / "human-input-needed.md"),
-        ("生成 trace", ai / "runs"),
+    groups = [
+        (
+            "核心机器契约",
+            [
+                ("project-inventory.json", ai / "project-inventory.json"),
+                ("command-catalog.yaml", ai / "command-catalog.yaml"),
+                ("harness-config.yaml", ai / "harness-config.yaml"),
+                ("scan-metadata.yaml", ai / "scan-metadata.yaml"),
+                ("llm-scan-proposal.json", ai / "llm-scan-proposal.json"),
+                ("weapon-library-selection.yaml", ai / "weapon-library-selection.yaml"),
+                ("interaction-decisions.yaml", ai / "interaction-decisions.yaml"),
+                ("maturity-score.yaml", ai / "maturity-score.yaml"),
+                ("maturity-evidence.yaml", ai / "maturity-evidence.yaml"),
+            ],
+        ),
+        (
+            "语义控制资产",
+            [
+                ("init-summary.md", ai / "init-summary.md"),
+                ("guides", ai / "guides"),
+                ("sensors", ai / "sensors"),
+                ("skills", ai / "skills"),
+                ("maturity-report.md", ai / "maturity-report.md"),
+                ("evolution-plan.md", ai / "evolution-plan.md"),
+                ("human-input-needed.md", ai / "human-input-needed.md"),
+            ],
+        ),
+        (
+            "审查 / 经验资产",
+            [
+                ("experience/experience-index.yaml", ai / "experience" / "experience-index.yaml"),
+                ("experience/project-experience.md", ai / "experience" / "project-experience.md"),
+                ("experience/pending-improvements.md", ai / "experience" / "pending-improvements.md"),
+                ("experience/weapon-library-candidates.yaml", ai / "experience" / "weapon-library-candidates.yaml"),
+                ("review/llm-enhancement-candidates.md", ai / "review" / "llm-enhancement-candidates.md"),
+                ("review/candidate-guides.md", ai / "review" / "candidate-guides.md"),
+                ("review/candidate-sensors.md", ai / "review" / "candidate-sensors.md"),
+            ],
+        ),
+        (
+            "运行审计入口",
+            [
+                ("runs", ai / "runs"),
+            ],
+        ),
     ]
-    return "\n".join(
-        f"- {label}：{'已生成' if path.exists() else 'missing'}"
-        for label, path in checks
-    )
+    lines = [_asset_group_summary(label, items) for label, items in groups]
+    lines.append("- 完整清单：`.ai/init-summary.md` 与 `.ai/runs/*/artifacts.yaml`。")
+    return "\n".join(lines)
+
+
+def _asset_group_summary(label: str, items: list[tuple[str, Path]]) -> str:
+    missing = [name for name, path in items if not path.exists()]
+    ready = len(items) - len(missing)
+    line = f"- {label}：ready={ready}/{len(items)}"
+    if missing:
+        detail = ", ".join(f"`{name}`" for name in missing[:3])
+        remaining = len(missing) - 3
+        if remaining > 0:
+            detail = f"{detail}（还有 {remaining} 项）"
+        line = f"{line}；missing={detail}"
+    return line
 
 
 def _priority_entry_lines(ai: Path) -> str:

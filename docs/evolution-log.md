@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Init Completion 资产概览压缩
+
+- North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
+- init North Star 旅程阶段：首次初始化、写入后的交付摘要。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo。本轮候选包括首次 init completion 资产概览压缩、继续拆分 `interactive_init.py` 首次 init scan / supplement 交互、push 前 full regression / 远端同步。当前 completion message 已行动优先，用户补充也已压缩，但 `本次已生成` 仍逐项展示 8 行文件 / 目录状态，和短交付摘要目标以及 `优先查看` 段有信息重复。
+- 用户故事：作为 Harness Maintainer，当我完成首次 `harness-builder-agent init` 后，我可以在终端 `== 初始化完成 ==` 的 `本次已生成` 段看到 3-4 行按类型分组的资产概览和详细审计入口，而不是一长串文件状态，从而更快确认第一版 Harness 已建立，并把注意力留给当前成熟度、下一步、Benchmark 和优先查看文件。
+- 当前代码 gap：`_generated_asset_summary()` 逐项输出项目清单、命令目录、Guides、Sensors、Workflow Skills、成熟度报告、待确认项和生成 trace；缺少资产类型分组、ready count 和缺失项 detail。
+- 关键决策 / 取舍：按固定分组展示核心机器契约、语义控制资产、审查 / 经验资产和运行审计入口；每组显示 `ready=<n>/<total>`，缺失时列出最多 3 个 missing detail；完整清单继续由 `.ai/init-summary.md` 和 `.ai/runs/*/artifacts.yaml` 承担。
+- Assumptions / risks：Maintainer 在终端摘要中主要需要确认资产类型已经建立；详细逐文件审计可打开持久化材料。过度压缩可能隐藏缺失项，因此保留 ready count 和 missing detail。
+- 边界情况 / 失败模式：缺失核心契约或 runs 目录时 completion 显示 missing detail；不改变实际 `.ai` 生成文件、`init-summary.md` 章节、schema、benchmark、LLM 或 Runtime 分工。
+- Sub agent 使用情况：尝试启动 explorer 做只读 completion message 审查，但返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮只改善首次 init 完成摘要的信息密度，不混入生成器、benchmark 或 existing Harness 维护入口变更。
+- 可执行验收标准及验证方式：unit 覆盖资产概览压缩和 missing detail；guided init integration 覆盖真实 fixture transcript；`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：`_generated_asset_summary()` 改为资产类型概览；README 和 `docs/engineering/init-workflow.md` 同步 completion message 契约；新增本轮 spec / plan；更新 `tests/unit/test_init_summary.py`。
+- 验证结果：RED unit 已确认旧 8 行文件清单失败；`tests/unit/test_init_summary.py` 10 passed；targeted guided init integration 3 passed；`git diff --check` passed；`scripts/test-fast.sh` 433 passed。
+- Self-Harness Gate：长期文档已同步；不新增 todo。下一轮候选 gap：继续拆分 `interactive_init.py` 首次 init scan / supplement 交互，或在形成完整工作包后执行 push 前 full regression / 远端同步。
+
 ## 2026-06-01 Existing Harness Action Runner 抽取
 
 - North Star 模块：CLI Experience、Maturity-driven Init、工程架构可维护性。

@@ -189,6 +189,18 @@ def test_init_completion_message_is_cli_first_delivery_summary(tmp_path: Path):
     assert message.index("建议下一步：") < message.index("本次已生成：")
     assert message.index("Benchmark 健康度：") < message.index("本次已生成：")
     assert message.index("优先查看：") < message.index("本次已生成：")
+    generated_section = message[message.index("本次已生成：") : message.index("\n\n主要证据 / 缺口：")]
+    assert "核心机器契约" in generated_section
+    assert "语义控制资产" in generated_section
+    assert "审查 / 经验资产" in generated_section
+    assert "运行审计入口" in generated_section
+    assert "ready=" in generated_section
+    assert "完整清单" in generated_section
+    assert ".ai/runs/*/artifacts.yaml" in generated_section
+    assert len([line for line in generated_section.splitlines() if line.startswith("- ")]) <= 5
+    assert "项目清单：" not in generated_section
+    assert "命令目录：" not in generated_section
+    assert "Workflow Skills：" not in generated_section
     next_steps = message[message.index("建议下一步：") : message.index("\n\nBenchmark 健康度：")]
     assert "1. 先运行 `harness-builder-agent benchmark --repo" in next_steps
     assert "2. 处理 `.ai/human-input-needed.md#处理方式` 中的待确认问题" in next_steps
@@ -254,6 +266,26 @@ def test_init_completion_message_reports_missing_interaction_decisions(tmp_path:
     assert "本次吸收的用户补充" in message
     assert "interaction_decisions=missing" in message
     assert ".ai/interaction-decisions.yaml" in message
+
+
+def test_init_completion_message_asset_overview_reports_missing_details(tmp_path: Path):
+    ai = tmp_path / ".ai"
+    ai.mkdir()
+    (ai / "maturity-score.yaml").write_text(yaml.safe_dump(_score().model_dump(mode="json")), encoding="utf-8")
+    decisions = accepted_interactive_decisions(str(tmp_path))
+    (ai / "interaction-decisions.yaml").write_text(
+        yaml.safe_dump(decisions.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    message = render_init_completion_message(ai)
+    generated_section = message[message.index("本次已生成：") : message.index("\n\n主要证据 / 缺口：")]
+
+    assert "核心机器契约" in generated_section
+    assert "missing=`project-inventory.json`, `command-catalog.yaml`, `harness-config.yaml`" in generated_section
+    assert "还有" in generated_section
+    assert "运行审计入口" in generated_section
+    assert "missing=`runs`" in generated_section
 
 
 def test_init_completion_message_prioritizes_failed_benchmark_report(tmp_path: Path):
