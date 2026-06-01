@@ -2589,6 +2589,95 @@ def test_guided_init_existing_harness_can_record_candidate_governance_without_ap
     assert ".ai/experience/experience-index.yaml" in artifact_paths
 
 
+def test_guided_init_existing_harness_review_candidate_missing_report_records_action_failure(
+    tmp_path: Path, monkeypatch
+):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.interactive_init.scan_repository",
+        lambda repo_path: _fake_scan(repo_path, "java-spring"),
+    )
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness review-candidate failure must not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="review-candidate\n")
+
+    assert result.exit_code != 0
+    assert "asset-candidates.yaml" in result.output
+    trace = _latest_init_trace(repo)
+    assert trace["status"] == "failed"
+    assert "existing-harness" in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "review-candidate"
+    assert trace["summary"]["error"]
+    assert "asset-candidates.yaml" in trace["summary"]["error"]
+    assert not (repo / ".ai" / "task-runs").exists()
+
+
+def test_guided_init_existing_harness_review_candidate_unknown_id_records_action_failure(
+    tmp_path: Path, monkeypatch
+):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr(
+        "harness_builder_agent.tools.interactive_init.scan_repository",
+        lambda repo_path: _fake_scan(repo_path, "java-spring"),
+    )
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    review_dir = repo / ".ai" / "review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    (review_dir / "asset-candidates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "source": "llm_maturity_review",
+                "candidates": [
+                    {
+                        "id": "guide-project-context-scope",
+                        "kind": "guide",
+                        "source_candidate_id": None,
+                        "source_review_decision": "support",
+                        "suggested_path": ".ai/guides/project-context.md",
+                        "title": "Scope project context guide",
+                        "rationale": "Candidate is grounded in maturity evidence.",
+                        "draft_content": "## Candidate Addition\n\nAdd task loading scope.",
+                        "evidence_sources": [".ai/maturity-evidence.yaml"],
+                        "acceptance_checks": ["Benchmark content:guides-quality passes."],
+                        "risk_level": "medium",
+                        "review_status": "pending_harness_maintainer_review",
+                    }
+                ],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided existing Harness review-candidate failure must not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="review-candidate\nmissing-candidate\n")
+
+    assert result.exit_code != 0
+    assert "unknown asset candidate id: missing-candidate" in result.output
+    trace = _latest_init_trace(repo)
+    assert trace["status"] == "failed"
+    assert "existing-harness" in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "review-candidate"
+    assert trace["summary"]["candidate_id"] == "missing-candidate"
+    assert trace["summary"]["error"] == "unknown asset candidate id: missing-candidate"
+    assert not (repo / ".ai" / "task-runs").exists()
+
+
 def test_guided_init_existing_harness_can_review_initial_candidate_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))

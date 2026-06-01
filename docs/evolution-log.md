@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided review-candidate 失败 trace
+
+- North Star 模块：Maturity-driven Init、Existing Harness 维护入口、可观测性与审计。
+- init North Star 旅程阶段：再次进入已有 Harness、候选治理动作、失败后的可解释交接。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括 guided `review-candidate` 失败 trace、Existing Harness action runner 继续按动作拆模块、full regression / push 工作包。当前 `review-candidate` 成功路径和后续治理失败已有 action-specific trace，但候选报告缺失或候选 ID 不存在发生在 action-specific trace 之前，会退化成泛化 `init` failure。本轮选择该 gap，因为它是 Maintainer 可触达的维护入口错误路径，范围小且能提升审计可信度。
+- 用户故事：作为 Harness Maintainer，当我在已有 Harness 维护入口选择 `review-candidate` 但 `.ai/review/asset-candidates.yaml` 缺失或输入了不存在的候选 ID 时，我可以获得明确失败，并且 generation trace 会记录这是 `review-candidate` 维护动作失败、失败的 candidate id 和原因，从而后续排查不需要猜测这是普通 init 失败还是候选治理失败。
+- 当前代码 gap：`show_asset_candidate_summary()` 与 `find_asset_candidate()` 在 `review-candidate` branch 的 action-specific trace 前执行；缺文件或 unknown id 时顶层 CLI 会覆盖为泛化 `error_type=FileNotFoundError/BadParameter`。
+- 关键决策 / 取舍：只补 `review-candidate` 预检失败路径；不改变成功治理、applied、workflow_policy 禁止应用、候选 schema、正式资产写入或 Runtime 分工；失败前先写 `existing-harness` failed trace，再通过 `typer.Exit` 保留该 trace。
+- Assumptions / risks：缺失候选报告和未知候选 ID 都是 Maintainer 可修复的治理前置问题，应记录为维护动作失败；错误输出仍保持简洁，不重做全局异常渲染。
+- 边界情况 / 失败模式：候选报告缺失时 summary 记录空 candidate id 和文件错误；未知候选时 summary 保留用户输入 id；两者都不重扫、不修改正式 Harness、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 action runner，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只修复一个 existing Harness 维护动作的早期失败审计，不混入 action runner 大拆分或 push 工作包。
+- 可执行验收标准及验证方式：integration 先 RED 证明缺失 report / unknown candidate 不能保留 action-specific trace；实现后新增失败路径测试和既有 `review-candidate` 成功 / applied / workflow_policy 禁止应用回归通过。
+- 完成内容：`existing_harness_action_runner.py` 在 `review-candidate` 预检前记录 started event，预检失败时写 failed event 和 summary；新增两个 guided existing Harness integration tests；新增本轮 spec / plan。
+- 验证结果：RED targeted tests 先 2 failed；实现后新增失败路径 2 passed，相关 `review-candidate` regression 3 passed，`tests/integration/test_init_on_fixture_projects.py` 46 passed，`compileall` 通过，`git diff --check` 通过，`scripts/test-fast.sh` 482 passed。
+- Self-Harness Gate：无需更新 README / engineering 长期规则；无需新增 todo；未改变 schema、LLM、benchmark、writer 或 Runtime。下一轮候选 gap：Existing Harness action runner 按动作进一步拆模块，或在外部前置满足后评估 full regression / push 工作包。
+
 ## 2026-06-01 写入前待确认边界预览
 
 - North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、人工确认治理、Runtime 边界。

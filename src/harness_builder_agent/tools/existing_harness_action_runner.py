@@ -244,9 +244,40 @@ def run_existing_harness_action(
         typer.echo(workflow_recommendation_summary(recommendation))
         return output_dir
     if action == "review-candidate":
-        candidate_report = show_asset_candidate_summary(ai / "review" / "asset-candidates.yaml")
-        candidate_id = typer.prompt("候选 ID", default="", show_default=False).strip()
-        candidate = find_asset_candidate(candidate_report, candidate_id)
+        trace.event(
+            "existing-harness",
+            "started",
+            "Existing Harness detected; user chose candidate governance.",
+            {"primary_stack": inventory.primary_stack, "action": "review-candidate"},
+        )
+        candidate_id = ""
+        try:
+            candidate_report = show_asset_candidate_summary(ai / "review" / "asset-candidates.yaml")
+            candidate_id = typer.prompt("候选 ID", default="", show_default=False).strip()
+            candidate = find_asset_candidate(candidate_report, candidate_id)
+        except Exception as exc:
+            trace.event(
+                "existing-harness",
+                "failed",
+                "Existing Harness candidate governance precheck failed.",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "action": "review-candidate",
+                    "candidate_id": candidate_id,
+                    "error": str(exc),
+                },
+            )
+            trace.finish(
+                "failed",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "existing_harness_action": "review-candidate",
+                    "candidate_id": candidate_id,
+                    "error": str(exc),
+                },
+            )
+            typer.echo(f"review-candidate 失败：{exc}")
+            raise typer.Exit(code=1) from exc
         typer.echo(asset_candidate_detail(candidate))
         typer.echo(asset_candidate_apply_preview(repo, candidate))
         decision = typer.prompt("决策 accepted/deferred/rejected/applied", default="deferred").strip().lower()
@@ -291,7 +322,7 @@ def run_existing_harness_action(
         trace.event(
             "existing-harness",
             "started",
-            "Existing Harness detected; user chose candidate governance.",
+            "Existing Harness candidate governance decision started.",
             {"primary_stack": inventory.primary_stack, "action": "review-candidate", "candidate_id": candidate_id, "decision": decision},
         )
         try:
