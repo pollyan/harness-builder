@@ -38,3 +38,27 @@ def test_build_llm_enhancement_candidates_from_scan_proposal():
     assert {item.candidate_type for item in report.candidates} == {"guide", "sensor"}
     assert all(item.status == "candidate" for item in report.candidates)
     assert all(item.human_confirmation_required is True for item in report.candidates)
+    by_id = {item.id: item for item in report.candidates}
+    assert by_id["llm-guide-architecture-001"].maturity_dimensions == ["guides"]
+    assert by_id["llm-guide-architecture-001"].maturity_impact_summary == "补齐 Guides 上下文。"
+    assert by_id["llm-guide-risk-001"].maturity_dimensions == ["guides", "risk_control"]
+    assert by_id["llm-guide-risk-001"].maturity_impact_summary == "补齐 Guides 上下文、Risk Control 风险控制。"
+    assert by_id["llm-sensor-command-001"].maturity_dimensions == ["sensors", "verification_sophistication"]
+    assert by_id["llm-sensor-command-001"].maturity_impact_summary == "补齐 Sensors 验证、Verification 验证成熟度。"
+    assert all(item.review_boundary == "review_only_no_formal_asset_change" for item in report.candidates)
+
+
+def test_build_llm_enhancement_candidates_records_no_enhancement_audit_boundary():
+    inventory = ProjectInventory(repo_name="demo", root_path="/tmp/demo", primary_stack="unknown")
+    commands = CommandCatalog(commands=[])
+
+    report = build_llm_enhancement_candidates(inventory, commands)
+
+    candidate = report.candidates[0]
+    assert candidate.id == "llm-guide-no-enhancement-001"
+    assert candidate.maturity_dimensions == []
+    assert candidate.maturity_impact_summary == (
+        "未发现明确增强项；保留候选审计边界，提醒 Maintainer 复核 LLM scan 是否遗漏 Guide / Sensor 线索。"
+    )
+    assert candidate.next_stage_contribution == "保持 review-only 审计入口，不声明成熟度提升。"
+    assert candidate.review_boundary == "review_only_no_formal_asset_change"

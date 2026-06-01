@@ -66,6 +66,59 @@ def test_weapon_library_candidate_report_rejects_invalid_status():
         )
 
 
+def test_weapon_library_candidate_report_records_maturity_impact_contract():
+    report = WeaponLibraryCandidateReport.model_validate(
+        {
+            "schema_version": "1.0",
+            "source": "llm_scan_proposal",
+            "candidates": [
+                {
+                    "id": "llm-guide-001",
+                    "candidate_type": "guide",
+                    "status": "candidate",
+                    "title": "Guide",
+                    "rationale": "Needs review.",
+                    "evidence": [".ai/project-inventory.json"],
+                    "source": "llm_scan_proposal",
+                    "human_confirmation_required": True,
+                    "maturity_dimensions": ["guides", "risk_control"],
+                    "maturity_impact_summary": "补齐 Guides 上下文、Risk Control 风险控制。",
+                    "next_stage_contribution": "连接风险区域到 Guide 和 Workflow 升级。",
+                }
+            ],
+        }
+    )
+
+    candidate = report.candidates[0]
+    assert candidate.maturity_dimensions == ["guides", "risk_control"]
+    assert candidate.maturity_impact_summary == "补齐 Guides 上下文、Risk Control 风险控制。"
+    assert candidate.next_stage_contribution == "连接风险区域到 Guide 和 Workflow 升级。"
+    assert candidate.review_boundary == "review_only_no_formal_asset_change"
+
+    legacy = WeaponLibraryCandidateReport.model_validate(
+        {
+            "schema_version": "1.0",
+            "source": "llm_scan_proposal",
+            "candidates": [
+                {
+                    "id": "llm-guide-legacy-001",
+                    "candidate_type": "guide",
+                    "status": "candidate",
+                    "title": "Legacy",
+                    "rationale": "Old report without maturity fields.",
+                    "evidence": [".ai/project-inventory.json"],
+                    "source": "llm_scan_proposal",
+                    "human_confirmation_required": True,
+                }
+            ],
+        }
+    )
+    assert legacy.candidates[0].maturity_dimensions == []
+    assert legacy.candidates[0].maturity_impact_summary == ""
+    assert legacy.candidates[0].next_stage_contribution == ""
+    assert legacy.candidates[0].review_boundary == "review_only_no_formal_asset_change"
+
+
 def test_context_inputs_reject_negative_size():
     with pytest.raises(ValidationError):
         ContextInputs.model_validate(

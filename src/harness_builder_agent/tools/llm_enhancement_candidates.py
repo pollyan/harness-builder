@@ -5,6 +5,7 @@ from typing import Any
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
+from harness_builder_agent.tools.candidate_maturity_impact import candidate_maturity_impact_fields
 
 
 def build_llm_enhancement_candidates(inventory: ProjectInventory, commands: CommandCatalog) -> WeaponLibraryCandidateReport:
@@ -71,18 +72,18 @@ def build_llm_enhancement_candidates(inventory: ProjectInventory, commands: Comm
         )
 
     if not candidates:
-        candidates.append(
-            {
-                "id": "llm-guide-no-enhancement-001",
-                "candidate_type": "guide",
-                "status": "candidate",
-                "title": "未发现明确模型增强建议",
-                "rationale": "LLM scan proposal 未提供 architecture_signals、risk_areas 或 command_candidates。",
-                "evidence": [inventory.primary_stack],
-                "source": "llm_scan_proposal",
-                "human_confirmation_required": True,
-            }
-        )
+        candidate = {
+            "id": "llm-guide-no-enhancement-001",
+            "candidate_type": "guide",
+            "status": "candidate",
+            "title": "未发现明确模型增强建议",
+            "rationale": "LLM scan proposal 未提供 architecture_signals、risk_areas 或 command_candidates。",
+            "evidence": [inventory.primary_stack],
+            "source": "llm_scan_proposal",
+            "human_confirmation_required": True,
+        }
+        candidate.update(candidate_maturity_impact_fields(candidate))
+        candidates.append(candidate)
 
     return WeaponLibraryCandidateReport(candidates=candidates)
 
@@ -106,6 +107,7 @@ def _append_candidate(candidates: list[dict[str, Any]], seen: set[tuple[str, str
     if key in seen:
         return
     seen.add(key)
+    candidate.update(candidate_maturity_impact_fields(candidate))
     candidates.append(candidate)
 
 
@@ -114,7 +116,11 @@ def _candidates_markdown(title: str, candidates: list[dict[str, Any]]) -> str:
         body = "- 暂无候选项。"
     else:
         body = "\n".join(
-            f"- `{item['id']}`：{item['title']}；status=`{item['status']}`；source=`{item['source']}`；{item['rationale']}"
+            f"- `{item['id']}`：{item['title']}；status=`{item['status']}`；source=`{item['source']}`；"
+            f"maturity=`{item.get('maturity_impact_summary', '')}`；"
+            f"next=`{item.get('next_stage_contribution', '')}`；"
+            f"boundary=`{item.get('review_boundary', 'review_only_no_formal_asset_change')}`；"
+            f"{item['rationale']}"
             for item in candidates
         )
     return (

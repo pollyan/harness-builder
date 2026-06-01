@@ -8,6 +8,7 @@ import typer
 from harness_builder_agent.schemas.command_catalog import CommandCatalog
 from harness_builder_agent.schemas.interaction_decision import CandidateDecision
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
+from harness_builder_agent.tools.candidate_maturity_impact import candidate_maturity_impact_lines
 
 
 Prompt = Callable[..., str]
@@ -59,34 +60,3 @@ def review_candidates(
         else:
             decisions.append(CandidateDecision(candidate_id=item["id"], decision="kept", notes="保持候选，等待后续确认。"))
     return decisions
-
-
-def candidate_maturity_impact_lines(item: dict[str, Any]) -> list[str]:
-    candidate_id = str(item.get("id", ""))
-    title = str(item.get("title", ""))
-    rationale = str(item.get("rationale", ""))
-    evidence = [str(value) for value in item.get("evidence", [])]
-    haystack = " ".join([candidate_id, title, rationale, *evidence]).lower()
-
-    if "no-enhancement" in candidate_id:
-        return [
-            "成熟度影响：未发现明确增强项；保留候选审计边界，提醒 Maintainer 复核 LLM scan 是否遗漏 Guide / Sensor 线索。",
-            "审查边界：保持 review-only；接受只记录确认，不会自动写入正式 Guide 或 Sensor。",
-        ]
-
-    if item.get("candidate_type") == "sensor":
-        dimensions = ["Sensors 验证", "Verification 验证成熟度"]
-        contribution = "把待确认验证命令或验证活动留在人工审查队列，避免直接提升 hard gate。"
-    else:
-        dimensions = ["Guides 上下文"]
-        if any(token in haystack for token in ("risk", "风险", "auth", "鉴权", "权限", "payment", "支付", "security", "安全")):
-            dimensions.append("Risk Control 风险控制")
-            contribution = "把风险区域或约束候选留给 Maintainer 审查，后续可连接 Guide、Sensor 和 Workflow 升级。"
-        else:
-            contribution = "把 LLM 发现的上下文候选留给 Maintainer 审查，后续可补齐项目 Guide 基线。"
-
-    return [
-        f"成熟度影响：补齐 {'、'.join(dimensions)}。",
-        f"下一阶段贡献：{contribution}",
-        "审查边界：保持 review-only；接受只记录确认，不会自动写入正式 Guide 或 Sensor。",
-    ]

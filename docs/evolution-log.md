@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 LLM 候选成熟度影响机器契约
+
+- North Star 模块：Maturity-driven Init、候选资产审核、Experience / Self-Improve、schema / 数据契约。
+- init North Star 旅程阶段：Guide / Sensor 候选审查、写入 `.ai/experience/weapon-library-candidates.yaml`、后续 review-only 智能改进输入。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；上一轮 Gate 候选包括把 candidate maturity impact 提升为机器契约、维护入口 triage 消费 maturity impact、push / 远端同步。上一轮已在 CLI candidate review 中展示 maturity impact，但 `.ai/experience/weapon-library-candidates.yaml` 仍只记录 type/title/rationale/evidence/status，后续 review/self-improve 无法稳定消费同一判断。
+- 用户故事 / 工程信任故事：作为 Harness Maintainer / 后续 Self-Improve 审查流程，当我查看或消费 `.ai/experience/weapon-library-candidates.yaml` 中的 LLM Guide / Sensor 候选时，我可以获得结构化成熟度维度、成熟度影响摘要、下一阶段贡献和 review-only 边界，从而让候选审查不只停留在终端文案，而能被后续 review、benchmark 和自改进流程稳定审计。
+- 当前代码 gap：`WeaponLibraryCandidate` schema 缺少 maturity impact 字段；CLI 的 `candidate_maturity_impact_lines()` 与 candidate generation 之间没有共享机器契约；Markdown review files 不展示 maturity impact。
+- 关键决策 / 取舍：新增 `candidate_maturity_impact.py` 作为无 Typer 依赖的共享 helper；`WeaponLibraryCandidate` 新增 `maturity_dimensions`、`maturity_impact_summary`、`next_stage_contribution` 和 `review_boundary`，并提供默认值兼容旧资产；不要求 benchmark 因旧候选缺字段失败。
+- Assumptions / risks：当前 maturity impact 仍是确定性启发式，不代表正式成熟度提升；通过 `review_boundary=review_only_no_formal_asset_change` 和保守 summary 降低误导。
+- 边界情况 / 失败模式：architecture candidate 记录 `guides`；risk candidate 记录 `guides` / `risk_control`；sensor candidate 记录 `sensors` / `verification_sophistication`；no-enhancement fallback 记录空维度和审计边界；旧 payload 缺字段仍能 schema validate。
+- Sub agent 使用情况：尝试启动 explorer 做只读审查，但当前会话返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮把上一轮 CLI 叙事沉淀为机器可消费 `.ai` 契约，为后续 existing Harness triage、maturity review 或 self-improve 排序候选打基础，但不混入维护入口排序或 LLM prompt 迁移。
+- 可执行验收标准及验证方式：schema unit 覆盖新字段和旧 payload 兼容；candidate generation unit 覆盖 architecture / risk / sensor / no-enhancement；asset writer unit 覆盖 YAML 和 Markdown；guided integration 覆盖真实 init candidate report；compileall、diff check 和 fast regression 作提交前验证。
+- 完成内容：新增 `src/harness_builder_agent/tools/candidate_maturity_impact.py`；更新 `WeaponLibraryCandidate` schema、`llm_enhancement_candidates.py` Markdown 输出和 `guided_candidate_review.py` 复用 helper；更新 unit / integration tests；新增本轮 spec / plan。
+- 验证结果：RED tests 先因缺少 maturity fields 失败；实现后 targeted tests 8 passed，相关 guided integration 1 passed，compileall 通过，`git diff --check` 通过；`scripts/test-fast.sh` 455 passed。
+- Self-Harness Gate：长期工程文档无需更新；未新增 todo；下一轮候选 gap 包括 existing Harness triage 消费 candidate maturity impact，或在 acceptance 外部前置满足后统一 push。
+
 ## 2026-06-01 Guided 候选审查成熟度影响提示
 
 - North Star 模块：Init CLI Experience、Maturity-driven Preview、候选资产审核、渐进式交互。

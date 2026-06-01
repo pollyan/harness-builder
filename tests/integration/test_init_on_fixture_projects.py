@@ -245,6 +245,9 @@ def _assert_init_outputs(repo: Path, expected_stack: str, expected_context_text:
     assert candidate_report["candidates"]
     assert all(item["status"] == "candidate" for item in candidate_report["candidates"])
     assert all(item["human_confirmation_required"] is True for item in candidate_report["candidates"])
+    assert all(item["review_boundary"] == "review_only_no_formal_asset_change" for item in candidate_report["candidates"])
+    assert any(item["maturity_dimensions"] for item in candidate_report["candidates"])
+    assert all("maturity_impact_summary" in item for item in candidate_report["candidates"])
 
     runs = sorted((ai / "runs").iterdir())
     assert runs
@@ -1673,8 +1676,13 @@ def test_guided_init_reviews_candidates_one_by_one(tmp_path: Path, monkeypatch):
     candidate_report = yaml.safe_load((repo / ".ai" / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
     candidate_by_id = {item["id"]: item for item in candidate_report["candidates"]}
     assert candidate_by_id["llm-guide-architecture-001"]["status"] == "confirmed"
+    assert candidate_by_id["llm-guide-architecture-001"]["maturity_dimensions"] == ["guides"]
     assert candidate_by_id["llm-guide-risk-001"]["status"] == "rejected"
+    assert candidate_by_id["llm-guide-risk-001"]["maturity_dimensions"] == ["guides", "risk_control"]
+    assert candidate_by_id["llm-guide-risk-001"]["maturity_impact_summary"] == "补齐 Guides 上下文、Risk Control 风险控制。"
     assert candidate_by_id["llm-sensor-command-001"]["decision_notes"] == "测试命令需要先确认 CI 稳定性。"
+    assert candidate_by_id["llm-sensor-command-001"]["maturity_dimensions"] == ["sensors", "verification_sophistication"]
+    assert candidate_by_id["llm-sensor-command-001"]["review_boundary"] == "review_only_no_formal_asset_change"
 
 
 def test_guided_init_final_summary_can_go_back_to_team_rules(tmp_path: Path, monkeypatch):

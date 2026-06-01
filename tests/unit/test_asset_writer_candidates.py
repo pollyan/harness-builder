@@ -20,6 +20,10 @@ def _enhancement_candidates() -> dict:
                 "evidence": ["Controller layer is present"],
                 "source": "llm_scan_proposal",
                 "human_confirmation_required": True,
+                "maturity_dimensions": ["guides"],
+                "maturity_impact_summary": "补齐 Guides 上下文。",
+                "next_stage_contribution": "把 LLM 发现的上下文候选留给 Maintainer 审查，后续可补齐项目 Guide 基线。",
+                "review_boundary": "review_only_no_formal_asset_change",
             },
             {
                 "id": "llm-sensor-command-001",
@@ -30,6 +34,10 @@ def _enhancement_candidates() -> dict:
                 "evidence": ["mvn test", "pom.xml"],
                 "source": "llm_scan_proposal",
                 "human_confirmation_required": True,
+                "maturity_dimensions": ["sensors", "verification_sophistication"],
+                "maturity_impact_summary": "补齐 Sensors 验证、Verification 验证成熟度。",
+                "next_stage_contribution": "把待确认验证命令或验证活动留在人工审查队列，避免直接提升 hard gate。",
+                "review_boundary": "review_only_no_formal_asset_change",
             },
         ],
     }
@@ -61,7 +69,16 @@ def test_write_candidate_assets_writes_experience_review_files_and_records_artif
 
     report = yaml.safe_load(weapon_candidates.read_text(encoding="utf-8"))
     assert all(item["human_confirmation_required"] is True for item in report["candidates"])
-    assert "LLM Enhancement Candidates" in llm_review.read_text(encoding="utf-8")
+    by_id = {item["id"]: item for item in report["candidates"]}
+    assert by_id["llm-guide-architecture-001"]["maturity_dimensions"] == ["guides"]
+    assert by_id["llm-guide-architecture-001"]["maturity_impact_summary"] == "补齐 Guides 上下文。"
+    assert by_id["llm-sensor-command-001"]["maturity_dimensions"] == ["sensors", "verification_sophistication"]
+    assert by_id["llm-sensor-command-001"]["review_boundary"] == "review_only_no_formal_asset_change"
+    review_markdown = llm_review.read_text(encoding="utf-8")
+    assert "LLM Enhancement Candidates" in review_markdown
+    assert "maturity=`补齐 Guides 上下文。`" in review_markdown
+    assert "next=`把 LLM 发现的上下文候选留给 Maintainer 审查，后续可补齐项目 Guide 基线。`" in review_markdown
+    assert "boundary=`review_only_no_formal_asset_change`" in review_markdown
     index = yaml.safe_load((ai / "experience" / "experience-index.yaml").read_text(encoding="utf-8"))
     assert index["schema_version"] == "1.0"
     assert index["pending_improvement_count"] == 0
