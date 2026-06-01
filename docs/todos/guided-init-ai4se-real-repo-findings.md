@@ -9,7 +9,7 @@
 - 触发样本：`/Users/anhui/Documents/myProgram/ai4se`
 - 相关工程规则：`docs/engineering/init-workflow.md`、`docs/engineering/llm-contracts.md`、`docs/engineering/testing-strategy.md`
 - 相关产品方向：`docs/strategy/init-north-star.md`
-- 当前说明：该 todo 已有多轮切片落入最新 `origin/main`，剩余问题暂不作为独立 open todo 推进。当前优先事项改为 [本地独有 / 更细能力合并与迁移](local-unique-capability-migration.md)，先从备份分支中迁移远端尚未覆盖或更细的能力，再重新做 gap analysis。
+- 当前说明：该 todo 已有多轮切片落入当前实现，剩余问题暂不作为独立 open todo 推进。后续如果仍有价值，应基于最新代码、`docs/strategy/init-north-star.md` 和 Current State Gap Analysis 重新拆成更窄的具体 gap。
 - 已完成切片：
   - `2026-05-31 Init 工具工作区 Evidence 降噪`：忽略 `.claude` / `.opencode` 工具工作区，并把 Python 项目 manifest 纳入 key evidence。
   - `2026-05-31 Guided Init 采样覆盖不足中文化`：`source_sampling_truncated` 不再把 `source:.py skipped 73 files` 作为 CLI 主界面文案，而是用中文说明抽样范围、未进入初始摘要数量、影响和补充建议；metadata 保留 bucket / selected / skipped / total 计数。
@@ -21,7 +21,7 @@
   - `2026-06-01 Guided Init LLM Evidence Plan 可见化`：首次 guided `init` 在扫描发现阶段展示“LLM 深度补充”，说明 planner 补读路径、关注原因、规划说明、实际读取结果和置信度；planner 低置信度进入 `confirm:evidence-expansion` 待确认项和 `human-input-needed.md`。
   - `2026-06-01 Scan Follow-up Questions`：coverage gap、LLM stack claim 缺少 evidence、primary stack unknown、模块边界不清和测试 evidence 缺失会进入 `ScanMetadata.followup_questions`，guided CLI 展示“深度追问”，并进入 `questionnaire.yaml` / `human-input-needed.md`。
   - `2026-06-01 Scan Follow-up Self-check`：存在 `followup_questions` 时，真实 LLM 链路或显式 mock caller 会执行 review-only 二次自检，写入 `ScanMetadata.self_check`，guided CLI 展示“LLM 二次自检”，questionnaire 把 resolution 追加到对应追问的 reason；自检不自动修正正式扫描结论。
-- 剩余 LLM-planned deep scan 仍保持 open。
+- 剩余 LLM-planned deep scan 方向保留为背景参考，不保持为当前 open todo；如后续继续推进，应重新定义可验收的扫描深度 milestone。
 
 ## 背景
 

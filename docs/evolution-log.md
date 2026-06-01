@@ -1,5 +1,21 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Todo 索引状态对齐
+
+- North Star 模块：目标模式运行治理、文档事实源、Maturity-driven Init 迭代节奏。
+- init North Star 旅程阶段：不直接修改 CLI 旅程；服务后续围绕 `init` 主线的选题可信度。
+- Gap Analysis 摘要：当前本地 `main` 相对 `origin/main` ahead 68 / behind 0，push 前 `scripts/test-full.sh` 的 fast 阶段 482 passed，但 acceptance 因缺少 `DEEPSEEK_API_KEY` 和 `.benchmarks/RuoYi-Vue` / `.benchmarks/eShopOnWeb` 失败，不能合规 push。与此同时，`docs/todos/README.md` 写着当前待办暂无，但目录内保留多个历史 todo 文件，且管理规则仍说“已完成条目移动到 archive.md”，两个 paused 文件还指向已完成的本地迁移 todo。本轮选择 todo 索引状态对齐，先消除目标模式 todo 优先规则的事实源噪音。
+- 工程信任故事：作为 Harness Maintainer，当我检查 `docs/todos/` 决定下一轮目标模式是否应优先处理已有 todo 时，我可以从 README 和每个保留文件的状态清楚区分 open、paused background 和 implemented archive，从而不会把历史 todo 文件误判成仍待执行的当前任务。
+- 当前代码 gap：无代码 gap；文档事实源 gap 在于 README 当前待办、目录文件状态、archive 规则和 paused 文件说明之间存在表达不一致。
+- 关键决策 / 取舍：不删除历史 todo 文件，避免破坏回溯；以 README 的“当前待办”表作为 open todo 权威入口；`archive.md` 作为已完成索引，不再要求物理移动文件；paused 文件不再把 `local-unique-capability-migration.md` 作为当前优先事项。
+- Assumptions / risks：历史 todo 对理解演进仍有价值；目录里仍保留多个 `.md` 文件，用户若跳过 README 仍可能误判，但顶部状态和索引已降低风险。push 仍被外部 acceptance 前置挡住，本轮不降低规则。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 todo 状态，环境返回 `agent thread limit reached`；主线程完成调研和修改。
+- 价值切分说明：这是一个文档事实源收敛切片，不混入代码功能、Runtime 分工或 push 规则修改。
+- 可执行验收标准及验证方式：README 明确 open todo 为空并列出 retained implemented / paused 文件；paused 文件移除过期迁移优先说明；archive 规则与实际文件留存方式一致；`rg` 检查过期措辞；`git diff --check` 和 `scripts/test-fast.sh`。
+- 完成内容：更新 `docs/todos/README.md`、`docs/todos/guided-init-ai4se-real-repo-findings.md`、`docs/todos/maturity-driven-init-wizard.md`、`docs/todos/archive.md`；新增本轮 spec / plan。
+- 验证结果：过期措辞检查 `rg '当前优先事项改为|仍保持 open|移动到 `archive.md`' docs/todos` 无结果；`git diff --check` 通过；`scripts/test-fast.sh` 482 passed。
+- Self-Harness Gate：当前无需新增 open todo；下一轮候选 gap 包括 Existing Harness action runner 失败 trace 全量保真，或在补齐 DeepSeek key 与 `.benchmarks` 后重新执行 full regression 并 push。
+
 ## 2026-06-01 Guided review-candidate 失败 trace
 
 - North Star 模块：Maturity-driven Init、Existing Harness 维护入口、可观测性与审计。
