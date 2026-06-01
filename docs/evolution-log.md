@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 写入前待确认边界预览
+
+- North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、人工确认治理、Runtime 边界。
+- init North Star 旅程阶段：成熟度驱动的 Harness 设计预览、最终确认前的可信度边界说明。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；本轮候选包括写入前待确认边界预览、Existing Harness action execution 进一步抽模块、full regression / push 工作包。当前 scan presentation 已展示深度追问、LLM 二次自检和回答建议，questionnaire / human-input 会持久化待确认项，但 `show_prewrite_maturity_preview()` 在最终确认前没有集中展示哪些内容仍是低置信度或待人工确认。本轮选择该 gap，因为它直接命中 `init-north-star.md` 的“写入前展示哪些内容标记为低置信度或需要人工确认”目标态。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的最终确认前查看 Harness 设计预览时，我可以看到当前仍待人工确认或低置信度的 scan follow-up、LLM self-check、scan warning 和验证命令，并理解确认写入只会生成可审计 Harness 基线，不会自动关闭追问、验证用户补充或执行 Runtime，从而在写入前做出更可信的确认。
+- 当前代码 gap：`prewrite_preview.py` 只展示扫描补充、团队规则、Workflow 补充、Guides、Sensors、Workflow Skills 和 routing；没有 `待确认与低置信度边界` section。
+- 关键决策 / 取舍：预览只读取既有 `ProjectInventory.stack_extensions["scan_metadata"]` 和 `CommandCatalog`，不新增 schema；只展示摘要和示例，完整治理仍由 `.ai/questionnaire.yaml`、`.ai/human-input-needed.md` 和 `.ai/scan-metadata.yaml` 承担；`confirm` 不改变追问状态、不验证低置信度命令、不创建 `.ai/task-runs`。
+- Assumptions / risks：早段 scan presentation 的追问信息可能被长流程冲淡，最终确认前重述能降低误确认风险；输出会变长，但只展示少量示例。
+- 边界情况 / 失败模式：没有待确认项时仍提醒写入后需要 benchmark 和未来 Runtime 证据；存在低置信度命令时只提示人工确认 / benchmark 暴露，不把命令升级为 hard verified；本轮不触碰 LLM、正式 writer、benchmark check 或 Runtime。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 prewrite preview 待确认边界覆盖，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只补最终确认前的可信度边界预览，不混入已有 Harness 维护入口重构、benchmark hardening 或 push 工作包。
+- 可执行验收标准及验证方式：unit 先 RED 证明 preview 缺少 `待确认与低置信度边界`；guided integration 先 RED 证明终端预览缺少同一 section；实现后 unit、guided integration、compileall 和 diff check 通过。
+- 完成内容：`prewrite_preview.py` 新增待确认与低置信度边界 section，汇总 scan follow-up、self-check resolution、低置信度命令和 scan warning；README 与 `docs/engineering/init-workflow.md` 同步稳定行为；新增本轮 spec / plan。
+- 验证结果：RED targeted tests 先 2 failed；实现后 `tests/unit/test_interactive_init_preview.py` 12 passed，`tests/integration/test_init_on_fixture_projects.py` 44 passed，`compileall` 通过，`git diff --check` 通过，`scripts/test-fast.sh` 480 passed。
+- Self-Harness Gate：长期文档已同步；无需新增 todo；未改变 schema、LLM、benchmark、writer 或 Runtime 分工。下一轮候选 gap：Existing Harness action execution 进一步抽模块，或在外部前置满足后评估 full regression / push 工作包。
+
 ## 2026-06-01 写入前 Workflow Skills 预览
 
 - North Star 模块：Maturity-driven Init、CLI Experience、Workflow Toolkit、Harness 设计预览。

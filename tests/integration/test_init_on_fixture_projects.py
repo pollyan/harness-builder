@@ -943,6 +943,14 @@ def test_guided_init_shows_scan_followup_questions(tmp_path: Path, monkeypatch):
     assert "`confirm:scan-followup:test-evidence`" in result.output
     assert "command=unit_test|mvn test|test|hard|pom.xml|high" in result.output
     assert "不会自动关闭追问" in result.output
+    prewrite_preview = result.output[result.output.index("写入前 Harness 设计预览") : result.output.index("\n最终确认\n")]
+    assert "待确认与低置信度边界" in prewrite_preview
+    assert "深度追问：6 个待复核" in prewrite_preview
+    assert "`confirm:scan-followup:coverage-source-java`" in prewrite_preview
+    assert "trigger=coverage_gap" in prewrite_preview
+    assert "LLM 二次自检：1 条 review-only 结论" in prewrite_preview
+    assert "action=provide_module" in prewrite_preview
+    assert "确认写入不会自动关闭追问" in prewrite_preview
 
     questionnaire = yaml.safe_load((repo / ".ai" / "questionnaire.yaml").read_text(encoding="utf-8"))
     Questionnaire.model_validate(questionnaire)

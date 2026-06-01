@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -71,6 +72,7 @@ def show_prewrite_maturity_preview(
 
     typer.echo("\n写入前 Harness 设计预览")
     _show_scan_supplement_preview_section(scan_overrides or GuidedScanOverrides())
+    _show_confirmation_boundary_preview(inventory, commands)
 
     typer.echo("团队规则约束")
     if inline_contexts:
@@ -168,6 +170,106 @@ def _format_path_list(paths: list[str]) -> str:
     if not paths:
         return "暂无显式 routing 引用。"
     return ", ".join(f"`{path}`" for path in paths)
+
+
+def _show_confirmation_boundary_preview(inventory: ProjectInventory, commands: CommandCatalog) -> None:
+    typer.echo("待确认与低置信度边界")
+    metadata = _scan_metadata(inventory)
+    lines: list[str] = []
+    lines.extend(_followup_boundary_lines(metadata))
+    lines.extend(_self_check_boundary_lines(metadata))
+    lines.extend(_low_confidence_command_lines(commands))
+    lines.extend(_scan_warning_boundary_lines(metadata))
+
+    if not lines:
+        typer.echo("- 当前没有额外低置信度追问；确认写入后仍需运行 benchmark，并用未来 Runtime task-run 证据验证 Harness。")
+    else:
+        for line in lines:
+            typer.echo(f"- {line}")
+    typer.echo("- 边界：确认写入不会自动关闭追问、不会把低置信度内容伪装成已验证事实，也不会创建 `.ai/task-runs`。")
+
+
+def _scan_metadata(inventory: ProjectInventory) -> dict[str, Any]:
+    extensions = inventory.stack_extensions if isinstance(inventory.stack_extensions, dict) else {}
+    metadata = extensions.get("scan_metadata")
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _followup_boundary_lines(metadata: dict[str, Any]) -> list[str]:
+    questions = _dict_items(metadata.get("followup_questions"))
+    if not questions:
+        return []
+    sample = questions[0]
+    interaction_id = str(sample.get("interaction_id") or "unknown")
+    trigger = str(sample.get("trigger") or "unknown")
+    confidence = str(sample.get("confidence") or "unknown")
+    affects = _format_affects(sample.get("affects"))
+    return [
+        f"深度追问：{len(questions)} 个待复核；示例 `{interaction_id}`，trigger={trigger}，影响={affects}，置信度={confidence}。"
+    ]
+
+
+def _self_check_boundary_lines(metadata: dict[str, Any]) -> list[str]:
+    self_check = metadata.get("self_check")
+    if not isinstance(self_check, dict):
+        return []
+    resolutions = _dict_items(self_check.get("resolutions"))
+    if not resolutions:
+        return []
+    sample = resolutions[0]
+    interaction_id = str(sample.get("interaction_id") or "unknown")
+    status = str(sample.get("status") or "needs_human_confirmation")
+    action_type = str(sample.get("suggested_action_type") or "maintainer_review")
+    risk = str(self_check.get("overall_risk") or "medium")
+    return [
+        f"LLM 二次自检：{len(resolutions)} 条 review-only 结论；示例 `{interaction_id}`，"
+        f"status={status}，action={action_type}，overall_risk={risk}。"
+    ]
+
+
+def _low_confidence_command_lines(commands: CommandCatalog) -> list[str]:
+    result: list[str] = []
+    for command in commands.commands:
+        if command.confidence == "high":
+            continue
+        result.append(
+            f"低置信度验证命令：`{command.id}` / `{command.command}`，"
+            f"gate={command.gate}，source=`{command.source}`；写入后仍需人工确认或 benchmark 暴露证据问题。"
+        )
+        if len(result) >= 3:
+            break
+    return result
+
+
+def _scan_warning_boundary_lines(metadata: dict[str, Any]) -> list[str]:
+    result: list[str] = []
+    for warning in _dict_items(metadata.get("warnings")):
+        code = str(warning.get("code") or "unknown")
+        message = str(warning.get("message") or warning.get("reason") or "扫描阶段记录了待确认 warning。")
+        result.append(f"scan warning：{code}；{message}")
+        if len(result) >= 3:
+            break
+    return result
+
+
+def _dict_items(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _format_affects(value: Any) -> str:
+    labels = {
+        "maturity": "成熟度",
+        "guides": "Guides",
+        "sensors": "Sensors",
+        "workflow": "Workflow",
+        "config": "配置",
+    }
+    if not isinstance(value, list):
+        return "无"
+    items = [labels.get(str(item), str(item)) for item in value if item]
+    return "、".join(items[:5]) if items else "无"
 
 
 def has_existing_partial_harness(repo: Path) -> bool:

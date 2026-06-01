@@ -118,8 +118,9 @@ LLM 扫描负责基于 evidence 识别技术栈、模块、架构信号、风险
 - 如果目标仓库没有完整 `.ai/project-inventory.json` 和 `.ai/harness-config.yaml`，CLI 必须明确说明当前 Harness 从 L0 起步。
 - 预览可以基于内存中的扫描结果、命令目录、默认 `HarnessConfig` 和武器库选择计算写入后预计建立的成熟度基线，但不能提前写入正式资产。
 - CLI 必须区分“当前状态”和“确认写入后预计建立的基线”，不能把 planned baseline 伪装成已存在成熟度。
-- 预览必须展示下一目标、主要阻断项、推荐补齐动作、将生成的 Guides、将生成的 Sensors 和 Workflow routing。
+- 预览必须展示下一目标、主要阻断项、推荐补齐动作、将生成的 Guides、将生成的 Sensors、待确认与低置信度边界和 Workflow routing。
 - 预览必须展示将生成的 Workflow Skills，至少覆盖 `lightweight`、`bugfix` 和 `standard` 的 Skill 路径、关键阶段、对应 routing rule，以及这些 routing rule 引用的 Guides / Sensors；完整执行协议仍以 `.ai/skills/*/SKILL.md` 和 `harness-config.yaml` 为准。
+- 预览必须展示待确认与低置信度边界：如果当前扫描存在 `scan_metadata.followup_questions`、`scan_metadata.self_check.resolutions`、scan warning 或低置信度验证命令，CLI 必须在最终确认前摘要展示数量、示例 interaction id / trigger / action type / command source，并明确确认写入不会自动关闭追问、不会把低置信度内容伪装成已验证事实，也不会创建 `.ai/task-runs`。没有额外待确认项时，也要提醒写入后仍需 benchmark 和未来 Runtime task-run 证据验证。
 - Workflow routing 预览必须覆盖 `bugfix-intent`、`low-risk-lightweight` 和 `standard-escalation`，说明高风险、跨模块、安全、数据或影响不清任务会升级到 `standard`；如果当前扫描或用户结构化补充提供了风险路径，预览必须使用与正式 `harness-config.yaml` 相同的配置构造逻辑展示对应 `risk_area:<path>` trigger，不能只展示静态默认 routing 模板。
 - Guide / Sensor 推荐项必须逐项说明关联成熟度、解决阻断和下一阶段贡献，帮助用户理解推荐不是模板拼装，而是围绕当前成熟度缺口建立基线。
 - 推荐项成熟度关联可以来自内存中的 `MaturityReport` 和内置 weapon tags；该说明是写入前 preview 叙事，不改变 `maturity-score.yaml`、`weapon-library-selection.yaml` 或正式资产 schema。

@@ -111,6 +111,73 @@ def test_prewrite_preview_renderer_shows_scan_baseline_when_no_supplement(tmp_pa
     assert "自然语言补充" not in output
 
 
+def test_prewrite_preview_renderer_shows_confirmation_and_low_confidence_boundaries(tmp_path: Path, capsys):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    show_prewrite_maturity_preview(
+        repo,
+        ProjectInventory(
+            repo_name="demo",
+            root_path=str(repo),
+            primary_stack="java-spring",
+            stack_extensions={
+                "scan_metadata": {
+                    "followup_questions": [
+                        {
+                            "interaction_id": "confirm:scan-followup:test-evidence",
+                            "trigger": "test_evidence_missing",
+                            "question": "真实测试入口是什么？",
+                            "confidence": "low",
+                            "affects": ["sensors", "maturity"],
+                        }
+                    ],
+                    "self_check": {
+                        "review_status": "pending_harness_maintainer_review",
+                        "overall_risk": "high",
+                        "resolutions": [
+                            {
+                                "interaction_id": "confirm:scan-followup:test-evidence",
+                                "status": "needs_human_confirmation",
+                                "suggested_action_type": "provide_command",
+                                "suggested_next_action": "请补充测试命令。",
+                                "confidence": "medium",
+                            }
+                        ],
+                    },
+                    "warnings": [{"code": "low_confidence_stack", "message": "测试 evidence 不足"}],
+                }
+            },
+        ),
+        CommandCatalog(
+            commands=[
+                CommandDefinition(
+                    id="unit_test",
+                    command="mvn test",
+                    type="test",
+                    gate="hard",
+                    source="pom.xml",
+                    confidence="low",
+                )
+            ]
+        ),
+        _weapon_selection(),
+    )
+
+    output = capsys.readouterr().out
+
+    assert "待确认与低置信度边界" in output
+    assert "深度追问：1 个待复核" in output
+    assert "`confirm:scan-followup:test-evidence`" in output
+    assert "trigger=test_evidence_missing" in output
+    assert "影响=Sensors、成熟度" in output
+    assert "LLM 二次自检：1 条 review-only 结论" in output
+    assert "status=needs_human_confirmation" in output
+    assert "action=provide_command" in output
+    assert "低置信度验证命令：`unit_test` / `mvn test`，gate=hard，source=`pom.xml`" in output
+    assert "scan warning：low_confidence_stack" in output
+    assert "确认写入不会自动关闭追问、不会把低置信度内容伪装成已验证事实，也不会创建 `.ai/task-runs`" in output
+
+
 def _weapon_selection():
     from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 
