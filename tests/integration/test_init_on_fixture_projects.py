@@ -1586,6 +1586,12 @@ def test_guided_init_structured_scan_corrections_update_modules_commands_and_ris
     assert "不会被伪装成已验证扫描事实" in prewrite_preview
     assert "risk_area:frontend/package.json" in prewrite_preview
     assert "风险路径 `frontend/package.json` 会升级到 standard 工作流" in prewrite_preview
+    assert "将生成的 Workflow Skills" in prewrite_preview
+    assert "`lightweight`：`.ai/skills/lightweight/SKILL.md`" in prewrite_preview
+    assert "`bugfix`：`.ai/skills/bugfix/SKILL.md`" in prewrite_preview
+    assert "`standard`：`.ai/skills/standard/SKILL.md`" in prewrite_preview
+    assert "路由规则：`standard-escalation`" in prewrite_preview
+    assert "引用 Sensors：`.ai/sensors/verification.md`, `.ai/sensors/test-strategy.md`" in prewrite_preview
     inventory = json.loads((repo / ".ai" / "project-inventory.json").read_text(encoding="utf-8"))
     assert {"name": "frontend", "path": "frontend", "kind": "frontend"} in inventory["modules"]
     assert {"path": "frontend/package.json", "reason": "前端依赖需要单独确认"} in inventory["stack_extensions"]["risk_areas"]

@@ -108,6 +108,8 @@ def show_prewrite_maturity_preview(
     if not weapon_selection.sensor_weapons:
         typer.echo("- 暂未匹配到专门 Sensor，后续需要补齐验证命令和失败处理策略。")
 
+    _show_workflow_skills_preview(config)
+
     typer.echo("Workflow routing")
     routing_notes = {
         "bugfix-intent": "缺陷修复、回归和故障任务进入 bugfix 工作流。",
@@ -121,6 +123,51 @@ def show_prewrite_maturity_preview(
             if trigger.startswith("risk_area:"):
                 risk_path = trigger.removeprefix("risk_area:")
                 typer.echo(f"  - `{trigger}`：风险路径 `{risk_path}` 会升级到 standard 工作流。")
+
+
+def _show_workflow_skills_preview(config) -> None:
+    typer.echo("将生成的 Workflow Skills")
+    rules_by_workflow = _routing_rules_by_workflow(config)
+    for workflow_name, workflow in config.workflows.items():
+        typer.echo(f"- `{workflow_name}`：`{workflow.skill_path}`")
+        typer.echo(f"  关键阶段：{_brief_stage_chain(workflow.stages)}")
+        rules = rules_by_workflow.get(workflow_name, [])
+        if rules:
+            typer.echo("  路由规则：" + ", ".join(f"`{rule.id}`" for rule in rules))
+            guide_paths = _unique_paths(path for rule in rules for path in rule.required_guides)
+            sensor_paths = _unique_paths(path for rule in rules for path in rule.required_sensors)
+            typer.echo(f"  引用 Guides：{_format_path_list(guide_paths)}")
+            typer.echo(f"  引用 Sensors：{_format_path_list(sensor_paths)}")
+        else:
+            typer.echo("  路由规则：当前仅作为可选 workflow 定义保留。")
+            typer.echo("  引用 Guides：暂无显式 routing 引用。")
+            typer.echo("  引用 Sensors：暂无显式 routing 引用。")
+
+
+def _routing_rules_by_workflow(config) -> dict[str, list]:
+    grouped: dict[str, list] = {}
+    for rule in config.workflow_routing.rules:
+        grouped.setdefault(rule.selected_workflow, []).append(rule)
+    return grouped
+
+
+def _brief_stage_chain(stages: list[str]) -> str:
+    selected = stages[:3]
+    return " -> ".join(selected) if selected else "未声明"
+
+
+def _unique_paths(paths) -> list[str]:
+    result: list[str] = []
+    for path in paths:
+        if path and path not in result:
+            result.append(path)
+    return result[:3]
+
+
+def _format_path_list(paths: list[str]) -> str:
+    if not paths:
+        return "暂无显式 routing 引用。"
+    return ", ".join(f"`{path}`" for path in paths)
 
 
 def has_existing_partial_harness(repo: Path) -> bool:

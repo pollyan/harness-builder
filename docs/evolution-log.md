@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 写入前 Workflow Skills 预览
+
+- North Star 模块：Maturity-driven Init、CLI Experience、Workflow Toolkit、Harness 设计预览。
+- init North Star 旅程阶段：成熟度驱动的 Harness 设计预览、最终确认前的资产关系说明。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；本轮候选包括写入前 Workflow Skills 预览、Existing Harness action execution 进一步抽模块、full regression / push 工作包。当前 `harness-config.yaml` 已定义 `lightweight`、`bugfix`、`standard` 三个 Workflow Skill 和 routing rules，写入也会复制三个 Skill 模板，但 `show_prewrite_maturity_preview()` 只展示 Guides、Sensors 和 Workflow routing，没有展示 Workflow Skills 作为即将生成的核心资产，也没有说明它们如何引用 Guides / Sensors。本轮选择该 gap，因为它直接命中 `init-north-star.md` 的“将生成哪些 Workflow Skills，以及它们如何引用 Guides / Sensors”目标态。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的最终确认前查看 Harness 设计预览时，我可以看到将生成的 `lightweight`、`bugfix`、`standard` Workflow Skills、它们的文件路径、关键阶段、对应 routing rule，以及会加载哪些 Guides / Sensors，从而在写入前理解即将得到的不是孤立文件，而是一套可被 Runtime 消费的工作流控制资产。
+- 当前代码 gap：`prewrite_preview.py` 没有 `将生成的 Workflow Skills` section；用户只能从后续 `Workflow routing` 和 completion summary 间接推断 Skill 资产。
+- 关键决策 / 取舍：Workflow Skills preview 从 `HarnessConfig` 渲染，不硬编码路径和引用；只展示前几个 stage / guide / sensor，完整契约继续由 `.ai/skills/*/SKILL.md` 和 `harness-config.yaml` 承担；不修改 Skill 模板、schema、writer、benchmark、LLM 或 Runtime。
+- Assumptions / risks：三个固定 Skill 是当前产品边界内的稳定基线；preview 输出略长，但每个 workflow 只展示路径、关键阶段和 routing 引用。
+- 边界情况 / 失败模式：没有显式 routing rule 的 workflow 会显示保留定义和暂无显式引用；当前默认配置下三条 workflow 都有 routing rule；本轮不动态生成 Workflow Skills、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 Workflow Skills preview 覆盖，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只补写入前设计预览中的 Workflow Skills 用户可见信息，不混入 existing Harness action runner 重构或远端 push 工作包。
+- 可执行验收标准及验证方式：unit 先 RED 证明 preview 缺少 `将生成的 Workflow Skills`；guided integration 先 RED 证明终端预览缺少同一 section；实现后 unit 和 guided integration 通过。
+- 完成内容：`prewrite_preview.py` 新增 Workflow Skills section，展示 Skill 路径、关键阶段、routing rule、引用 Guides / Sensors；README 与 `docs/engineering/init-workflow.md` 同步稳定行为；新增本轮 spec / plan。
+- 验证结果：RED targeted tests 先 3 failed；实现后 targeted unit 2 passed，targeted guided integration 1 passed，`tests/unit/test_interactive_init_preview.py` 11 passed，`tests/integration/test_init_on_fixture_projects.py` 44 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 479 passed。
+- Self-Harness Gate：长期文档已同步；无需新增 todo；未触碰 schema、LLM、benchmark、writer 或 Runtime 分工。下一轮候选 gap：Existing Harness action execution 进一步抽模块，或在外部前置满足后评估 full regression / push 工作包。
+
 ## 2026-06-01 写入前风险路由预览一致性
 
 - North Star 模块：Maturity-driven Init、渐进式交互、Workflow routing、风险控制。

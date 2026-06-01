@@ -80,6 +80,14 @@ def test_prewrite_preview_renderer_shows_scan_supplement_constraints(tmp_path: P
     assert "不会被伪装成已验证扫描事实" in output
     assert "risk_area:frontend/package.json" in output
     assert "风险路径 `frontend/package.json` 会升级到 standard 工作流" in output
+    assert "将生成的 Workflow Skills" in output
+    assert "`lightweight`：`.ai/skills/lightweight/SKILL.md`" in output
+    assert "`bugfix`：`.ai/skills/bugfix/SKILL.md`" in output
+    assert "`standard`：`.ai/skills/standard/SKILL.md`" in output
+    assert "关键阶段：requirement_alignment -> harness_mapping -> solution_design" in output
+    assert "路由规则：`standard-escalation`" in output
+    assert "引用 Guides：`.ai/guides/project-context.md`, `.ai/guides/architecture.md`, `.ai/guides/coding-rules.md`" in output
+    assert "引用 Sensors：`.ai/sensors/verification.md`, `.ai/sensors/test-strategy.md`" in output
 
 
 def test_prewrite_preview_renderer_shows_scan_baseline_when_no_supplement(tmp_path: Path, capsys):
@@ -98,6 +106,8 @@ def test_prewrite_preview_renderer_shows_scan_baseline_when_no_supplement(tmp_pa
     assert "暂无扫描补充；当前按扫描基线、团队规则和内置 Harness 基线生成" in output
     assert "成熟度叙事主线" in output
     assert "当前没有用户补充改变本轮预览" in output
+    assert "将生成的 Workflow Skills" in output
+    assert "`lightweight`：`.ai/skills/lightweight/SKILL.md`" in output
     assert "自然语言补充" not in output
 
 
