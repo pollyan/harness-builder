@@ -506,20 +506,24 @@ def _confirm_summary(
     typer.echo(f"- Workflows：{', '.join(workflow_confirmation.shown_workflows) or '无'}")
     _show_supplement_impact_summary(scan_overrides, inline_contexts, workflow_confirmation)
     typer.echo("- 将写入：project inventory、command catalog、guides、sensors、workflow skills、review candidates、trace。")
-    choice = typer.prompt("输入 confirm 写入，back 返回修改，cancel 取消", default="confirm").strip().lower()
-    if choice == "back":
-        typer.echo("返回修改")
-        stage = typer.prompt(
-            "返回哪一部分？scan=扫描修正，rules=团队规则，candidates=候选项，workflow=Workflow补充",
-            default="rules",
-        ).strip().lower()
-        if stage in {"scan", "rules", "candidates", "workflow"}:
-            return stage
-        typer.echo("未识别的返回目标，回到最终确认。")
-        return "back"
-    if choice == "cancel":
-        return "cancel"
-    return "confirm"
+    while True:
+        choice = typer.prompt("输入 confirm 写入，back 返回修改，cancel 取消", default="confirm").strip().lower()
+        if choice in {"", "confirm"}:
+            return "confirm"
+        if choice == "back":
+            typer.echo("返回修改")
+            stage = typer.prompt(
+                "返回哪一部分？scan=扫描修正，rules=团队规则，candidates=候选项，workflow=Workflow补充",
+                default="rules",
+            ).strip().lower()
+            if stage in {"scan", "rules", "candidates", "workflow"}:
+                return stage
+            typer.echo("未识别的返回目标，回到最终确认。")
+            return "back"
+        if choice == "cancel":
+            return "cancel"
+        typer.echo(f"未识别的最终确认输入：{choice}")
+        typer.echo("请输入 `confirm`、`back` 或 `cancel`；直接回车等同于 `confirm`。")
 
 
 def _apply_scan_overrides(

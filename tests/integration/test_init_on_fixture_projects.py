@@ -529,6 +529,24 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert decisions["final_confirmation"]["status"] == "confirmed"
 
 
+def test_guided_init_final_confirm_rejects_unknown_input_before_write(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input="\n\n\n\n\n\n\ncnofirm\nconfirm\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "未识别的最终确认输入" in result.output
+    assert "请输入 `confirm`、`back` 或 `cancel`" in result.output
+    assert result.output.index("未识别的最终确认输入") < result.output.index("== 初始化完成 ==")
+    _assert_init_outputs(repo, "java-spring")
+
+
 def test_guided_init_explains_python_flask_react_multistack(tmp_path: Path, monkeypatch):
     repo = _copy_fixture(tmp_path, "mini-spring-boot")
     monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)

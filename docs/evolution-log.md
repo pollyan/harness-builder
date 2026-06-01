@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Final Confirm Invalid Input
+
+- North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、写入前确认边界。
+- init North Star 旅程阶段：成熟度驱动的 Harness 设计预览、最终确认、正式 `.ai` 写入前的错误恢复。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括最终确认非法输入不能写入资产、返回 scan 后自动重新进入候选审查、full regression / push 工作包。当前 `_confirm_summary()` 只特殊处理 `back` 和 `cancel`，其他任意非空输入都会走默认 `confirm` 分支；例如 `cnofirm` 会误触发正式 `.ai` 写入。本轮选择该 gap，因为它直接保护“最终输入 confirm 前不写入或覆盖正式 Harness 资产”的边界，也符合 no silent fallback。
+- 用户故事：作为 Harness Maintainer，当我在首次 guided `init` 的最终确认阶段误输入了未知命令或把 `confirm` 拼错时，我可以看到明确的无效输入提示，并且 Harness Builder 不会写入正式 `.ai` 资产，直到我显式输入 `confirm` 或按默认回车确认，从而避免 typo 触发误写入。
+- 当前代码 gap：`_confirm_summary()` 对 `choice` 的非 `back` / `cancel` 分支直接 `return "confirm"`；没有区分空回车默认 confirm 和未知非空输入。
+- 关键决策 / 取舍：保留空回车默认确认，保持现有低负担路径；只拒绝未知非空输入并循环提示有效选项；不修改 schema、writer、trace、非交互模式、benchmark 或 Runtime 分工。
+- Assumptions / risks：guided 模式是 TTY 人机交互，未知非空输入更可能是 typo；如果脚本依赖任意字符串确认，应改用 `--non-interactive` 或显式 `confirm`。
+- 边界情况 / 失败模式及回应：`confirm` 和空回车仍写入；`back`、`cancel` 保持既有语义；未知返回目标仍回到最终确认，不写资产；未知最终确认输入会输出有效选项并继续等待。
+- Sub agent 使用情况：尝试启动只读 explorer 审查最终确认非法输入风险，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理最终确认输入解析与写入边界，不混入自动重审候选、返回阶段默认值调整或 completion summary 重排。
+- 可执行验收标准及验证方式：新增 integration RED 先证明未知最终确认输入缺少无效提示；实现后断言未知输入提示出现在初始化完成前，后续显式 `confirm` 才完成写入；happy path 和 back scan / rules 相关回归通过。
+- 完成内容：`_confirm_summary()` 的最终确认输入改为循环解析；未知非空输入输出中文提示并继续等待；`docs/engineering/init-workflow.md` 沉淀稳定规则；新增本轮 spec / plan 和 integration test。
+- 验证结果：RED targeted integration 先 1 failed；实现后新增 targeted 1 passed，happy path / back targeted 4 passed。
+- Self-Harness Gate：长期 init workflow 已同步；无需新增 open todo；未改变 schema、LLM、benchmark、writer 或 Runtime。下一轮候选 gap：自动重新审查 candidates 是否值得引入，或继续从 init North Star 选择首次 init 用户可见 gap；push 仍需 full regression 外部前置。
+
 ## 2026-06-01 Guided Scan Back Candidate Review Reset
 
 - North Star 模块：Maturity-driven Init、CLI Experience、渐进式交互、候选治理审计。
