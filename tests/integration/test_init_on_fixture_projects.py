@@ -436,6 +436,7 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert "不会执行 Runtime" in result.output
     assert "不会创建 `.ai/task-runs`" in result.output
     assert "不会默认运行 benchmark" in result.output
+    assert "不完整 Harness 状态" not in result.output
     assert "最终输入 `confirm`/`确认` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程" in result.output
     assert scan_stage in result.output
     assert "正在收集仓库文件、构建配置、CI、测试和文档证据" in result.output
@@ -527,6 +528,34 @@ def test_init_default_guided_mode_accepts_happy_path(tmp_path: Path, monkeypatch
     assert decisions["workflow_confirmation"]["shown_workflows"] == ["lightweight", "bugfix", "standard"]
     assert decisions["workflow_confirmation"]["confirmed"] is True
     assert decisions["final_confirmation"]["status"] == "confirmed"
+
+
+def test_guided_init_partial_harness_core_is_explained_before_continue(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    ai = repo / ".ai"
+    ai.mkdir()
+    partial_config = "version: 1\nworkflows: {}\nworkflow_routing:\n  default_workflow: lightweight\n  rules: []\n"
+    (ai / "harness-config.yaml").write_text(partial_config, encoding="utf-8")
+
+    def fail_scan(_repo_path):
+        raise AssertionError("partial Harness startup cancellation must not scan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(app, ["init", "--repo", str(repo)], input="n\n")
+
+    assert result.exit_code != 0
+    assert "不完整 Harness 状态" in result.output
+    assert "已存在：`.ai/harness-config.yaml`" in result.output
+    assert "缺失：`.ai/project-inventory.json`" in result.output
+    assert "不会进入已有 Harness 维护入口" in result.output
+    assert "继续后会按首次 init 重新扫描" in result.output
+    assert "最终输入 `confirm`/`确认` 前，不会写入或覆盖正式 Harness 资产" in result.output
+    assert result.output.index("不完整 Harness 状态") < result.output.index("继续生成 Harness?")
+    assert "\n扫描仓库\n" not in result.output
+    assert (ai / "harness-config.yaml").read_text(encoding="utf-8") == partial_config
+    assert not (ai / "project-inventory.json").exists()
 
 
 def test_guided_init_final_confirm_rejects_unknown_input_before_write(tmp_path: Path, monkeypatch):

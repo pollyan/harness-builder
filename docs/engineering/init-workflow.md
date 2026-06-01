@@ -33,6 +33,8 @@
 
 已有 Harness 维护入口读取 `.ai/project-inventory.json`、`.ai/harness-config.yaml` 和已存在的 `.ai/maturity-score.yaml` 时，必须执行 schema / YAML / JSON 校验。任一核心状态文件损坏、格式非法或 schema 不匹配时，必须在 CLI 中明确说明“已有 Harness 读取失败”、指出具体文件、说明未重新扫描、未覆盖正式 Harness 资产且未创建 Runtime 产物，并以 `existing_harness_state_invalid` 失败 trace 结束。不得把损坏状态静默当成缺失成熟度、只读退出或重新初始化，也不得 fallback 到扫描生成。
 
+默认 guided `init` 如果只发现 `.ai/project-inventory.json` 或 `.ai/harness-config.yaml` 中的一部分 core 文件，必须在第一次 `继续生成 Harness?` 确认前说明这是“不完整 Harness 状态”，列出已存在和缺失的 core 文件，说明因此不会进入已有 Harness 维护入口；继续后会按首次 init 重新扫描，但最终 `confirm` / `确认` 前仍不会覆盖正式 Harness 资产。`.ai/runs` 等 trace 目录不能被当成 partial Harness core。
+
 如果 `review-human-input` 是由 human-input triage 推荐的动作，并且 triage detail 中存在首个待处理 scan follow-up interaction id，guided action 的 interaction id prompt 应把该 id 作为默认值，允许 Maintainer 直接回车处理推荐项；Maintainer 仍可输入其他 id 覆盖。没有默认 id 时不得猜测或 silent fallback，空 id 继续由 `review-human-input` 显式失败。
 
 ## 主流程

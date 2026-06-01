@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided Init 不完整 Harness 启动边界
+
+- North Star 模块：Maturity-driven Init、CLI Experience、启动边界、已有 Harness 识别。
+- init North Star 旅程阶段：启动与目标说明、首次确认继续前、partial Harness 成熟度叙事。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo；本轮候选包括不完整 `.ai` core 状态应在启动确认前说明、非交互 init LLM 网络失败时 CLI traceback 过长、full regression / push 工作包。当前 `show_scan_maturity_snapshot()` 和 prewrite preview 已能在扫描后把 partial core 解释为 L1 起步，但启动说明阶段没有告诉用户已有部分 `.ai` core 文件、为什么没有进入已有 Harness 维护入口、继续后会按首次 init 扫描。本轮选择 partial core 启动边界，因为它直接服务 init North Star 的“等待扫描前知道流程边界和预期产出”。
+- 用户故事：作为 Harness Maintainer，当我对一个已有不完整 `.ai` core 文件的仓库运行默认 guided `init` 时，我可以在第一次确认继续前看到哪些核心 Harness 文件已存在、哪些缺失、为什么不会进入已有 Harness 维护入口，以及继续后仍不会在最终确认前覆盖正式资产，从而能决定是继续扫描还是先取消备份。
+- 当前代码 gap：`_handle_existing_harness_entry()` 只在 inventory 和 config 同时存在时进入维护入口；只有一个 core 文件存在时会走首次 init，但 `_show_guided_init_startup_boundary()` 没有 repo 上下文，无法解释 partial 状态。
+- 关键决策 / 取舍：让启动说明接收 repo 并检测 `.ai/project-inventory.json` / `.ai/harness-config.yaml` 的 partial core 状态；只在至少存在一个、且不同时完整时展示提示；`.ai/runs` trace 目录不算 partial Harness core；不改变完整已有 Harness 维护入口和 writer 覆盖语义。
+- Assumptions / risks：partial core 是用户决定是否继续扫描前需要知道的风险边界。提示只在 partial core 存在时展示，避免普通 happy path 输出变长。
+- 边界情况 / 失败模式及回应：只有 config 或只有 inventory 都应被视为 partial core；完整 inventory + config 仍进入已有 Harness 维护入口；用户在第一次确认时取消不会扫描、不覆盖 partial core、不补齐缺失文件；不执行 Runtime、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审查 partial `.ai` 状态，环境返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮只处理“首次确认前讲清 partial core 边界”的用户可见切片，不混入自动修复 partial `.ai`、新增 repair 参数、非交互 traceback 或 push 工作包。
+- 可执行验收标准及验证方式：新增 integration RED 先证明只有 `.ai/harness-config.yaml` 时启动说明缺少 partial core present / missing；实现后断言提示出现在 `继续生成 Harness?` 前，列出已存在 / 缺失 core 文件，说明不会进入维护入口和继续后按首次 init 扫描；取消时 scan mock 不被调用，partial core 未覆盖，缺失 inventory 仍不存在。
+- 完成内容：`interactive_init.py` 的启动说明改为 repo-aware 并新增 partial core helper；`docs/engineering/init-workflow.md` 和 README 同步稳定规则；新增本轮 spec / plan 和 integration test。
+- 验证结果：RED targeted integration 先 1 failed；实现后新增 targeted 1 passed；happy path + partial core targeted 2 passed；`tests/integration/test_init_on_fixture_projects.py` 58 passed；`compileall` 通过；`git diff --check` 通过；`scripts/test-fast.sh` 497 passed。push gate 在提交后按规则执行 `scripts/test-full.sh` 评估。
+- Self-Harness Gate：init workflow、README、spec / plan 和演进记录已同步；未改变 LLM、benchmark、writer、Sensor、Runtime 或 `.ai` schema。下一轮候选 gap 需重新从 Current State Gap Analysis 选择；远端 push 仍依赖 full regression 外部前置。
+
 ## 2026-06-01 Existing Harness 状态读取失败保护
 
 - North Star 模块：Maturity-driven Init、CLI Experience、已有 Harness 维护入口、工程可信度。

@@ -154,7 +154,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     existing = _handle_existing_harness_entry(repo, trace)
     if existing is not None:
         return existing
-    _show_guided_init_startup_boundary()
+    _show_guided_init_startup_boundary(repo)
     if not typer.confirm("继续生成 Harness?", default=True):
         trace.finish("failed", {"cancelled": True})
         raise typer.Abort()
@@ -290,7 +290,7 @@ def run_guided_init(repo: Path, context_paths: list[Path], trace: GenerationTrac
     return output_dir
 
 
-def _show_guided_init_startup_boundary() -> None:
+def _show_guided_init_startup_boundary(repo: Path) -> None:
     typer.echo("\n== 启动说明 ==")
     typer.echo("- 将扫描仓库文件、构建配置、CI、测试、文档和源码样本证据。")
     typer.echo("- 需要你确认或补充技术栈、模块边界、风险区域、验证命令、团队规则和 Workflow 说明。")
@@ -300,7 +300,43 @@ def _show_guided_init_startup_boundary() -> None:
     )
     typer.echo("- 本次会话会记录 generation trace，用于审计取消、失败和完成结果。")
     typer.echo("- 不会执行 Runtime，不会创建 `.ai/task-runs`，不会默认运行 benchmark。")
+    for line in _partial_harness_startup_boundary_lines(repo):
+        typer.echo(line)
     typer.echo("- 在最终输入 `confirm`/`确认` 前，不会写入或覆盖正式 Harness 资产；trace 只记录本次会话过程。")
+
+
+def _partial_harness_startup_boundary_lines(repo: Path) -> list[str]:
+    if not _has_existing_partial_harness(repo):
+        return []
+    present, missing = _partial_harness_core_state(repo)
+    if not present or not missing:
+        return []
+    return [
+        "- 不完整 Harness 状态：发现部分 `.ai` core 文件，但还不足以进入已有 Harness 维护入口。",
+        f"- 已存在：{_format_inline_paths(present)}；缺失：{_format_inline_paths(missing)}。",
+        "- 因核心文件不完整，本次不会进入已有 Harness 维护入口；继续后会按首次 init 重新扫描。",
+        "- 如需保留当前 `.ai` 内容，请先取消并备份；最终输入 `confirm`/`确认` 前，不会写入或覆盖正式 Harness 资产。",
+    ]
+
+
+def _partial_harness_core_state(repo: Path) -> tuple[list[str], list[str]]:
+    ai = repo / ".ai"
+    core_files = [".ai/project-inventory.json", ".ai/harness-config.yaml"]
+    present: list[str] = []
+    missing: list[str] = []
+    for rel_path in core_files:
+        target = repo / rel_path
+        if target.exists():
+            present.append(rel_path)
+        else:
+            missing.append(rel_path)
+    if not ai.exists():
+        return [], core_files
+    return present, missing
+
+
+def _format_inline_paths(paths: list[str]) -> str:
+    return "、".join(f"`{path}`" for path in paths) if paths else "无"
 
 
 def _show_candidate_review_reset_after_scan_back() -> None:
