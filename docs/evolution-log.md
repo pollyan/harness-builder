@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided 补充呈现模块抽取
+
+- North Star 模块：Init CLI Experience、渐进式交互、工程架构可维护性。
+- init North Star 旅程阶段：扫描理解对齐、团队规则补充、Workflow 补充、最终确认前的补充影响说明。
+- Gap Analysis 摘要：当前没有 open todo；本轮候选包括 guided 补充呈现边界抽取、进一步增强团队规则输入体验、push / 远端同步。上一轮已改善结构化 scan 补充错误恢复，但 `interactive_init.py` 仍约 781 行，团队规则、Workflow 补充、scan 补充回退 / 替换和最终补充影响摘要仍与主向导状态机混在一起。
+- 工程信任故事：作为 Harness Builder 维护者，当我继续打磨首次 guided `init` 中团队规则、Workflow 补充和扫描补充返回修改体验时，我可以在独立的补充呈现模块中修改和单测这些 CLI 文案，而不触碰主向导状态机、候选审查或写入流程，从而降低后续改善渐进式协作体验时的回归风险。
+- 当前代码 gap：补充呈现 helper 只能通过大型 guided integration 间接测试；后续如果要增强团队规则输入或 Workflow 说明，仍需要改 `interactive_init.py` 主状态机。
+- 关键决策 / 取舍：新增 `guided_supplement_presentation.py` 承接 scan / team / Workflow 补充呈现和最终补充影响摘要；`interactive_init.py` 保留下划线 alias 作为兼容 facade；不迁移 prompt 采集函数 `_collect_team_rules()` 和 `_show_workflows()`，避免把输入状态机和显示层一起搬迁。
+- Assumptions / risks：本轮是行为保持型重构，用户 transcript 不应变化；风险主要是漏 import 或文案漂移。新增 direct unit 能更快发现插值 / 摘要类错误。
+- 边界情况 / 失败模式：不改 LLM、schema、writer、benchmark 或 Runtime；不新增 `.ai` 产物；不改变团队规则和 Workflow 补充的 review-only 边界。
+- Sub agent 使用情况：尝试启动 explorer 做只读边界审查，但当前会话返回 `agent thread limit reached`；主线程完成分析、实现和验证。
+- 价值切分说明：本轮不新增用户文案，而是保护“用户补充 -> 复述理解 -> 影响说明 -> 返回修改 -> 最终确认”的 guided init 交互链路，为后续团队规则 / Workflow 体验增强降低成本。
+- 可执行验收标准及验证方式：新增 unit 覆盖 scan supplement immediate / replacement、team rules back / clear、workflow note immediate / clear 和 supplement impact summary；integration 覆盖 structured scan corrections、scan back replace / clear、team rules clear、workflow note clear；compileall、diff check 和 fast regression 作提交前验证。
+- 完成内容：新增 `src/harness_builder_agent/tools/guided_supplement_presentation.py` 与 `tests/unit/test_guided_supplement_presentation.py`；`interactive_init.py` 从 781 行降到 608 行；新增本轮 spec / plan。
+- 验证结果：RED unit 先因缺少模块失败；实现后 new unit 5 passed，相关 guided integration 5 passed，compileall 通过，`git diff --check` 通过；`scripts/test-fast.sh` 448 passed。
+- Self-Harness Gate：长期文档事实源无需更新；未新增 schema 或 todo；下一轮候选 gap 包括团队规则输入体验增强、候选审查呈现边界抽取，或在 acceptance 外部前置满足后统一 push。
+
 ## 2026-06-01 Guided Scan 结构化补充修正提示
 
 - North Star 模块：Init CLI Experience、渐进式交互、仓库理解深度、可审计输入吸收。
