@@ -132,7 +132,7 @@ def _allowed_warning_codes(metadata: ScanMetadata) -> set[str]:
 def _normalize_warning_evidence_source_alias(source: str, allowed_warning_codes: set[str]) -> str:
     stripped = source.strip()
     for warning_code in allowed_warning_codes:
-        if stripped == f"{warning_code} warning":
+        if stripped in {f"{warning_code} warning", f"coverage warning: {warning_code}"}:
             return warning_code
     return source
 

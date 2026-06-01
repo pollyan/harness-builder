@@ -186,6 +186,27 @@ def test_review_scan_followups_with_llm_normalizes_scan_warning_code_alias():
     assert report.resolutions[0].evidence_sources == ["source_sampling_truncated", "source:.java"]
 
 
+def test_review_scan_followups_with_llm_normalizes_coverage_warning_code_alias():
+    metadata = _metadata()
+    metadata.warnings = [
+        ScanWarning(
+            code="source_sampling_truncated",
+            message="source:.java skipped files",
+            evidence=["source:.java"],
+        )
+    ]
+    payload = json.loads(_self_check_json())
+    payload["resolutions"][0]["evidence_sources"] = ["coverage warning: source_sampling_truncated", "source:.java"]
+
+    report = review_scan_followups_with_llm(
+        _bundle(),
+        metadata,
+        caller=lambda _messages: json.dumps(payload),
+    )
+
+    assert report.resolutions[0].evidence_sources == ["source_sampling_truncated", "source:.java"]
+
+
 def test_review_scan_followups_with_llm_accepts_non_empty_evidence_collection_name():
     bundle = _bundle()
     bundle.llm_requested_files = [EvidenceFile(path="src/Program.cs", kind="source")]
