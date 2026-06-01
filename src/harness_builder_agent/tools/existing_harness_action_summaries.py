@@ -79,6 +79,24 @@ def human_input_governance_summary(interaction_id: str, decision: str, reviewer:
     )
 
 
+def weapon_candidate_governance_summary(candidate_id: str, decision: str, reviewer: str, new_status: str) -> str:
+    return "\n".join(
+        [
+            "初始候选治理决策已记录。",
+            f"- candidate_id={candidate_id}",
+            f"- decision={decision}",
+            f"- reviewer={reviewer}",
+            f"- new_status={new_status}",
+            "- formal_asset_changes=0",
+            "- review_boundary=review_only_no_formal_asset_change",
+            "- `.ai/experience/weapon-library-candidates.yaml`",
+            "- `.ai/review/weapon-candidate-governance.yaml`",
+            "- `.ai/review/weapon-candidate-governance.md`",
+            "- `.ai/review/llm-enhancement-candidates.md`",
+        ]
+    )
+
+
 def asset_candidate_detail(candidate) -> str:
     evidence = ", ".join(f"`{source}`" for source in candidate.evidence_sources) or "None."
     checks = "\n".join(f"  - {item}" for item in candidate.acceptance_checks) or "  - None."

@@ -156,10 +156,10 @@ def build_maintenance_triage(ai: Path, score: MaturityReport | None = None) -> l
             actions.append(
                 MaintenanceAction(
                     priority=28,
-                    action="manual-review",
+                    action="review-initial-candidate",
                     reason="weapon_library_candidates_pending",
                     source=".ai/experience/weapon-library-candidates.yaml",
-                    next_action="manual-review",
+                    next_action="review-initial-candidate",
                     count=weapon_candidates.pending_count,
                     detail=weapon_candidate_action_detail(weapon_candidates),
                 )
@@ -285,11 +285,10 @@ def _maintenance_action_guidance(index: int, action: MaintenanceAction) -> str:
         return f"{prefix}运行 `review-candidate` 处理 {count}review-only 候选，确认 accepted / deferred / rejected。"
     if action.reason == "weapon_library_candidates_pending":
         count = f"{action.count} 个 " if action.count else ""
-        detail = f"；优先查看 `{action.detail}`" if action.detail else ""
+        detail = f"；优先处理 `{action.detail}`" if action.detail else ""
         return (
-            f"{prefix}查看 `.ai/review/llm-enhancement-candidates.md` 和 "
-            f"`.ai/experience/weapon-library-candidates.yaml` 中的 {count}初始 LLM Guide/Sensor 候选，"
-            f"确认 maturity impact 与 review-only 边界{detail}。"
+            f"{prefix}运行 `review-initial-candidate` 审查 {count}初始 LLM Guide/Sensor 候选，"
+            f"记录 accepted / rejected / kept，并确认 maturity impact 与 review-only 边界{detail}。"
         )
     if action.reason == "human_input_scan_followups_pending":
         count = f"{action.count} 个 " if action.count else ""

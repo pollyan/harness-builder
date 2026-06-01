@@ -19,6 +19,7 @@ from harness_builder_agent.schemas.improvement_candidate import ImprovementCandi
 from harness_builder_agent.schemas.maturity_review import MaturityReviewReport
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
+from harness_builder_agent.schemas.weapon_candidate_governance import WeaponCandidateGovernanceLog
 from harness_builder_agent.schemas.scan import ScanMetadata
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools import interactive_init
@@ -2543,6 +2544,74 @@ def test_guided_init_existing_harness_can_record_candidate_governance_without_ap
     assert ".ai/review/candidate-governance.yaml" in artifact_paths
     assert ".ai/review/candidate-governance.md" in artifact_paths
     assert ".ai/experience/experience-index.yaml" in artifact_paths
+
+
+def test_guided_init_existing_harness_can_review_initial_candidate_without_overwriting_formal_assets(tmp_path: Path, monkeypatch):
+    repo = _copy_fixture(tmp_path, "mini-spring-boot")
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", lambda repo_path: _fake_scan(repo_path, "java-spring"))
+    first_result = CliRunner().invoke(app, ["init", "--repo", str(repo), "--non-interactive"])
+    assert first_result.exit_code == 0, first_result.output
+    ai = repo / ".ai"
+    formal_before = _formal_asset_snapshot(repo)
+
+    def fail_scan(_repo_path):
+        raise AssertionError("guided initial candidate governance must reuse existing Harness state, not rescan")
+
+    monkeypatch.setattr("harness_builder_agent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("harness_builder_agent.tools.interactive_init.scan_repository", fail_scan)
+
+    result = CliRunner().invoke(
+        app,
+        ["init", "--repo", str(repo)],
+        input=(
+            "10\n"
+            "llm-guide-architecture-001\n"
+            "accepted\n"
+            "Maintainer confirmed the architecture signal remains useful.\n"
+            "lead-reviewer\n"
+        ),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "review-initial-candidate" in result.output
+    assert "初始候选治理决策已记录" in result.output
+    assert "accepted" in result.output
+    assert "formal_asset_changes=0" in result.output
+    _assert_formal_assets_unchanged(repo, formal_before)
+    assert not (ai / "task-runs").exists()
+
+    candidate_report = yaml.safe_load((ai / "experience" / "weapon-library-candidates.yaml").read_text(encoding="utf-8"))
+    candidates_by_id = {item["id"]: item for item in candidate_report["candidates"]}
+    assert candidates_by_id["llm-guide-architecture-001"]["status"] == "confirmed"
+    assert candidates_by_id["llm-guide-architecture-001"]["human_confirmation_required"] is False
+    assert candidates_by_id["llm-guide-architecture-001"]["decision_notes"] == "Maintainer confirmed the architecture signal remains useful."
+
+    governance = WeaponCandidateGovernanceLog.model_validate(
+        yaml.safe_load((ai / "review" / "weapon-candidate-governance.yaml").read_text(encoding="utf-8"))
+    )
+    latest = governance.decisions[-1]
+    assert latest.candidate_id == "llm-guide-architecture-001"
+    assert latest.candidate_type == "guide"
+    assert latest.decision == "accepted"
+    assert latest.new_status == "confirmed"
+    assert latest.reviewer == "lead-reviewer"
+    assert "## Review Boundary" in (ai / "review" / "weapon-candidate-governance.md").read_text(encoding="utf-8")
+    assert "status=`confirmed`" in (ai / "review" / "llm-enhancement-candidates.md").read_text(encoding="utf-8")
+
+    trace = _latest_init_trace(repo)
+    assert trace["command"] == "init"
+    assert trace["status"] == "completed"
+    assert "scan" not in trace["stages"]
+    assert trace["summary"]["existing_harness_action"] == "review-initial-candidate"
+    assert trace["summary"]["candidate_id"] == "llm-guide-architecture-001"
+    assert trace["summary"]["decision"] == "accepted"
+    assert trace["summary"]["new_status"] == "confirmed"
+    artifacts = _latest_init_artifacts(repo)
+    artifact_paths = {item["path"] for item in artifacts["artifacts"]}
+    assert ".ai/experience/weapon-library-candidates.yaml" in artifact_paths
+    assert ".ai/review/weapon-candidate-governance.yaml" in artifact_paths
+    assert ".ai/review/weapon-candidate-governance.md" in artifact_paths
+    assert ".ai/review/llm-enhancement-candidates.md" in artifact_paths
 
 
 def test_guided_init_existing_harness_can_apply_guide_candidate_with_review_boundary(tmp_path: Path, monkeypatch):

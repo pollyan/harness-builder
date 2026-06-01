@@ -20,6 +20,7 @@ def test_existing_harness_action_contract_renders_stable_numbered_menu():
         "7. review-human-input：处理 scan follow-up 人工复核 resolved / reopened，不修改正式 Harness 资产。",
         "8. self-improve：生成 review-only 自改进审查包，不应用正式资产或执行 Runtime。",
         "9. reinit：继续重新扫描并进入当前生成向导。",
+        "10. review-initial-candidate：记录初始 LLM Guide/Sensor 候选 accepted / rejected / kept，不写正式资产。",
     ]
 
 
@@ -28,6 +29,7 @@ def test_existing_harness_action_contract_maps_numbers_and_unknown_actions():
     assert existing_harness_action_number("benchmark") == "4"
     assert existing_harness_action_number("recommend-workflow") == "5"
     assert existing_harness_action_number("review-human-input") == "7"
+    assert existing_harness_action_number("review-initial-candidate") == "10"
     assert existing_harness_action_number("custom-action") is None
 
 
@@ -42,4 +44,6 @@ def test_existing_harness_action_contract_normalizes_numbers_and_aliases():
     assert normalize_existing_harness_action("人工输入") == "review-human-input"
     assert normalize_existing_harness_action("待确认") == "review-human-input"
     assert normalize_existing_harness_action("重新生成") == "reinit"
+    assert normalize_existing_harness_action("10") == "review-initial-candidate"
+    assert normalize_existing_harness_action("初始候选") == "review-initial-candidate"
     assert normalize_existing_harness_action("unknown") == "unknown"

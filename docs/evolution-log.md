@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Guided 初始 LLM 候选治理
+
+- North Star 模块：Maturity-driven Init、CLI Experience、候选资产审核、Experience / review 维护入口。
+- init North Star 旅程阶段：再次进入已有 Harness、Maintenance triage、候选接管闭环、review-only 治理。
+- Gap Analysis 摘要：当前 `docs/todos` 无 open todo，迁移 todo 已归档；上一轮 Gate 候选包括初始 LLM candidates 后续治理、candidate maturity impact benchmark hardening 和 existing Harness 维护入口瘦身。当前维护入口已经能显示 `.ai/experience/weapon-library-candidates.yaml` 的 pending 数、maturity dimensions 和 top candidate，但 Maintainer 只能手动查看，无法在同一 guided 入口记录审查决策。
+- 用户故事：作为 Harness Maintainer，当我再次运行 guided `init` 看到初始 LLM Guide / Sensor 候选仍待确认时，我可以在同一个维护入口中选择 `review-initial-candidate`，对单个初始候选记录 accepted / rejected / kept 决策，并留下机器可读治理日志，从而完成一条不修改正式 Harness 资产的候选接管闭环。
+- 当前代码 gap：`EXISTING_HARNESS_ACTIONS` 没有初始候选治理动作；`Maintenance triage` 只能用 `manual-review` 指向人工查看；`.ai/experience/weapon-library-candidates.yaml` 缺少对应 governance log；guided action runner 没有路径更新候选状态和 Markdown review 文件。
+- 关键决策 / 取舍：新增独立 `WeaponCandidateGovernanceLog`，不复用 `.ai/review/asset-candidates.yaml` 的 `review-candidate`；只支持 `accepted` / `rejected` / `kept`，不支持 `applied`；`accepted` 只确认候选方向，不写正式 Guide / Sensor；本轮只做 guided action，不扩展 standalone CLI 命令。
+- Assumptions / risks：初始 LLM candidates 是首次 init 的审查债，不具备 draft content / suggested path / apply 语义；为避免 `accepted` 被误解为正式应用，action summary、governance Markdown、README 和 init workflow 都明确 `formal_asset_changes=0` 与 review-only 边界。
+- 边界情况 / 失败模式：缺少 candidate report、未知 candidate id、非法 decision 或空 rationale 均显式失败；`kept` 保持 candidate / human confirmation required；`accepted` / `rejected` 消除 pending；动作不重新扫描、不运行 LLM、不修改正式 Harness 资产、不创建 `.ai/task-runs`。
+- Sub agent 使用情况：尝试启动只读 explorer 审计 integration 接入点和 runner 风险，当前会话返回 `agent thread limit reached`；主线程完成调研、TDD、实现和验证。
+- 价值切分说明：本轮把上一轮只读信号升级成可审计的 Maintainer 接管动作，仍保持候选治理边界独立；benchmark hardening 和 CLI 瘦身留作后续候选，避免把治理语义和 UI 重排混在同一提交里。
+- 可执行验收标准及验证方式：schema unit 覆盖 governance log；tool unit 覆盖 accepted / rejected / kept、Markdown 刷新和显式失败；menu / triage / overview unit 覆盖编号、shortcut 和 top action；guided integration 覆盖 `10` 号动作、正式资产不变、trace artifacts 和 Runtime 边界；compileall、diff check 和 fast regression 作提交前验证。
+- 完成内容：新增 `src/harness_builder_agent/schemas/weapon_candidate_governance.py` 和 `src/harness_builder_agent/tools/weapon_candidate_governance.py`；existing Harness 菜单新增 `10. review-initial-candidate`；triage 把 `weapon_library_candidates_pending` 映射到该动作；guided runner 记录 `.ai/review/weapon-candidate-governance.*` 并刷新候选 Markdown；README 与 init workflow 同步。
+- 验证结果：RED tests 先因缺少 `weapon_candidate_governance` module 失败；实现后 targeted tests 24 passed，相关 existing Harness / schema / triage / integration regression 81 passed，compileall 通过，`git diff --check` 通过，`scripts/test-fast.sh` 464 passed。
+- Self-Harness Gate：长期 README / init workflow 已更新；无需新增 todo。下一轮候选 gap 包括 candidate maturity impact 的 benchmark 检查策略、existing Harness 入口 raw signals 瘦身，或在 full regression / external prerequisites 满足后统一 push。
+
 ## 2026-06-01 已有 Harness 初始候选成熟度信号
 
 - North Star 模块：Maturity-driven Init、CLI Experience、候选资产审核、Experience / review 维护入口。

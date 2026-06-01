@@ -12,6 +12,8 @@ from harness_builder_agent.schemas.candidate_governance import CandidateGovernan
 from harness_builder_agent.schemas.human_input_governance import HumanInputGovernanceLog
 from harness_builder_agent.schemas.project_inventory import ProjectInventory
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
+from harness_builder_agent.schemas.weapon_candidate_governance import WeaponCandidateGovernanceLog
+from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.tools.assess_maturity import assess_maturity
 from harness_builder_agent.tools.benchmark import run_benchmark
@@ -25,6 +27,7 @@ from harness_builder_agent.tools.existing_harness_action_summaries import (
     human_input_governance_summary,
     self_improve_summary,
     top_improvement_candidate,
+    weapon_candidate_governance_summary,
     workflow_recommendation_summary,
 )
 from harness_builder_agent.tools.generate_improvements import generate_improvements
@@ -32,6 +35,7 @@ from harness_builder_agent.tools.human_input_governance import review_human_inpu
 from harness_builder_agent.tools.maintenance_triage import MaintenanceAction
 from harness_builder_agent.tools.recommend_workflow import recommend_workflow
 from harness_builder_agent.tools.self_improve import run_self_improve
+from harness_builder_agent.tools.weapon_candidate_governance import review_weapon_candidate
 
 
 def run_existing_harness_action(
@@ -424,6 +428,103 @@ def run_existing_harness_action(
         )
         typer.echo(human_input_governance_summary(latest.interaction_id, latest.decision, latest.reviewer, latest.new_response_status))
         return output_dir
+    if action == "review-initial-candidate":
+        try:
+            show_weapon_candidate_summary(ai / "experience" / "weapon-library-candidates.yaml")
+        except (FileNotFoundError, ValueError) as exc:
+            trace.event(
+                "existing-harness",
+                "failed",
+                "Initial LLM candidate report is unavailable.",
+                {"primary_stack": inventory.primary_stack, "action": "review-initial-candidate", "error": str(exc)},
+            )
+            trace.finish(
+                "failed",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "existing_harness_action": "review-initial-candidate",
+                    "error": str(exc),
+                },
+            )
+            raise typer.BadParameter(str(exc)) from exc
+        candidate_id = typer.prompt("初始候选 ID", default="", show_default=False).strip()
+        decision = typer.prompt("决策 accepted/rejected/kept", default="kept").strip().lower()
+        rationale = typer.prompt("决策理由", default="", show_default=False).strip()
+        reviewer = typer.prompt("Reviewer", default="harness-maintainer").strip() or "harness-maintainer"
+        typer.echo("正在记录初始 LLM candidate 治理决策...")
+        trace.event(
+            "existing-harness",
+            "started",
+            "Existing Harness detected; user chose initial LLM candidate governance.",
+            {
+                "primary_stack": inventory.primary_stack,
+                "action": "review-initial-candidate",
+                "candidate_id": candidate_id,
+                "decision": decision,
+            },
+        )
+        try:
+            output_dir = review_weapon_candidate(repo, candidate_id, decision, rationale, reviewer)
+        except (FileNotFoundError, ValueError) as exc:
+            trace.event(
+                "existing-harness",
+                "failed",
+                "Existing Harness initial LLM candidate governance failed.",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "action": "review-initial-candidate",
+                    "candidate_id": candidate_id,
+                    "decision": decision,
+                    "error": str(exc),
+                },
+            )
+            trace.finish(
+                "failed",
+                {
+                    "primary_stack": inventory.primary_stack,
+                    "existing_harness_action": "review-initial-candidate",
+                    "candidate_id": candidate_id,
+                    "decision": decision,
+                    "error": str(exc),
+                },
+            )
+            raise typer.BadParameter(str(exc)) from exc
+        governance = WeaponCandidateGovernanceLog.model_validate(
+            yaml.safe_load((output_dir / "review" / "weapon-candidate-governance.yaml").read_text(encoding="utf-8"))
+        )
+        latest = governance.decisions[-1]
+        trace.artifact(output_dir / "experience" / "weapon-library-candidates.yaml", "weapon_library_candidates")
+        trace.artifact(output_dir / "review" / "weapon-candidate-governance.yaml", "weapon_candidate_governance")
+        trace.artifact(output_dir / "review" / "weapon-candidate-governance.md", "review")
+        trace.artifact(output_dir / "review" / "llm-enhancement-candidates.md", "review")
+        trace.artifact(output_dir / "review" / "candidate-guides.md", "review")
+        trace.artifact(output_dir / "review" / "candidate-sensors.md", "review")
+        trace.event(
+            "existing-harness",
+            "completed",
+            "Existing Harness initial LLM candidate governance decision recorded.",
+            {
+                "primary_stack": inventory.primary_stack,
+                "action": "review-initial-candidate",
+                "candidate_id": latest.candidate_id,
+                "decision": latest.decision,
+                "reviewer": latest.reviewer,
+                "new_status": latest.new_status,
+            },
+        )
+        trace.finish(
+            "completed",
+            {
+                "primary_stack": inventory.primary_stack,
+                "existing_harness_action": "review-initial-candidate",
+                "candidate_id": latest.candidate_id,
+                "decision": latest.decision,
+                "reviewer": latest.reviewer,
+                "new_status": latest.new_status,
+            },
+        )
+        typer.echo(weapon_candidate_governance_summary(latest.candidate_id, latest.decision, latest.reviewer, latest.new_status))
+        return output_dir
     if action == "self-improve":
         typer.echo("正在生成 review-only 自改进审查包...")
         trace.event(
@@ -527,3 +628,19 @@ def find_asset_candidate(report: AssetCandidateReport, candidate_id: str):
         if candidate.id == candidate_id:
             return candidate
     raise typer.BadParameter(f"unknown asset candidate id: {candidate_id}")
+
+
+def show_weapon_candidate_summary(path: Path) -> WeaponLibraryCandidateReport:
+    report = WeaponLibraryCandidateReport.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    typer.echo("\n初始 LLM Guide/Sensor 候选")
+    for candidate in report.candidates[:10]:
+        dimensions = ",".join(candidate.maturity_dimensions) or "none"
+        typer.echo(
+            f"- `{candidate.id}`：{candidate.title}，type={candidate.candidate_type}，"
+            f"status={candidate.status}，human_confirmation_required={str(candidate.human_confirmation_required).lower()}，"
+            f"maturity={dimensions}"
+        )
+    if len(report.candidates) > 10:
+        typer.echo(f"- 还有 {len(report.candidates) - 10} 个候选，请查看 `.ai/experience/weapon-library-candidates.yaml`。")
+    typer.echo("guided review-initial-candidate 只记录 accepted/rejected/kept，不写正式 Guide / Sensor。")
+    return report

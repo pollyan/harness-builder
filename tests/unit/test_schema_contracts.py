@@ -21,6 +21,7 @@ from harness_builder_agent.schemas.scan import EvidenceBundle, EvidenceBucketCov
 from harness_builder_agent.schemas.self_improve_package import SelfImprovePackageManifest
 from harness_builder_agent.schemas.weapon_library import WeaponLibrarySelection
 from harness_builder_agent.schemas.weapon_library_candidate import WeaponLibraryCandidateReport
+from harness_builder_agent.schemas.weapon_candidate_governance import WeaponCandidateGovernanceLog
 from harness_builder_agent.schemas.workflow_recommendation_history import WorkflowRecommendationHistory
 from harness_builder_agent.schemas.workflow_recommendation import WorkflowRecommendationReport
 from harness_builder_agent.schemas.workflow_policy_patch import WorkflowPolicyPatch
@@ -117,6 +118,35 @@ def test_weapon_library_candidate_report_records_maturity_impact_contract():
     assert legacy.candidates[0].maturity_impact_summary == ""
     assert legacy.candidates[0].next_stage_contribution == ""
     assert legacy.candidates[0].review_boundary == "review_only_no_formal_asset_change"
+
+
+def test_weapon_candidate_governance_log_schema():
+    log = WeaponCandidateGovernanceLog.model_validate(
+        {
+            "schema_version": "1.0",
+            "decisions": [
+                {
+                    "candidate_id": "llm-guide-risk-001",
+                    "candidate_type": "guide",
+                    "source_report": ".ai/experience/weapon-library-candidates.yaml",
+                    "decision": "accepted",
+                    "rationale": "Reviewed by maintainer.",
+                    "reviewer": "alice",
+                    "decided_at": "2026-06-01T12:00:00Z",
+                    "previous_status": "candidate",
+                    "new_status": "confirmed",
+                    "maturity_dimensions": ["guides", "risk_control"],
+                    "review_boundary": "review_only_no_formal_asset_change",
+                }
+            ],
+        }
+    )
+
+    decision = log.decisions[0]
+    assert decision.candidate_id == "llm-guide-risk-001"
+    assert decision.decision == "accepted"
+    assert decision.new_status == "confirmed"
+    assert decision.maturity_dimensions == ["guides", "risk_control"]
 
 
 def test_context_inputs_reject_negative_size():

@@ -190,10 +190,10 @@ def test_existing_harness_status_overview_mentions_initial_llm_candidates(tmp_pa
         [
             MaintenanceAction(
                 priority=28,
-                action="manual-review",
+                action="review-initial-candidate",
                 reason="weapon_library_candidates_pending",
                 source=".ai/experience/weapon-library-candidates.yaml",
-                next_action="manual-review",
+                next_action="review-initial-candidate",
                 count=1,
                 detail="llm-guide-risk-001:guides,risk_control",
             )
@@ -202,9 +202,9 @@ def test_existing_harness_status_overview_mentions_initial_llm_candidates(tmp_pa
 
     assert "Experience / review：1 个初始 LLM Guide/Sensor 候选待确认。" in lines
     assert (
-        "优先动作：`manual-review` 暂无维护菜单编号；请用专家命令处理 "
-        "reason=weapon_library_candidates_pending，source=.ai/experience/weapon-library-candidates.yaml，"
-        "count=1，detail=llm-guide-risk-001:guides,risk_control。"
+        "优先动作：输入 `10` 运行 `review-initial-candidate`"
+        "（reason=weapon_library_candidates_pending，source=.ai/experience/weapon-library-candidates.yaml，"
+        "count=1，detail=llm-guide-risk-001:guides,risk_control）。"
     ) in lines
 
 

@@ -330,16 +330,18 @@ def test_maintenance_triage_surfaces_pending_initial_candidate_maturity_impact(t
     guidance = render_maintenance_triage_guidance_lines(actions)
     menu_hints = render_maintenance_triage_menu_hint_lines(actions)
 
-    assert actions[0].action == "manual-review"
+    assert actions[0].action == "review-initial-candidate"
     assert actions[0].reason == "weapon_library_candidates_pending"
     assert actions[0].source == ".ai/experience/weapon-library-candidates.yaml"
+    assert actions[0].next_action == "review-initial-candidate"
     assert actions[0].count == 1
     assert actions[0].detail == "llm-guide-risk-001:guides,risk_control"
     assert "reason=weapon_library_candidates_pending" in lines[0]
     assert "detail=llm-guide-risk-001:guides,risk_control" in lines[0]
-    assert "查看 `.ai/review/llm-enhancement-candidates.md`" in guidance[0]
+    assert "运行 `review-initial-candidate`" in guidance[0]
+    assert "accepted / rejected / kept" in guidance[0]
     assert "review-only" in guidance[0]
-    assert "当前没有维护菜单编号" in menu_hints[0]
+    assert "输入 `10` 运行 `review-initial-candidate`" in menu_hints[0]
 
 
 def test_maintenance_triage_ignores_resolved_scan_followups(tmp_path: Path):

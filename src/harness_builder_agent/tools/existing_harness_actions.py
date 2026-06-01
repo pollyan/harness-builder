@@ -66,6 +66,12 @@ EXISTING_HARNESS_ACTIONS: tuple[ExistingHarnessAction, ...] = (
         description="继续重新扫描并进入当前生成向导。",
         aliases=("重新生成", "regenerate"),
     ),
+    ExistingHarnessAction(
+        number="10",
+        action="review-initial-candidate",
+        description="记录初始 LLM Guide/Sensor 候选 accepted / rejected / kept，不写正式资产。",
+        aliases=("initial-candidate", "initial", "初始候选", "初始候选治理"),
+    ),
 )
 
 
