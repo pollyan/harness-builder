@@ -1,5 +1,22 @@
 # Harness Builder 演进记录
 
+## 2026-06-01 Existing Harness Signal Renderer 抽取
+
+- North Star 模块：CLI Experience、Maturity-driven Init、工程架构可维护性。
+- init North Star 旅程阶段：再次进入已有 Harness 的状态感知维护入口。
+- Gap Analysis 摘要：`docs/todos` 当前没有 open todo；本轮重新读取事实源后，候选包括 existing Harness signal renderer 抽取、completion 生成清单进一步紧凑化、push 前 full regression / 远端同步。当前 existing Harness 入口已经有动作契约和状态 overview 模块，但 benchmark / workflow routing / experience signals 的读取和渲染仍堆在 `interactive_init.py`，和主向导编排、动作执行混在一起。
+- 工程信任故事：作为 Harness Builder 维护者，当我继续打磨已有 Harness 维护入口的健康状态、signals 和 triage 体验时，我可以在独立 signal renderer 模块中修改和单测 benchmark / workflow routing / experience signals，从而降低触碰主 guided init 编排文件的风险，并确保 Maintainer 再次运行 `init` 时看到的维护信号不漂移。
+- 当前代码 gap：`interactive_init.py` 内联 `_read_benchmark_status()`、`_benchmark_signal_lines()`、`_workflow_routing_status_lines()`、`_experience_status_lines()` 及多个私有 helper；这些 helper 更适合独立 pure-ish renderer 单测。
+- 关键决策 / 取舍：新增 `existing_harness_signals.py`，只抽取 signals 读取 / 渲染；不拆 action execution 分支，不改 existing Harness CLI 文案、菜单、triage 排序、schema、LLM、benchmark 或 Runtime 边界。
+- Assumptions / risks：signals 是当前维护入口中最适合先拆出的低风险边界；行为等价抽取可能遗漏 schema import 或 helper 依赖，因此用 direct unit、existing Harness integration 和 fast regression 验证。
+- 边界情况 / 失败模式：benchmark report 缺失 / failed detail、standard routing risk trigger、experience index、workflow recommendation history、human-input pending signals 都由新 unit 直接覆盖；已有 Harness exit 仍不触发 scan、不覆盖正式资产、不追加首次 init completion summary。
+- Sub agent 使用情况：尝试启动 explorer 做只读调研，但当前会话返回 `agent thread limit reached`；主线程完成 Current State Gap Analysis、TDD、实现和验证。
+- 价值切分说明：本轮不是用户可见新功能，而是保护“再次运行 init -> 看懂健康信号 -> 选择维护动作”的关键旅程；它让后续维护入口体验迭代更小、更可审查。
+- 可执行验收标准及验证方式：新增 unit 覆盖 existing Harness signals；existing Harness exit integration 覆盖 transcript 等价；`compileall`、`git diff --check` 和 `scripts/test-fast.sh` 作为提交前验证。
+- 完成内容：新增 `src/harness_builder_agent/tools/existing_harness_signals.py`；`interactive_init.py` 删除内联 signal helpers 并改为调用新模块；新增 `tests/unit/test_existing_harness_signals.py`；本轮 spec / plan 已写入 `docs/superpowers/`。
+- 验证结果：RED unit 已确认新模块缺失；targeted signal unit 3 passed；existing Harness 相关 unit 22 passed；existing Harness exit integration 2 passed；`test_interactive_init_preview.py` + signal unit 14 passed；`compileall` passed；`git diff --check` passed；`scripts/test-fast.sh` 424 passed。
+- Self-Harness Gate：README / init workflow 无需更新，因为用户行为和长期契约未变；不新增 todo。下一轮候选 gap：继续拆 existing Harness action execution、completion 生成清单进一步紧凑化，或 push 前 full regression / 远端同步。
+
 ## 2026-06-01 Init Completion 用户补充紧凑摘要
 
 - North Star 模块：CLI Experience、Maturity-driven Init、资产生成与审核接管。
